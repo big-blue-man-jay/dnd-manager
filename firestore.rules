@@ -1,0 +1,116 @@
+rules_version = '2';
+
+// DnD Manager security rules.
+// - Whoever creates a campaign is its DM (dmUid). Players join with a code.
+// - Players see everyone's namecard (level, HP), but only their own full sheet.
+// - Once the DM "locks" (freigibt) a sheet, players can only change live values (HP, slots, inventory, …).
+// - DM secrets and private notes are readable only by their owner.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function campaign(cid) { return get(/databases/$(database)/documents/campaigns/$(cid)).data; }
+    function isDM(cid) { return signedIn() && campaign(cid).dmUid == uid(); }
+    function isMember(cid) { return signedIn() && exists(/databases/$(database)/documents/campaigns/$(cid)/members/$(uid())); }
+    function inCampaign(cid) { return isDM(cid) || isMember(cid); }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function xpFor(level) {
+      let t = [0, 0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000];
+      return t[level];
+    }
+
+    // Your own profile: name + list of campaigns you're in.
+    match /users/{userId} {
+      allow read, write: if signedIn() && uid() == userId;
+      // Private notes per campaign (player notes and DM notes).
+      match /notes/{cid} {
+        allow read, write: if signedIn() && uid() == userId;
+      }
+    }
+
+    // Join codes can be looked up one at a time, never listed.
+    match /joinCodes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && request.resource.data.dmUid == uid()
+        && getAfter(/databases/$(database)/documents/campaigns/$(request.resource.data.campaignId)).data.dmUid == uid();
+      allow update, delete: if signedIn() && resource.data.dmUid == uid();
+    }
+
+    match /campaigns/{cid} {
+      allow read: if signedIn() && (resource.data.dmUid == uid() || isMember(cid));
+      allow create: if signedIn() && request.resource.data.dmUid == uid();
+      allow update: if signedIn() && resource.data.dmUid == uid() && request.resource.data.dmUid == uid();
+      allow delete: if signedIn() && resource.data.dmUid == uid();
+
+      // Membership: you can add yourself only with a valid code for this campaign.
+      match /members/{memberId} {
+        allow read: if inCampaign(cid);
+        allow create: if signedIn() && memberId == uid() && request.resource.data.uid == uid()
+          && get(/databases/$(database)/documents/joinCodes/$(request.resource.data.code)).data.campaignId == cid;
+        allow update: if signedIn() && memberId == uid() && !changed().hasAny(['uid', 'code']);
+        allow delete: if signedIn() && (memberId == uid() || isDM(cid));
+      }
+
+      // Namecards: everyone in the campaign sees them.
+      match /characters/{chId} {
+        allow read: if inCampaign(cid);
+        allow create: if isDM(cid) || (isMember(cid)
+          && request.resource.data.ownerUid == uid()
+          && request.resource.data.locked == false
+          && request.resource.data.xp == 0);
+        allow update: if isDM(cid) || (signedIn()
+          && resource.data.ownerUid == uid()
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && (
+            // draft: everything except lock and XP
+            (resource.data.locked == false && !changed().hasAny(['locked', 'xp', 'ownerUid']))
+            // live values during play
+            || changed().hasOnly(['hp', 'tempHp', 'conditions', 'exhaustion', 'updatedAt'])
+            // level up: one level, only when the XP threshold is reached
+            || (changed().hasOnly(['hp', 'tempHp', 'hpMax', 'level', 'updatedAt'])
+                && request.resource.data.level == resource.data.level + 1
+                && request.resource.data.level <= 20
+                && resource.data.xp >= xpFor(request.resource.data.level))
+          ));
+        allow delete: if isDM(cid) || (signedIn() && resource.data.ownerUid == uid() && resource.data.locked == false);
+
+        // Full sheet: only the owner and the DM.
+        match /sheet/{sheetId} {
+          function card() { return get(/databases/$(database)/documents/campaigns/$(cid)/characters/$(chId)).data; }
+          allow read: if isDM(cid) || (signedIn() && resource.data.ownerUid == uid());
+          allow create: if isDM(cid) || (isMember(cid) && request.resource.data.ownerUid == uid());
+          allow update: if isDM(cid) || (signedIn()
+            && resource.data.ownerUid == uid()
+            && request.resource.data.ownerUid == resource.data.ownerUid
+            && (card().locked == false
+                || changed().hasOnly(['slotsUsed', 'resources', 'hitDiceUsed', 'deathSaves', 'inspiration', 'inventory', 'coins', 'notes', 'attacks', 'spells', 'updatedAt'])));
+          allow delete: if isDM(cid) || (signedIn() && resource.data.ownerUid == uid() && card().locked == false);
+        }
+      }
+
+      // DM-written records everyone in the campaign can read.
+      match /sessions/{id} { allow read: if inCampaign(cid); allow write: if isDM(cid); }
+      match /quests/{id}   { allow read: if inCampaign(cid); allow write: if isDM(cid); }
+      match /npcs/{id}     { allow read: if inCampaign(cid); allow write: if isDM(cid); }
+
+      // Player journal entries per session.
+      match /journal/{id} {
+        allow read: if inCampaign(cid);
+        allow create: if inCampaign(cid) && request.resource.data.authorUid == uid();
+        allow update: if signedIn() && resource.data.authorUid == uid() && request.resource.data.authorUid == uid();
+        allow delete: if signedIn() && (resource.data.authorUid == uid() || isDM(cid));
+      }
+
+      // Prepared secrets: DM only, until revealed.
+      match /secrets/{id} { allow read, write: if isDM(cid); }
+
+      // Revealed secrets: everyone, or only the chosen players.
+      match /revelations/{id} {
+        allow read: if isDM(cid) || (isMember(cid) && (resource.data.audience == 'all' || uid() in resource.data.audienceUids));
+        allow write: if isDM(cid);
+      }
+    }
+  }
+}
