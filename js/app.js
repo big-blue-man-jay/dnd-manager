@@ -27,11 +27,18 @@ function Login({ mode }) {
 /* ---------- top bar ---------- */
 function TopBar({ user, mode }) {
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const away = e => { if (!e.target.closest('.menu-wrap')) setOpen(false); };
+    const esc = e => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', away); document.addEventListener('keydown', esc);
+    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc); };
+  }, [open]);
   return html`<header class="appbar">
     <a class="brand" href="#/"><${Logo}/>DnD Manager</a>
     <div class="menu-wrap">
       <button class="user-btn" onClick=${() => setOpen(!open)} aria-expanded=${open}>${user.photo ? html`<img src=${user.photo} alt="" referrerpolicy="no-referrer"/>` : html`<span class="ava sm">${user.name[0]}</span>`}<span class="nm">${user.name}</span></button>
-      ${open && html`<div class="menu" onClick=${() => setOpen(false)}>
+      ${open && html`<div class="menu" role="menu" onClick=${() => setOpen(false)}><div class="menu-who"><b>${user.name}</b><span class="sub">Angemeldet${mode === 'firebase' ? ' mit Google' : ''}</span></div>
         ${mode === 'demo' && html`<div class="menu-note">Demo-Modus</div>${store.demoUsers().filter(u => u.uid !== user.uid).map(u => html`<button onClick=${() => { store.demoSwitch(u.uid); go(); }}>Wechseln zu ${u.name}</button>`)}`}
         <button onClick=${() => { store.signOut(); go(); }}>Abmelden</button></div>`}
     </div></header>`;
