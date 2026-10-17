@@ -2,7 +2,7 @@ import { html, render, useState, useEffect, useMemo, useDoc, Medal, Logo, Pill, 
   applyTheme, useRoute, go, href, fmtDay, daysUntil, relDays, plural } from './ui.js';
 import { store } from './data.js';
 import { THEMES } from './rules5e.js';
-import { ensureUser, createCampaign, joinCampaign } from './ops.js';
+import { ensureUser, createCampaign, joinCampaign, createExampleCampaign } from './ops.js';
 import { CampaignPage, CampaignForm } from './campaign.js';
 import { STATUS, CharCard, clsName } from './cards.js';
 import { CharacterPage, NewCharacter, DiceTray } from './character.js';
@@ -63,6 +63,7 @@ function Home({ user }) {
   useEffect(() => applyTheme('standard'), []);
   const { loading, campaigns, myChars } = useMyCampaigns(user);
   const [modal, setModal] = useState(null);
+  const example = async () => { try { const cid = await createExampleCampaign(user); toast('Beispielkampagne angelegt.'); go('c', cid); } catch (x) { failed(x); } };
   const sorted = [...myChars].sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
   const campById = Object.fromEntries(campaigns.map(c => [c.id, c]));
   const order = { active: 0, paused: 1, finished: 2 };
@@ -78,7 +79,7 @@ function Home({ user }) {
     <section><div class="bar"><h2>Kampagnen</h2><div class="actions">
       <button class="btn" onClick=${() => setModal('join')}>Mit Code beitreten</button>
       <button class="btn primary" onClick=${() => setModal('create')}>Neue Kampagne</button></div></div>
-      ${!camps.length ? html`<${Empty} title="Noch keine Kampagne">Als Spieler: Lass dir vom DM den Beitrittscode geben. Als DM: Erstelle eine neue Kampagne, du wirst automatisch ihr Dungeon Master.</${Empty}>`
+      ${!camps.length ? html`<${Empty} title="Noch keine Kampagne" action=${html`<button class="btn" onClick=${example}>Beispielkampagne zum Ausprobieren anlegen</button>`}>Als Spieler: Lass dir vom DM den Beitrittscode geben. Als DM: Erstelle eine neue Kampagne, du wirst automatisch ihr Dungeon Master.</${Empty}>`
         : ['active', 'paused', 'finished'].map(st => { const g = camps.filter(c => (c.status || 'active') === st); return g.length ? html`<div class="label group-label">${st === 'active' ? 'Aktive Kampagnen' : STATUS[st]}</div><div class="grid camps">${g.map(c => html`<${CampCard} c=${c} user=${user} mine=${myChars.filter(x => x.campaignId === c.id)}/>`)}</div>` : null; })}
     </section>
     ${modal === 'join' && html`<${JoinModal} user=${user} onClose=${() => setModal(null)}/>`}
