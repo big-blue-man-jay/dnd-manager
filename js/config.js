@@ -11,4 +11,11 @@
 //   appId: "1:1234567890:web:abc123"
 // };
 
-export const firebaseConfig = null;
+export const firebaseConfig = {
+  apiKey: "AIzaSyDMWpxxQIeaQ8_2FiUma7rVbvOdSu72ldQ",
+  authDomain: "dnd-manager-4ad54.firebaseapp.com",
+  projectId: "dnd-manager-4ad54",
+  storageBucket: "dnd-manager-4ad54.firebasestorage.app",
+  messagingSenderId: "842846151084",
+  appId: "1:842846151084:web:0c3b694677ac5b99249a09"
+};
