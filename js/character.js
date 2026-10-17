@@ -4,6 +4,9 @@ import { store, newId } from './data.js';
 import { ABILITIES, SKILLS, CLASSES, CLASS_NAMES, SPECIES, ALIGNMENTS, XP_FOR, levelForXp, profBonus, mod, sgn, autoSlots, isPact,
   suggestedResources, RESET_LABEL, SPECIES_EMOJI, CLASS_EMOJI, CONDITIONS, EXHAUSTION_DESC, DICE_COLORS, diceHex, D20 } from './rules5e.js';
 import { roll, withBonus } from './dice.js';
+import { throwDice, loadThree, canThrow, diceSettings } from './dice3d.js';
+
+const accentHex = () => { try { return getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#2B4790'; } catch (e) { return '#2B4790'; } };
 import { clsName } from './cards.js';
 
 const hitDie = c => (c.cls === 'Homebrew' ? int(c.hitDie, 8) : CLASSES[c.cls]?.die || 8);
@@ -414,7 +417,19 @@ export function DiceTray() {
   const [color, setColor] = useState(null);
   const modeRef = useRef(mode); modeRef.current = mode;
   const colorRef = useRef(color); colorRef.current = color;
-  const push = (label, r) => { if (!r) { toast('Das verstehe ich nicht. Beispiel: 2d6+3'); return; } setHist(h => [{ label, r, hex: colorRef.current?.hex }, ...h].slice(0, 25)); setOpen(true); };
+  const [opts, setOpts] = useState({ anim: diceSettings.anim, sound: diceSettings.sound });
+  const toggle = k => { diceSettings[k] = !opts[k]; setOpts({ ...opts, [k]: !opts[k] }); };
+  // the 3D dice fly first; the result lands in the tray once they settle (or the throw is skipped)
+  const push = (label, r) => {
+    if (!r) { toast('Das verstehe ich nicht. Beispiel: 2d6+3'); return; }
+    const hex = colorRef.current?.hex, entry = { label, r, hex };
+    const show = () => { setHist(h => [entry, ...h].slice(0, 25)); setOpen(true); };
+    throwDice(r, hex || accentHex(), label).then(show, show);
+  };
+  useEffect(() => { // fetch the 3D engine in the background so the first throw is instant
+    if (!canThrow()) return;
+    const t = setTimeout(loadThree, 2500); return () => clearTimeout(t);
+  }, []);
   useEffect(() => {
     const onRoll = e => { const d = e.detail; push(d.label, d.result || roll(d.expr, modeRef.current)); };
     const onColor = e => setColor(e.detail);
@@ -425,7 +440,9 @@ export function DiceTray() {
   const free = e => { e.preventDefault(); if (!expr.trim()) return; push(expr.trim(), roll(expr, mode)); };
   return html`<button class="dice-fab" style=${color ? `--dc:${color.hex}` : ''} onClick=${() => setOpen(!open)} aria-label="Würfel" aria-expanded=${open}><svg viewBox="0 0 24 24" dangerouslySetInnerHTML=${{ __html: D20 }}></svg></button>
     ${open && html`<aside class="dice-tray" role="dialog" aria-label="Würfel">
-      <div class="tray-head"><b>Würfel</b>${color && html`<span class="sub"><span class="dice-dot inline" style=${`--dc:${color.hex}`}></span> ${color.name}</span>`}<button class="x" onClick=${() => setOpen(false)} aria-label="Schließen">×</button></div>
+      <div class="tray-head"><b>Würfel</b>${color && html`<span class="sub"><span class="dice-dot inline" style=${`--dc:${color.hex}`}></span> ${color.name}</span>`}
+        <span class="tray-opts"><button class="tray-opt" aria-pressed=${opts.anim} onClick=${() => toggle('anim')} title=${opts.anim ? '3D-Wurf ausschalten' : '3D-Wurf einschalten'}>3D</button><button class="tray-opt" aria-pressed=${opts.sound} onClick=${() => toggle('sound')} title=${opts.sound ? 'Ton ausschalten' : 'Ton einschalten'} aria-label="Ton">${opts.sound ? '🔊' : '🔇'}</button></span>
+        <button class="x" onClick=${() => setOpen(false)} aria-label="Schließen">×</button></div>
       <div class="seg">${[['normal', 'Normal'], ['adv', 'Vorteil'], ['dis', 'Nachteil']].map(([k, l]) => html`<button aria-pressed=${mode === k} onClick=${() => setMode(k)}>${l}</button>`)}</div>
       ${last && html`<div class=${'result' + (last.r.crit ? ' crit' : '') + (last.r.fumble ? ' fumble' : '')} style=${`--dc:${last.hex || 'var(--accent)'}`}>
         <span class="label">${last.label}</span><b class="total num">${last.r.total}</b>

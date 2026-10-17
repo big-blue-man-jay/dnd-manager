@@ -7,7 +7,7 @@ Web-App für unsere D&D-Runde (Regeln 2024): Charakterbögen, Würfel, Sitzungen
 - **Anmeldung mit Google.** Wer eine Kampagne erstellt, ist ihr DM. Spieler treten mit einem 6-stelligen Code bei.
 - **Charakterbogen 2024:** Abilities, Saves, Skills mit Expertise, Angriffe, Spellcasting mit Slots, Ressourcen mit Short/Long Rest, Conditions (offiziell + eigene des DMs), Exhaustion, Death Saves, Inventar, Münzen, Attunement.
 - **Entwurf → Freigabe:** Spieler bauen ihren Charakter selbst. Gibt der DM den Bogen frei, ändern Spieler nur noch Live-Werte (HP, Slots, Inventar …). Stufenaufstieg geht per XP.
-- **Würfel:** antippen auf dem Bogen würfelt mit dem richtigen Bonus, mit Vorteil/Nachteil. Jeder Charakter hat seine eigene Würfelfarbe.
+- **Würfel:** antippen auf dem Bogen würfelt mit dem richtigen Bonus, mit Vorteil/Nachteil. Echte 3D-Würfel (d4–d20, d100) fliegen über den Bildschirm, mit Geräusch und Extra-Show bei natürlicher 20 oder 1. Jeder Charakter hat seine eigene Würfelfarbe. 3D und Ton lassen sich im Würfelfenster abschalten.
 - **Kampagne:** Übersicht, Gruppe, Sitzungen mit Tagebuch der Spieler, Quest-Log, NPCs, Enthüllungen („OHH“-Momente), private Notizen, Themes pro Gebiet.
 - **Spieler-Vorschau:** Als DM „Als Spieler ansehen“ in der Kampagne, auf jedem Bogen „Als Mitspieler ansehen“. „Test-Mitspieler anlegen“ in der Gruppe legt einen Beispielcharakter eines erfundenen Spielers an.
 - **Sicherheit:** `firestore.rules` sorgt dafür, dass Spieler nur Namenskarten anderer sehen, DM-Geheimnisse wirklich geheim bleiben und Notizen privat sind.
@@ -32,13 +32,14 @@ Seite im Browser öffnen → *Teilen → Zum Home-Bildschirm* (iPhone) bzw. *Men
 
 ## Technik
 
-Kein Build-Schritt: reines HTML/CSS/JavaScript-Module, [Preact](https://preactjs.com) + [htm](https://github.com/developit/htm) liegen in `vendor/`. Firebase JS SDK 10 wird von gstatic.com geladen.
+Kein Build-Schritt: reines HTML/CSS/JavaScript-Module, [Preact](https://preactjs.com) + [htm](https://github.com/developit/htm) und [three.js](https://threejs.org) liegen in `vendor/`. Firebase JS SDK 10 wird von gstatic.com geladen.
 
 | Datei | Inhalt |
 | --- | --- |
 | `js/app.js` | Start, Login, Startseite, Kampagne erstellen/beitreten |
 | `js/campaign.js` | Kampagnenseiten |
-| `js/character.js` | Charakterbogen, Erstellung, Würfel |
+| `js/character.js` | Charakterbogen, Erstellung, Würfelfenster |
+| `js/dice3d.js` | 3D-Würfelwurf ([three.js](https://threejs.org), wird erst beim Würfeln geladen) |
 | `js/rules5e.js` | Regeltabellen 2024 (Klassen, Skills, XP, Spell Slots, Conditions), Themes, Würfelfarben |
 | `js/data.js` | Firebase- bzw. Demo-Datenzugriff |
 | `firestore.rules` | Berechtigungen in der Datenbank |
