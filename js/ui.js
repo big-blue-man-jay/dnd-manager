@@ -1,7 +1,7 @@
 // Shared UI building blocks (Preact + htm, no build step).
 import { html, render, useState, useEffect, useMemo, useRef, useCallback } from '../vendor/preact-htm.js';
 import { store } from './data.js';
-import { ICONS, D20, HUE, THEMES } from './rules5e.js';
+import { ICONS, SPECIES_ICONS, D20, HUE, THEMES } from './rules5e.js';
 export { html, render, useState, useEffect, useMemo, useRef, useCallback };
 
 /* ---------- data hooks ---------- */
@@ -38,10 +38,13 @@ export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 export const int = (v, d = 0) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : d; };
 
 /* ---------- small components ---------- */
-export function Medal({ cls, size = '' }) {
-  const svg = ICONS[cls] || D20;
-  return html`<span class=${'med ' + size} style=${`--h:${HUE[cls] ?? 220}`} role="img" aria-label=${cls || 'Klasse'}>
-    <svg viewBox="0 0 24 24" dangerouslySetInnerHTML=${{ __html: svg }}></svg></span>`;
+export function Medal({ cls, species, size = '' }) {
+  // Big glyph = species, small badge = the class's weapon. Small sizes show the species only.
+  const sp = SPECIES_ICONS[species]; const cl = ICONS[cls] || D20;
+  const main = sp || cl; const badge = sp && (size === '' || size === 'lg');
+  return html`<span class=${'med ' + size} style=${`--h:${HUE[cls] ?? 220}`} role="img" aria-label=${[species, cls].filter(Boolean).join(' ') || 'Charakter'}>
+    <svg viewBox="0 0 24 24" dangerouslySetInnerHTML=${{ __html: main }}></svg>
+    ${badge && html`<span class="med-badge" title=${cls}><svg viewBox="0 0 24 24" dangerouslySetInnerHTML=${{ __html: cl }}></svg></span>`}</span>`;
 }
 export const Logo = () => html`<svg class="logo" viewBox="0 0 24 24" aria-hidden="true" dangerouslySetInnerHTML=${{ __html: D20 }}></svg>`;
 export const Pill = ({ tone = '', children }) => html`<span class=${'pill ' + tone}>${children}</span>`;

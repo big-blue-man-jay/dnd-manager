@@ -112,7 +112,7 @@ function Overview(p) {
     <div class="panel box"><div class="box-head"><h2>Die Gruppe</h2><a class="link" href=${href('c', cid, 'gruppe')}>Alle Karten</a></div>
       ${chars.length ? html`<div class="tablewrap"><table class="roster"><thead><tr><th>Charakter</th><th>Klasse</th><th>Hit Points</th><th class="r">AC</th><th>Zustände</th></tr></thead><tbody>
         ${chars.sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(c => html`<tr onClick=${() => go('c', cid, 'char', c.id)}>
-          <td><div class="who"><${Medal} cls=${c.cls} size="md"/><div><b>${c.name}</b><div class="sub">${c.ownerName || ''}</div></div></div></td>
+          <td><div class="who"><${Medal} cls=${c.cls} species=${c.species} size="md"/><div><b>${c.name}</b><div class="sub">${c.ownerName || ''}</div></div></div></td>
           <td>${clsName(c)} ${c.level || 1}<div class="sub">${c.species || ''}</div></td>
           <td class="hpcell"><span class="num">${c.hp ?? 0} / ${c.hpMax ?? 0}</span><${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/></td>
           <td class="r num">${isDM || c.ownerUid === p.user.uid ? c.ac || '–' : '?'}</td>
@@ -162,7 +162,7 @@ function Sessions(p) {
     ${sessions.length ? html`<div class="sessions">${sessions.map(s => { const j = p.journal.filter(e => e.sessionId === s.id).length; const who = (s.present || []).map(id => p.chars.find(c => c.id === id)).filter(Boolean);
       return html`<article class="srow panel" role="button" tabindex="0" onClick=${() => setOpen(s.id)}>
         <div class="n num"><small>Sitzung</small>${s.num}</div>
-        <div class="body"><h3>${s.title || 'Ohne Titel'}</h3><p>${s.recap || s.stop || ''}</p>${who.length ? html`<div class="chips">${who.map(c => html`<span class="chip ic"><${Medal} cls=${c.cls} size="sm"/>${c.name}</span>`)}</div>` : ''}</div>
+        <div class="body"><h3>${s.title || 'Ohne Titel'}</h3><p>${s.recap || s.stop || ''}</p>${who.length ? html`<div class="chips">${who.map(c => html`<span class="chip ic"><${Medal} cls=${c.cls} species=${c.species} size="sm"/>${c.name}</span>`)}</div>` : ''}</div>
         <div class="meta"><span>${fmtDate(s.date)}</span>${s.xp ? html`<span class="xp num">${int(s.xp).toLocaleString('de-DE')} XP</span>` : ''}${j ? html`<span>${plural(j, 'Tagebucheintrag', 'Tagebucheinträge')}</span>` : ''}</div></article>`; })}</div>`
     : html`<${Empty} title="Noch keine Sitzung">${isDM ? 'Trag nach jedem Spieleabend eine kurze Zusammenfassung ein, wo ihr aufgehört habt, Beute und XP.' : 'Nach dem ersten Spieleabend steht hier die Zusammenfassung. Du kannst dann dein eigenes Tagebuch dazu schreiben.'}</${Empty}>`}
     ${open && html`<${SessionModal} ...${p} sid=${open === 'new' ? null : open} onClose=${() => setOpen(null)}/>`}

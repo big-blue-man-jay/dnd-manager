@@ -8,7 +8,7 @@ export const diceOf = c => (DICE_COLORS.find(d => d.key === c.diceColor) || {}).
 export function CharCard({ c, camp, showCamp, onOpen }) {
   const open = onOpen || (() => go('c', c.campaignId, 'char', c.id));
   return html`<article class="card panel" role="button" tabindex="0" onClick=${open} onKeyDown=${e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open())}>
-    <div class="nc-head"><${Medal} cls=${c.cls}/><div class="nc-id"><h3>${c.name || 'Unbenannt'}</h3>
+    <div class="nc-head"><${Medal} cls=${c.cls} species=${c.species}/><div class="nc-id"><h3>${c.name || 'Unbenannt'}</h3>
       <div class="sub">Stufe ${c.level || 1} · ${[c.species, clsName(c)].filter(Boolean).join(' ')}</div>
       <div class="sub">${showCamp ? camp?.name || '' : c.ownerName ? 'Gespielt von ' + c.ownerName : ''}</div></div>
       ${diceOf(c) && html`<span class="dice-dot" style=${`--dc:${diceOf(c)}`} title="Würfelfarbe"></span>`}</div>

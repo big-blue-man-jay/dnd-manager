@@ -100,7 +100,7 @@ function FeatureCard({ c, camp }) {
   return html`<article class="feature panel">
     <div class="feat-main">
       <div class="flag"><span class="most">Zuletzt gespielt</span><span class="label">${camp?.name || ''}</span>${!c.locked && html`<${Pill} tone="warn">Entwurf</${Pill}>`}</div>
-      <div class="feat-name"><${Medal} cls=${c.cls} size="lg"/><div class="nc-id"><h3>${c.name}</h3><div class="sub">Stufe ${c.level || 1} · ${[c.species, clsName(c), c.subclass && `(${c.subclass})`].filter(Boolean).join(' ')}</div></div></div>
+      <div class="feat-name"><${Medal} cls=${c.cls} species=${c.species} size="lg"/><div class="nc-id"><h3>${c.name}</h3><div class="sub">Stufe ${c.level || 1} · ${[c.species, clsName(c), c.subclass && `(${c.subclass})`].filter(Boolean).join(' ')}</div></div></div>
       <div class="statline"><div class="stat ac"><span class="label">AC</span><b class="num">${c.ac || '–'}</b></div><div class="stat"><span class="label">Stufe</span><b class="num">${c.level || 1}</b></div><div class="stat"><span class="label">Speed</span><b class="num">${c.speed || 30}</b></div><div class="stat"><span class="label">XP</span><b class="num">${(c.xp || 0).toLocaleString('de-DE')}</b></div></div>
       <div><div class="hprow"><span class="label">Hit Points</span><span class="num"><b>${c.hp ?? 0}</b> / ${c.hpMax ?? 0}</span></div><${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/></div>
       <div class="actions"><a class="btn primary" href=${href('c', c.campaignId, 'char', c.id)}>Charakterbogen öffnen</a><a class="btn" href=${href('c', c.campaignId)}>Zur Kampagne</a></div>
@@ -116,7 +116,7 @@ function CampCard({ c, user, mine }) {
   return html`<a class=${'camp-card panel ' + st} href=${href('c', c.id)} style=${`--ca:${(THEMES[c.theme] || THEMES.standard).accent}`}>
     <div class="top"><h3>${c.name}</h3><div class="pills">${isDM && html`<${Pill} tone="gild">Du bist DM</${Pill}>`}<${Pill} tone=${st}>${STATUS[st]}</${Pill}></div></div>
     ${c.description && html`<p class="desc">${c.description}</p>`}
-    ${mine.length ? html`<div class="chips">${mine.map(x => html`<span class="chip ic"><${Medal} cls=${x.cls} size="sm"/>${x.name} · Stufe ${x.level || 1}</span>`)}</div>` : ''}
+    ${mine.length ? html`<div class="chips">${mine.map(x => html`<span class="chip ic"><${Medal} cls=${x.cls} species=${x.species} size="sm"/>${x.name} · Stufe ${x.level || 1}</span>`)}</div>` : ''}
     <div class="meta">${st === 'active' && n !== null && n >= 0 ? html`<span>Nächste Sitzung <b>${fmtDay(c.nextDate)}</b> (${relDays(n)})</span>` : html`<span>${c.setting || 'Kein Termin geplant'}</span>`}<span>DM: ${c.dmName}</span></div>
   </a>`;
 }

@@ -48,14 +48,14 @@ export function CharacterPage({ user, cid, chId }) {
         <${TextBlocks} ...${ctx}/>
       </div>
     </div>
-    ${edit && html`<${Modal} wide title=${'Bogen bearbeiten: ' + card.name} eyebrow=${card.locked && !isDM ? 'Freigegeben' : 'Charakterbogen'} onClose=${() => setEdit(false)} lead=${html`<${Medal} cls=${card.cls} size="lg"/>`}>
+    ${edit && html`<${Modal} wide title=${'Bogen bearbeiten: ' + card.name} eyebrow=${card.locked && !isDM ? 'Freigegeben' : 'Charakterbogen'} onClose=${() => setEdit(false)} lead=${html`<${Medal} cls=${card.cls} species=${card.species} size="lg"/>`}>
       <${CharForm} user=${user} cid=${cid} camp=${camp} card=${card} sheet=${s} others=${(all || []).filter(x => x.id !== chId)} isDM=${isDM} onDone=${() => setEdit(false)}/></${Modal}>`}
   </main>`;
 }
 
 function PublicCard({ c }) {
   return html`<article class="panel box public-card">
-    <div class="feat-name"><${Medal} cls=${c.cls} size="lg"/><div><h1 class="h-name">${c.name}</h1><div class="sub">Stufe ${c.level || 1} · ${[c.species, clsName(c)].filter(Boolean).join(' ')} · gespielt von ${c.ownerName}</div></div></div>
+    <div class="feat-name"><${Medal} cls=${c.cls} species=${c.species} size="lg"/><div><h1 class="h-name">${c.name}</h1><div class="sub">Stufe ${c.level || 1} · ${[c.species, clsName(c)].filter(Boolean).join(' ')} · gespielt von ${c.ownerName}</div></div></div>
     <div class="hprow"><span class="label">Hit Points</span><span class="num"><b>${c.hp ?? 0}</b> / ${c.hpMax ?? 0}</span></div><${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/>
     ${(c.conditions?.length || c.exhaustion) ? html`<div class="chips">${(c.conditions || []).map(x => html`<span class="chip cond">${x}</span>`)}${c.exhaustion ? html`<span class="chip cond">Exhaustion ${c.exhaustion}</span>` : ''}</div>` : ''}
     <p class="ro-note">Den vollen Bogen sehen nur ${c.ownerName || 'der Spieler'} und der DM.</p></article>`;
@@ -77,7 +77,7 @@ function CharHeader({ c, s, isDM, isOwner, coreOk, cid, chId, onEdit }) {
   const pct = next ? Math.max(0, Math.min(100, ((c.xp || 0) - prev) / (next - prev) * 100)) : 100;
   const toggleLock = async () => { try { await store.update(cardPath(cid, chId), { locked: !c.locked, updatedAt: Date.now() }); toast(c.locked ? 'Bogen wieder zum Bearbeiten geöffnet.' : 'Bogen freigegeben.'); } catch (e) { failed(e); } };
   return html`<section class="char-head panel">
-    <div class="feat-name"><${Medal} cls=${c.cls} size="lg"/><div class="nc-id">
+    <div class="feat-name"><${Medal} cls=${c.cls} species=${c.species} size="lg"/><div class="nc-id">
       <div class="flag">${c.locked ? html`<${Pill} tone="active">Freigegeben</${Pill}>` : html`<${Pill} tone="warn">Entwurf</${Pill}>`}${s.inspiration && html`<${Pill} tone="gild">Heroic Inspiration</${Pill}>`}</div>
       <h1 class="h-name">${c.name}</h1>
       <div class="sub">Stufe ${lvl} · ${[c.species, clsName(c), c.subclass && `(${c.subclass})`].filter(Boolean).join(' ')}${s.background ? ' · ' + s.background : ''}${s.alignment ? ' · ' + s.alignment : ''}</div>
@@ -105,7 +105,7 @@ function LevelUpModal({ c, s, cid, chId, onClose }) {
   const apply = async gain => { const g = Math.max(1, gain + con);
     await patch({ cid, chId }, { level: lvl, hpMax: (c.hpMax || 0) + g, hp: (c.hp || 0) + g }); toast(`Stufe ${lvl}! +${g} max HP.`); onClose(); };
   const newRes = suggestedResources(c.cls, lvl, s.abilities);
-  return html`<${Modal} title=${`Stufe ${lvl}`} eyebrow="Stufenaufstieg" onClose=${onClose} lead=${html`<${Medal} cls=${c.cls} size="lg"/>`}>
+  return html`<${Modal} title=${`Stufe ${lvl}`} eyebrow="Stufenaufstieg" onClose=${onClose} lead=${html`<${Medal} cls=${c.cls} species=${c.species} size="lg"/>`}>
     <div class="form"><div class="sec"><h3>1 · Hit Points</h3>
       <p>Du bekommst einen Hit Die (d${die}) dazu. Nimm den Durchschnitt oder würfle. Dein CON-Modifikator (${sgn(con)}) kommt dazu.</p>
       <div class="actions"><button class="btn primary" onClick=${() => apply(avg)}>Durchschnitt nehmen: ${avg} ${sgn(con)} = ${Math.max(1, avg + con)}</button>
@@ -360,7 +360,7 @@ function CharForm({ user, cid, camp, card, sheet, others, isDM, onDone }) {
   const del = async () => { await store.batch([{ type: 'delete', path: sheetPath(cid, card.id) }, { type: 'delete', path: cardPath(cid, card.id) }]); toast('Charakter gelöscht.'); go('c', cid, 'gruppe'); };
   const xpLevel = levelForXp(int(f.xp, 0));
   return html`<form class="form" onSubmit=${submit}>
-    <div class="sec"><h3>Wer ist dein Held</h3><div class="g g3">
+    <div class="sec"><h3>Wer ist dein Held</h3>${isNew && html`<div class="preview-med"><${Medal} cls=${cls} species=${SPECIES.includes(f.species) ? f.species : ''} size="lg"/><span class="sub">Großes Symbol: Species · kleines Symbol: Klasse</span></div>`}<div class="g g3">
       <${Field} label="Name"><input id="cf-name" value=${f.name} onInput=${set('name')} placeholder="Thorn Ashvale"/></${Field}>
       <${Field} label="Species"><select id="cf-species" value=${SPECIES.includes(f.species) ? f.species : 'Andere'} onChange=${set('species')}>${[...SPECIES, 'Andere'].map(x => html`<option value=${x}>${x === 'Andere' ? 'Andere / Homebrew' : x}</option>`)}</select></${Field}>
       ${!SPECIES.includes(f.species) && html`<${Field} label="Species-Name"><input id="cf-species-c" value=${f.speciesCustom || (f.species !== 'Andere' ? f.species : '')} onInput=${set('speciesCustom')}/></${Field}>`}
