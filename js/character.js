@@ -2,7 +2,7 @@ import { html, useState, useEffect, useMemo, useRef, useDoc, useCol, Medal, Pill
   applyTheme, go, href, int, requestRoll } from './ui.js';
 import { store, newId } from './data.js';
 import { ABILITIES, SKILLS, CLASSES, CLASS_NAMES, SPECIES, ALIGNMENTS, XP_FOR, levelForXp, profBonus, mod, sgn, autoSlots, isPact,
-  suggestedResources, RESET_LABEL, CONDITIONS, EXHAUSTION_DESC, DICE_COLORS, diceHex, D20 } from './rules5e.js';
+  suggestedResources, RESET_LABEL, SPECIES_EMOJI, CLASS_EMOJI, CONDITIONS, EXHAUSTION_DESC, DICE_COLORS, diceHex, D20 } from './rules5e.js';
 import { roll, withBonus } from './dice.js';
 import { clsName } from './cards.js';
 
@@ -362,9 +362,9 @@ function CharForm({ user, cid, camp, card, sheet, others, isDM, onDone }) {
   return html`<form class="form" onSubmit=${submit}>
     <div class="sec"><h3>Wer ist dein Held</h3>${isNew && html`<div class="preview-med"><${Medal} cls=${cls} species=${SPECIES.includes(f.species) ? f.species : ''} size="lg"/><span class="sub">Großes Symbol: Species · kleines Symbol: Klasse</span></div>`}<div class="g g3">
       <${Field} label="Name"><input id="cf-name" value=${f.name} onInput=${set('name')} placeholder="Thorn Ashvale"/></${Field}>
-      <${Field} label="Species"><select id="cf-species" value=${SPECIES.includes(f.species) ? f.species : 'Andere'} onChange=${set('species')}>${[...SPECIES, 'Andere'].map(x => html`<option value=${x}>${x === 'Andere' ? 'Andere / Homebrew' : x}</option>`)}</select></${Field}>
+      <${Field} label="Species"><select id="cf-species" value=${SPECIES.includes(f.species) ? f.species : 'Andere'} onChange=${set('species')}>${[...SPECIES, 'Andere'].map(x => html`<option value=${x}>${x === 'Andere' ? '🎲 Andere / Homebrew' : (SPECIES_EMOJI[x] || '') + ' ' + x}</option>`)}</select></${Field}>
       ${!SPECIES.includes(f.species) && html`<${Field} label="Species-Name"><input id="cf-species-c" value=${f.speciesCustom || (f.species !== 'Andere' ? f.species : '')} onInput=${set('speciesCustom')}/></${Field}>`}
-      <${Field} label="Klasse"><select id="cf-class" value=${cls} onChange=${chooseClass}>${[...CLASS_NAMES, 'Homebrew'].map(x => html`<option value=${x}>${x}</option>`)}</select></${Field}>
+      <${Field} label="Klasse"><select id="cf-class" value=${cls} onChange=${chooseClass}>${[...CLASS_NAMES, 'Homebrew'].map(x => html`<option value=${x}>${(CLASS_EMOJI[x] || '') + ' ' + x}</option>`)}</select></${Field}>
       ${cls === 'Homebrew' && html`<${Field} label="Klassenname"><input id="cf-cls-c" value=${f.clsCustom} onInput=${set('clsCustom')}/></${Field}><${Field} label="Hit Die"><select id="cf-hd" value=${f.hitDie} onChange=${set('hitDie')}>${[6, 8, 10, 12].map(d => html`<option value=${d}>d${d}</option>`)}</select></${Field}>`}
       <${Field} label="Subclass" hint="Meist ab Stufe 3"><input id="cf-sub" value=${f.subclass} onInput=${set('subclass')}/></${Field}>
       <${Field} label="Background"><input id="cf-bg" value=${f.background} onInput=${set('background')} placeholder="Soldier"/></${Field}>

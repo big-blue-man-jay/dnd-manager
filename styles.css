@@ -481,3 +481,9 @@ fieldset:disabled input, fieldset:disabled select, fieldset:disabled textarea { 
 
 .preview-med { display: flex; gap: 14px; align-items: center; }
 .card > .hprow:first-of-type { margin-top: auto; }
+
+/* emoji icons */
+.emo { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif; line-height: 1; font-size: calc(var(--ms, 48px) * .56); }
+.med { --ms: 48px; } .med.lg { --ms: 84px; } .med.md { --ms: 32px; } .med.sm { --ms: 22px; }
+.med-badge .emo { font-size: calc(var(--ms, 48px) * .29); }
+.med-badge { width: 46%; height: 46%; }

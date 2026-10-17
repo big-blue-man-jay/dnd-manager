@@ -139,6 +139,10 @@ export const SPECIES_ICONS = {
   Orc: '<path d="M5 10c0-4.5 3-7 7-7s7 2.5 7 7c0 6-3 11-7 11s-7-5-7-11z"/><path d="M8.5 8.5l2 1M15.5 8.5l-2 1"/><path d="M8.5 15.5h7"/><path d="M9.2 15.5 9.8 12.2M14.8 15.5l-.6-3.3"/>',
   Tiefling: '<circle cx="12" cy="14" r="4.8"/><path d="M8.8 10.4C6.2 9.6 4.6 7.2 5.2 3.2c1.4 2 3 3.4 5 4.6M15.2 10.4c2.6-.8 4.2-3.2 3.6-7.2-1.4 2-3 3.4-5 4.6"/>',
 };
+// Emoji shown on character icons: species big, class (weapon / signature) as a small badge.
+// Chosen from emoji that Windows 10/11, macOS, iOS and Android all display.
+export const SPECIES_EMOJI = { Aasimar: '😇', Dragonborn: '🐉', Dwarf: '🧔', Elf: '🧝', Gnome: '🍄', Goliath: '⛰️', Halfling: '🍀', Human: '🧑', Orc: '👹', Tiefling: '😈' };
+export const CLASS_EMOJI = { Barbarian: '🪓', Bard: '🎻', Cleric: '🔨', Druid: '🌿', Fighter: '⚔️', Monk: '👊', Paladin: '🛡️', Ranger: '🏹', Rogue: '🗡️', Sorcerer: '🔥', Warlock: '🔮', Wizard: '🧙', Homebrew: '🎲' };
 export const D20 = '<path d="M12 2.5l8.5 5v9L12 21.5l-8.5-5v-9z"/><path d="M12 7l5 8.5H7z"/><path d="M12 2.5V7M3.5 7.5 7 15.5M20.5 7.5 17 15.5M7 15.5l5 6 5-6"/>';
 export const HUE = { Barbarian: 14, Bard: 320, Cleric: 44, Druid: 122, Fighter: 212, Monk: 28, Paladin: 196, Ranger: 88, Rogue: 255, Sorcerer: 350, Warlock: 282, Wizard: 232 };
 
