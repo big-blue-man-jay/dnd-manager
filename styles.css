@@ -53,8 +53,9 @@ img { max-width: 100%; }
 .user-btn { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 12px 3px 3px; cursor: pointer; }
 .user-btn img { width: 28px; height: 28px; border-radius: 50%; }
 .user-btn .nm { font-size: 14px; font-weight: 500; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.appbar { position: relative; z-index: 45; }
-.menu { position: absolute; right: 0; top: calc(100% + 10px); z-index: 50; background: var(--raised); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: 0 14px 36px rgb(0 0 0 / .28), 0 2px 6px rgb(0 0 0 / .12); min-width: 240px; padding: 6px; display: flex; flex-direction: column; }
+/* layers: page 0 · app bar 10 · dice button 30 · modal 40/41 · dice tray 45 · reveal 50/51 · toast 60 */
+.appbar { position: relative; z-index: 10; }
+.menu { position: absolute; right: 0; top: calc(100% + 10px); z-index: 1; background: var(--raised); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: 0 14px 36px rgb(0 0 0 / .28), 0 2px 6px rgb(0 0 0 / .12); min-width: 240px; padding: 6px; display: flex; flex-direction: column; }
 .menu-who { display: flex; flex-direction: column; padding: 8px 10px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
 .menu-who b { font-weight: 600; }
 .menu button { text-align: left; background: none; border: 0; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
@@ -358,8 +359,8 @@ fieldset:disabled input, fieldset:disabled select, fieldset:disabled textarea { 
 .inline-add { display: flex; gap: 8px; }
 
 /* modal sheet */
-.scrim { position: fixed; inset: 0; background: rgb(10 12 18 / .45); z-index: 20; }
-.sheet { position: fixed; top: 0; right: 0; bottom: 0; width: min(640px, 100%); background: var(--bg); z-index: 21; overflow-y: auto;
+.scrim { position: fixed; inset: 0; background: rgb(10 12 18 / .45); z-index: 40; }
+.sheet { position: fixed; top: 0; right: 0; bottom: 0; width: min(640px, 100%); background: var(--bg); z-index: 41; overflow-y: auto;
   padding: calc(18px + env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) calc(28px + env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
   box-shadow: -8px 0 30px rgb(0 0 0 / .2); display: flex; flex-direction: column; gap: 18px; }
 .sheet.wide { width: min(820px, 100%); }
@@ -450,10 +451,10 @@ fieldset:disabled input, fieldset:disabled select, fieldset:disabled textarea { 
 .public-card { gap: 14px; }
 
 /* dice */
-.dice-fab { position: fixed; right: max(18px, env(safe-area-inset-right, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 40; width: 58px; height: 58px; border-radius: 16px;
+.dice-fab { position: fixed; right: max(18px, env(safe-area-inset-right, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 30; width: 58px; height: 58px; border-radius: 16px;
   border: 0; cursor: pointer; background: var(--dc, var(--accent)); color: #fff; box-shadow: 0 6px 20px rgb(0 0 0 / .25); display: grid; place-items: center; }
 .dice-fab svg { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
-.dice-tray { position: fixed; right: max(18px, env(safe-area-inset-right, 0px)); bottom: calc(88px + env(safe-area-inset-bottom, 0px)); z-index: 41; width: min(360px, calc(100% - 36px)); max-height: calc(100% - 120px); overflow-y: auto;
+.dice-tray { position: fixed; right: max(18px, env(safe-area-inset-right, 0px)); bottom: calc(88px + env(safe-area-inset-bottom, 0px)); z-index: 45; width: min(360px, calc(100% - 36px)); max-height: calc(100% - 120px); overflow-y: auto;
   background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 16px 40px rgb(0 0 0 / .25); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
 .tray-head { display: flex; align-items: center; gap: 10px; }
 .tray-head .x { margin-left: auto; }
