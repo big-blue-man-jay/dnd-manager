@@ -1,9 +1,9 @@
-import { html, useState, useEffect, useMemo, useDoc, useCol, Medal, Pill, Empty, Spinner, HpBar, Modal, Field, DeleteButton, toast, failed,
+import { html, useState, useEffect, useMemo, useDoc, useCol, usePreview, PreviewBar, Medal, Pill, Empty, Spinner, HpBar, Modal, Field, DeleteButton, toast, failed,
   applyTheme, go, href, fmtDate, fmtDay, isoToday, daysUntil, relDays, plural, int, initials, ts } from './ui.js';
 import { store, newId, union } from './data.js';
 import { THEMES, CONDITIONS, levelForXp } from './rules5e.js';
 import { STATUS, CharCard, clsName } from './cards.js';
-import { leaveCampaign, newJoinCode } from './ops.js';
+import { leaveCampaign, newJoinCode, createDummyCharacter } from './ops.js';
 
 const TABS = [['uebersicht', 'Übersicht'], ['gruppe', 'Gruppe'], ['sitzungen', 'Sitzungen'], ['quests', 'Quests'], ['npcs', 'NPCs'], ['enthuellungen', 'Enthüllungen'], ['notizen', 'Notizen'], ['einstellungen', 'Einstellungen']];
 const QSTATUS = { active: 'Läuft', done: 'Erledigt', failed: 'Gescheitert' };
@@ -61,7 +61,11 @@ function useCampaign(cid, user) {
 
 /* ---------- page ---------- */
 export function CampaignPage({ user, cid, tab }) {
-  const d = useCampaign(cid, user);
+  const d0 = useCampaign(cid, user);
+  const [preview, setPreview] = usePreview(cid);
+  const realDM = d0.isDM; const pv = realDM && preview;
+  // In the preview the DM sees exactly what a player sees: no DM tools, no hidden secrets, only reveals meant for everyone.
+  const d = pv ? { ...d0, isDM: false, secrets: [], revelations: d0.revelations.filter(r => r.audience === 'all') } : d0;
   const { camp, isDM } = d;
   useEffect(() => { if (camp) applyTheme(camp.theme); }, [camp?.theme]);
   if (camp === undefined) return html`<${Spinner}/>`;
@@ -69,16 +73,17 @@ export function CampaignPage({ user, cid, tab }) {
   const tabs = TABS.filter(([k]) => k !== 'einstellungen' || isDM);
   const t = tabs.some(([k]) => k === tab) ? tab : 'uebersicht';
   const myChar = d.chars.find(c => c.ownerUid === user.uid);
-  const props = { ...d, user, cid, myChar };
+  const props = { ...d, user, cid, myChar, realDM, preview: pv, setPreview };
   return html`<main class="page campaign">
+    ${pv && html`<${PreviewBar} text="So sehen Spieler diese Kampagne. DM-Werkzeuge, vorbereitete Geheimnisse und deine Notizen sind ausgeblendet." onExit=${() => setPreview(false)}/>`}
     <${Hero} ...${props}/>
     <nav class="subnav" role="tablist" aria-label="Bereiche der Kampagne">${tabs.map(([k, l]) => html`<a role="tab" href=${href('c', cid, k)} aria-selected=${t === k}>${l}${k === 'enthuellungen' && d.revelations.length ? html`<span class="count">${d.revelations.length}</span>` : ''}</a>`)}</nav>
     <${{ uebersicht: Overview, gruppe: Party, sitzungen: Sessions, quests: Quests, npcs: Npcs, enthuellungen: Reveals, notizen: Notes, einstellungen: Settings }[t]} key=${t} ...${props}/>
-    ${!isDM && html`<${RevealPopup} cid=${cid} items=${d.revelations}/>`}
+    ${!isDM && !pv && html`<${RevealPopup} cid=${cid} items=${d.revelations}/>`}
   </main>`;
 }
 
-function Hero({ camp, isDM, sessions, chars, quests, cid }) {
+function Hero({ camp, isDM, realDM, preview, setPreview, sessions, chars, quests, cid }) {
   const active = chars.filter(c => (c.status || 'active') !== 'retired');
   const lv = active.map(c => c.level || 1); const avg = lv.length ? lv.reduce((a, b) => a + b, 0) / lv.length : 0;
   const n = daysUntil(camp.nextDate); const next = n !== null && n >= 0;
@@ -90,7 +95,7 @@ function Hero({ camp, isDM, sessions, chars, quests, cid }) {
       <div class="flag"><span class="label">Kampagne</span><${Pill} tone=${camp.status || 'active'}>${STATUS[camp.status || 'active']}</${Pill}>${isDM && html`<${Pill} tone="gild">DM-Ansicht</${Pill}>`}</div>
       <h1>${camp.name}</h1>${camp.description && html`<p class="lede">${camp.description}</p>`}
       <div class="hero-meta"><span>DM <b>${camp.dmName}</b></span>${camp.setting && html`<span>Setting <b>${camp.setting}</b></span>`}${camp.started && html`<span>Seit <b>${fmtDate(camp.started)}</b></span>`}</div></div>
-      ${isDM && html`<label class="area-pick"><span class="label">Gebiet / Theme</span><select id="area" value=${camp.theme || 'standard'} onChange=${setTheme}>${Object.entries(THEMES).map(([k, t]) => html`<option value=${k}>${t.name}</option>`)}</select></label>`}</div>
+      ${realDM && !preview && html`<div class="hero-tools"><label class="area-pick"><span class="label">Gebiet / Theme</span><select id="area" value=${camp.theme || 'standard'} onChange=${setTheme}>${Object.entries(THEMES).map(([k, t]) => html`<option value=${k}>${t.name}</option>`)}</select></label><button class="btn small" onClick=${() => setPreview(true)}>Als Spieler ansehen</button></div>`}</div>
     <div class="metrics panel">
       <div class="metric"><span class="label">Sitzungen</span><span class="v num">${sessions.length}</span><span class="s">${sessions.length ? 'gespielt' : 'noch keine'}</span></div>
       <div class="metric"><span class="label">Gruppenstufe</span><span class="v num">${lv.length ? (Number.isInteger(avg) ? avg : avg.toFixed(1)) : '–'}</span><span class="s">${plural(active.length, 'Held', 'Helden')}</span></div>
@@ -115,7 +120,7 @@ function Overview(p) {
           <td><div class="who"><${Medal} cls=${c.cls} species=${c.species} size="md"/><div><b>${c.name}</b><div class="sub">${c.ownerName || ''}</div></div></div></td>
           <td>${clsName(c)} ${c.level || 1}<div class="sub">${c.species || ''}</div></td>
           <td class="hpcell"><span class="num">${c.hp ?? 0} / ${c.hpMax ?? 0}</span><${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/></td>
-          <td class="r num">${isDM || c.ownerUid === p.user.uid ? c.ac || '–' : '?'}</td>
+          <td class="r num">${isDM || c.ownerUid === p.user.uid ? c.ac || '–' : html`<span class="muted" title="Nur für den Spieler und den DM sichtbar">–</span>`}</td>
           <td>${[...(c.conditions || []), c.exhaustion ? `Exhaustion ${c.exhaustion}` : ''].filter(Boolean).join(', ') || html`<span class="muted">–</span>`}</td></tr>`)}
       </tbody></table></div>` : html`<p class="muted">Noch keine Charaktere.</p>`}</div></div>
     <div class="ov-col">
@@ -141,8 +146,9 @@ function NextBox({ camp, isDM, cid }) {
 
 /* ---------- party ---------- */
 function Party({ chars, members, isDM, user, cid, camp, myChar }) {
+  const addDummy = async () => { try { await createDummyCharacter(cid, chars); toast('Test-Mitspieler angelegt.'); } catch (x) { failed(x); } };
   const [leaving, setLeaving] = useState(false);
-  return html`<section><div class="bar"><h2>Die Gruppe</h2><a class="btn primary" href=${href('c', cid, 'neu')}>${isDM ? 'Charakter anlegen' : myChar ? 'Weiteren Charakter erstellen' : 'Charakter erstellen'}</a></div>
+  return html`<section><div class="bar"><h2>Die Gruppe</h2><div class="actions">${isDM && html`<button class="btn" onClick=${addDummy} title="Ein Beispiel-Charakter, der einem erfundenen Mitspieler gehört">Test-Mitspieler anlegen</button>`}<a class="btn primary" href=${href('c', cid, 'neu')}>${isDM ? 'Charakter anlegen' : myChar ? 'Weiteren Charakter erstellen' : 'Charakter erstellen'}</a></div></div>
     ${chars.length ? html`<div class="grid cards">${chars.map(c => html`<${CharCard} c=${c}/>`)}</div>` : html`<${Empty} title="Noch keine Helden">${isDM ? 'Gib deinen Spielern den Beitrittscode. Sie erstellen ihre Charaktere dann selbst.' : 'Sei der Erste und erstelle deinen Charakter.'}</${Empty}>`}
     <p class="ro-note">Von anderen Charakteren siehst du Stufe und Hit Points. Den vollen Bogen sehen nur der Spieler selbst und der DM.</p>
     <div class="label group-label">Mitspieler</div>
@@ -333,7 +339,8 @@ function RevealPopup({ cid, items }) {
 }
 
 /* ---------- notes ---------- */
-function Notes({ notes, isDM, cid, user }) {
+function Notes({ notes, isDM, cid, user, preview }) {
+  if (preview) return html`<section><div class="bar"><h2>Meine Notizen</h2></div><${Empty}>Hier schreiben Spieler private Notizen, die nur sie selbst sehen. In der Vorschau ausgeblendet.</${Empty}></section>`;
   const [f, setF] = useState(null);
   const cur = f || { text: '', secrets: '', prep: '', ideas: '', ...(notes || {}) };
   const set = k => e => setF({ ...cur, [k]: e.target.value });
@@ -376,7 +383,7 @@ function Settings(p) {
     <div class="panel box"><div class="box-head"><h2>Eigene Zustände</h2></div>
       <p class="ro-note">Zusätzlich zu den offiziellen Conditions. Du kannst sie Charakteren im Bogen zuweisen.</p>
       ${custom.map((c, i) => html`<div class="mini static"><div><div class="t">${c.name}</div><div class="d">${c.desc}</div></div><button class="link quiet small" onClick=${() => delCond(i)}>Entfernen</button></div>`)}
-      <form class="form inline-form" onSubmit=${addCond}><${Field} label="Name"><input id="cc-name" value=${cond.name} onInput=${e => setCond({ ...cond, name: e.target.value })} placeholder="Verflucht"/></${Field}><${Field} label="Wirkung"><input id="cc-desc" value=${cond.desc} onInput=${e => setCond({ ...cond, desc: e.target.value })} placeholder="−1 auf alle Saving Throws bis zum Long Rest"/></${Field}><button class="btn">Hinzufügen</button></form></div>
+      <form class="form inline-form cond-form" onSubmit=${addCond}><${Field} label="Name"><input id="cc-name" value=${cond.name} onInput=${e => setCond({ ...cond, name: e.target.value })} placeholder="Verflucht"/></${Field}><${Field} label="Wirkung"><input id="cc-desc" value=${cond.desc} onInput=${e => setCond({ ...cond, desc: e.target.value })} placeholder="−1 auf alle Saving Throws bis zum Long Rest"/></${Field}><button class="btn">Hinzufügen</button></form></div>
     <div class="panel box"><div class="box-head"><h2>Kampagne bearbeiten</h2></div><${CampaignForm} user=${user} campaign=${camp} onSave=${saveCamp}/></div>
     <div class="panel box danger-zone"><div class="box-head"><h2>Kampagne löschen</h2></div><p class="muted">Löscht die Kampagne mit allen Charakteren, Sitzungen, Quests, NPCs und Enthüllungen. Das lässt sich nicht rückgängig machen.</p>
       <div><${DeleteButton} label="Kampagne löschen" question=${`${camp.name} endgültig löschen?`} onConfirm=${deleteAll}/></div></div>

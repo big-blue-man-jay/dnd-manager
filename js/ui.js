@@ -121,3 +121,14 @@ export const href = (...parts) => '#/' + parts.map(encodeURIComponent).join('/')
 
 /* ---------- dice bus: any component can ask the dice tray to roll ---------- */
 export const requestRoll = detail => dispatchEvent(new CustomEvent('dndm-roll', { detail }));
+
+/* ---------- "see it as a player" preview (per browser tab, per campaign) ---------- */
+const PKEY = 'dndm-preview';
+export function usePreview(cid) {
+  const read = () => { try { return sessionStorage.getItem(PKEY) === cid; } catch (e) { return false; } };
+  const [on, setOn] = useState(read);
+  useEffect(() => { const f = () => setOn(read()); addEventListener('dndm-preview', f); setOn(read()); return () => removeEventListener('dndm-preview', f); }, [cid]);
+  const set = v => { try { v ? sessionStorage.setItem(PKEY, cid) : sessionStorage.removeItem(PKEY); } catch (e) {} dispatchEvent(new CustomEvent('dndm-preview')); };
+  return [on, set];
+}
+export const PreviewBar = ({ text, onExit }) => html`<div class="preview-bar" role="status"><span><b>Spieler-Vorschau.</b> ${text}</span><button class="btn small" onClick=${onExit}>Vorschau beenden</button></div>`;

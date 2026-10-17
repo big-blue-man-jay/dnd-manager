@@ -487,3 +487,20 @@ fieldset:disabled input, fieldset:disabled select, fieldset:disabled textarea { 
 .med { --ms: 48px; } .med.lg { --ms: 84px; } .med.md { --ms: 32px; } .med.sm { --ms: 22px; }
 .med-badge .emo { font-size: calc(var(--ms, 48px) * .29); }
 .med-badge { width: 46%; height: 46%; }
+
+/* player preview */
+.preview-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: var(--r);
+  background: var(--accent-soft); border: 1px solid var(--accent); color: var(--ink); font-size: 14.5px; }
+.preview-bar b { color: var(--accent); }
+.hero-tools { display: flex; flex-direction: column; gap: 10px; align-items: stretch; min-width: 180px; }
+/* public namecard */
+.public-card { display: flex; flex-direction: column; overflow: hidden; }
+.pc-head { display: flex; gap: 18px; align-items: center; padding: 22px 24px; background: var(--raised); border-bottom: 1px solid var(--line); }
+.pc-body { display: flex; flex-direction: column; gap: 14px; padding: 20px 24px; }
+.pc-foot { padding: 12px 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+.statline.two { grid-template-columns: repeat(2, 1fr); }
+.stat b .sub { font-size: 14px; font-weight: 400; }
+
+.cond-form { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; }
+@media (max-width: 560px) { .cond-form { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .metric .v { font-size: 21px; } .hero-tools { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: end; } .hero-tools .area-pick { flex: 1; } }

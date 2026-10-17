@@ -1,5 +1,6 @@
 // Write operations shared by several screens. Paths and fields mirror firestore.rules.
 import { store, union, arrRemove, newId } from './data.js';
+import { DICE_COLORS } from './rules5e.js';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const makeCode = () => Array.from({ length: 6 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
@@ -57,7 +58,7 @@ export async function createExampleCampaign(user) {
   const cid = await createCampaign(user, {
     name: 'Die Mine von Phandelver (Beispiel)', status: 'active', theme: 'wald', setting: 'Forgotten Realms', dmName: user.name,
     description: 'Eine Eskorte nach Phandalin wird zur Jagd nach einem verschwundenen Zwerg. Beispielkampagne zum Ausprobieren, lösch sie einfach, wenn du fertig bist.',
-    started: day(-7), nextDate: day(7), nextTime: '18:00', nextPlace: 'Bei Joel', example: true,
+    started: day(-7), nextDate: day(7), nextTime: '18:00', nextPlace: 'Bei ' + String(user.name || '').split(' ')[0], example: true,
     customConditions: [{ name: 'Verflucht', desc: '−1 auf alle Saving Throws bis zum nächsten Long Rest.' }],
   });
   const base = `campaigns/${cid}`, now = Date.now(), ch = newId(), s1 = newId(), sec = newId();
@@ -82,7 +83,26 @@ export async function createExampleCampaign(user) {
     { type: 'set', path: `${base}/npcs/${newId()}`, data: { name: 'Klarg', role: 'Bugbear, Anführer der Goblins', location: 'Goblin-Höhle', attitude: 'hostile', status: 'alive', firstMet: '1', notes: 'Bisher nur Gerüchte. Die Goblins scheinen Angst vor ihm zu haben.', createdAt: now - 2e5 } },
     { type: 'set', path: `${base}/secrets/${sec}`, data: { title: 'Das Medaillon gehört Sildar', kind: 'item', body: 'Das Wappen auf dem Medaillon ist das der Familie Hallwinter. Sildar hat es vor Jahren seiner Schwester geschenkt, die seitdem als vermisst gilt.', revealedAt: 0, createdAt: now - 1e5 } },
     { type: 'set', path: `${base}/revelations/${newId()}`, data: { title: 'Der Weg ist markiert', kind: 'place', body: 'Auf den Bäumen am Trail finden sich frische Kerben: Jemand hat den Goblins den Weg zum Hinterhalt gezeigt.', audience: 'all', audienceUids: [], createdAt: now - 3e5 } },
+    ...dummyCharacterOps(cid, [{ diceColor: 'moss' }]),
     { type: 'set', path: `users/${user.uid}/notes/${cid}`, data: { secrets: 'Glasstaff (Iarno) steckt hinter den Redbrands. Er arbeitet für den Black Spider.', prep: 'Höhle: Wolfszwinger, Wasserfalle, Klarg in der Höhle oben.', ideas: 'Thorns Familie: Hatten die Goblins einen Auftraggeber?', updatedAt: now } },
   ]);
   return cid;
 }
+
+// A character that belongs to an invented player, so the DM can see the party the way it will look with friends in it.
+export function dummyCharacterOps(cid, existing = []) {
+  const used = existing.map(c => c.diceColor);
+  const color = (DICE_COLORS.find(d => d.key === 'violet' && !used.includes('violet')) || DICE_COLORS.find(d => !used.includes(d.key)) || DICE_COLORS[0]).key;
+  const id = newId(), now = Date.now(), base = `campaigns/${cid}/characters/${id}`;
+  return [
+    { type: 'set', path: base, data: { ownerUid: 'testspieler', ownerName: 'Lea (Test-Mitspielerin)', name: 'Mira Sternfeuer', species: 'Tiefling', cls: 'Warlock', clsCustom: '', hitDie: 8, subclass: 'Fiend Patron',
+      level: 2, xp: 380, ac: 13, speed: 30, hpMax: 17, hp: 9, tempHp: 3, conditions: ['Frightened'], exhaustion: 0, diceColor: color, locked: true, createdAt: now - 7e5, updatedAt: now - 2e5 } },
+    { type: 'set', path: `${base}/sheet/main`, data: { ownerUid: 'testspieler', abilities: { str: 8, dex: 14, con: 14, int: 12, wis: 10, cha: 16 }, saveProf: ['wis', 'cha'],
+      skills: { arcana: 1, deception: 1, intimidation: 1 }, background: 'Charlatan', alignment: 'Chaotic Neutral', languages: 'Common, Infernal', features: 'Pact Magic, Eldritch Invocations: Agonizing Blast',
+      notes: 'Hat einen Pakt mit einem Wesen geschlossen, dessen Namen sie nicht kennt.', attacks: [{ id: newId(), name: 'Eldritch Blast', bonus: 5, damage: '1d10+3', note: 'force, 120 ft' }],
+      spells: [{ id: newId(), name: 'Eldritch Blast', level: 0, prepared: true, note: '' }, { id: newId(), name: 'Hex', level: 1, prepared: true, note: 'Concentration' }],
+      slotsUsed: [1, 0, 0, 0, 0, 0, 0, 0, 0], slotsOverride: null, resources: [], hitDiceUsed: 0, deathSaves: { ok: 0, fail: 0 }, inspiration: false,
+      inventory: [{ id: newId(), name: 'Arcane Focus (Kristall)', qty: 1, note: '', attuned: false }], coins: { pp: 0, gp: 9, ep: 0, sp: 4, cp: 0 }, spellAbility: '', updatedAt: now } },
+  ];
+}
+export const createDummyCharacter = (cid, existing) => store.batch(dummyCharacterOps(cid, existing));

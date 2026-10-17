@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useMemo, useRef, useDoc, useCol, Medal, Pill, Empty, Spinner, HpBar, Modal, Field, DeleteButton, toast, failed,
+import { html, useState, useEffect, useMemo, useRef, useDoc, useCol, usePreview, PreviewBar, Medal, Pill, Empty, Spinner, HpBar, Modal, Field, DeleteButton, toast, failed,
   applyTheme, go, href, int, requestRoll } from './ui.js';
 import { store, newId } from './data.js';
 import { ABILITIES, SKILLS, CLASSES, CLASS_NAMES, SPECIES, ALIGNMENTS, XP_FOR, levelForXp, profBonus, mod, sgn, autoSlots, isPact,
@@ -15,8 +15,11 @@ const blankSheet = () => ({ abilities: { str: 10, dex: 10, con: 10, int: 10, wis
 export function CharacterPage({ user, cid, chId }) {
   const camp = useDoc(`campaigns/${cid}`);
   const card = useDoc(`campaigns/${cid}/characters/${chId}`);
-  const isDM = !!camp && camp.dmUid === user.uid;
-  const isOwner = !!card && card.ownerUid === user.uid;
+  const [preview, setPreview] = usePreview(cid);
+  const [asOther, setAsOther] = useState(false);
+  const realDM = !!camp && camp.dmUid === user.uid, realOwner = !!card && card.ownerUid === user.uid;
+  const hide = (realDM && preview) || asOther; // look at the character the way another player does
+  const isDM = realDM && !hide, isOwner = realOwner && !hide;
   const sheet = useDoc(card && (isDM || isOwner) ? `campaigns/${cid}/characters/${chId}/sheet/main` : null);
   const all = useCol(camp ? `campaigns/${cid}/characters` : null);
   useEffect(() => { if (camp) applyTheme(camp.theme); }, [camp?.theme]);
@@ -25,13 +28,15 @@ export function CharacterPage({ user, cid, chId }) {
   if (camp === undefined || card === undefined) return html`<${Spinner}/>`;
   if (!camp || !card) return html`<main class="page"><${Empty} title="Charakter nicht gefunden" action=${html`<a class="btn" href=${href('c', cid)}>Zur Kampagne</a>`}>Vielleicht wurde er gelöscht.</${Empty}></main>`;
   const back = html`<a class="link crumb" href=${href('c', cid, 'gruppe')}>← ${camp.name}</a>`;
-  if (!isDM && !isOwner) return html`<main class="page narrow">${back}<${PublicCard} c=${card}/></main>`;
+  if (!isDM && !isOwner) return html`<main class="page narrow">
+    ${asOther ? html`<${PreviewBar} text="So sehen andere Spieler diesen Charakter." onExit=${() => setAsOther(false)}/>` : realDM && preview ? html`<${PreviewBar} text="So sehen Spieler diesen Charakter." onExit=${() => setPreview(false)}/>` : ''}
+    ${back}<${PublicCard} c=${card}/></main>`;
   if (sheet === undefined) return html`<${Spinner}/>`;
   const s = { ...blankSheet(), ...(sheet || {}) };
   const coreOk = isDM || (isOwner && !card.locked);
   const ctx = { c: card, s, cid, chId, isDM, isOwner, coreOk, camp, user };
   return html`<main class="page charpage">${back}
-    <${CharHeader} ...${ctx} onEdit=${() => setEdit(true)}/>
+    <${CharHeader} ...${ctx} onEdit=${() => setEdit(true)} onAsOther=${() => { setAsOther(true); window.scrollTo(0, 0); }}/>
     <${LevelUpBanner} ...${ctx}/>
     <div class="sheet-grid">
       <div class="col">
@@ -54,11 +59,18 @@ export function CharacterPage({ user, cid, chId }) {
 }
 
 function PublicCard({ c }) {
-  return html`<article class="panel box public-card">
-    <div class="feat-name"><${Medal} cls=${c.cls} species=${c.species} size="lg"/><div><h1 class="h-name">${c.name}</h1><div class="sub">Stufe ${c.level || 1} · ${[c.species, clsName(c)].filter(Boolean).join(' ')} · gespielt von ${c.ownerName}</div></div></div>
-    <div class="hprow"><span class="label">Hit Points</span><span class="num"><b>${c.hp ?? 0}</b> / ${c.hpMax ?? 0}</span></div><${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/>
-    ${(c.conditions?.length || c.exhaustion) ? html`<div class="chips">${(c.conditions || []).map(x => html`<span class="chip cond">${x}</span>`)}${c.exhaustion ? html`<span class="chip cond">Exhaustion ${c.exhaustion}</span>` : ''}</div>` : ''}
-    <p class="ro-note">Den vollen Bogen sehen nur ${c.ownerName || 'der Spieler'} und der DM.</p></article>`;
+  const dc = DICE_COLORS.find(d => d.key === c.diceColor);
+  return html`<article class="panel public-card">
+    <div class="pc-head"><${Medal} cls=${c.cls} species=${c.species} size="lg"/>
+      <div class="nc-id"><h1 class="h-name">${c.name}</h1><div class="sub">Stufe ${c.level || 1} · ${[c.species, clsName(c), c.subclass && `(${c.subclass})`].filter(Boolean).join(' ')}</div>
+        <div class="sub">Gespielt von ${c.ownerName || '–'}${dc ? html` · Würfelfarbe <span class="dice-dot inline" style=${`--dc:${dc.hex}`}></span>${dc.name}` : ''}</div></div></div>
+    <div class="pc-body">
+      <div class="statline two"><div class="stat"><span class="label">Stufe</span><b class="num">${c.level || 1}</b></div>
+        <div class="stat"><span class="label">Hit Points</span><b class="num">${c.hp ?? 0}<span class="sub"> / ${c.hpMax ?? 0}</span>${c.tempHp ? html` <span class="xp">+${c.tempHp}</span>` : ''}</b></div></div>
+      <${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/>
+      ${(c.conditions?.length || c.exhaustion) ? html`<div><span class="label">Zustände</span><div class="chips" style="margin-top:6px">${(c.conditions || []).map(x => html`<span class="chip cond">${x}</span>`)}${c.exhaustion ? html`<span class="chip cond">Exhaustion ${c.exhaustion}</span>` : ''}</div></div>` : ''}
+    </div>
+    <p class="pc-foot">Werte, Zauber und Inventar sieht nur ${c.ownerName || 'der Spieler'} und der DM.</p></article>`;
 }
 
 /* ---------- writes ---------- */
@@ -72,7 +84,7 @@ async function patch({ cid, chId }, cardData, sheetData) {
 }
 
 /* ---------- header ---------- */
-function CharHeader({ c, s, isDM, isOwner, coreOk, cid, chId, onEdit }) {
+function CharHeader({ c, s, isDM, isOwner, coreOk, cid, chId, onEdit, onAsOther }) {
   const lvl = c.level || 1, next = lvl < 20 ? XP_FOR[lvl + 1] : null, prev = XP_FOR[lvl] || 0;
   const pct = next ? Math.max(0, Math.min(100, ((c.xp || 0) - prev) / (next - prev) * 100)) : 100;
   const toggleLock = async () => { try { await store.update(cardPath(cid, chId), { locked: !c.locked, updatedAt: Date.now() }); toast(c.locked ? 'Bogen wieder zum Bearbeiten geöffnet.' : 'Bogen freigegeben.'); } catch (e) { failed(e); } };
@@ -85,6 +97,7 @@ function CharHeader({ c, s, isDM, isOwner, coreOk, cid, chId, onEdit }) {
     <div class="xpwrap"><div class="xprow"><span class="label">Experience</span><span class="num">${(c.xp || 0).toLocaleString('de-DE')}${next ? ' / ' + next.toLocaleString('de-DE') + ' XP bis Stufe ' + (lvl + 1) : ' XP'}</span></div><div class="xpbar"><i style=${`width:${pct}%`}></i></div></div>
     <div class="actions">
       ${coreOk && html`<button class="btn" onClick=${onEdit}>Bogen bearbeiten</button>`}
+      <button class="btn" onClick=${onAsOther}>Als Mitspieler ansehen</button>
       ${isDM && html`<button class="btn" onClick=${toggleLock}>${c.locked ? 'Zum Bearbeiten öffnen' : 'Bogen freigeben'}</button>`}
       ${isOwner && !c.locked && !isDM && html`<span class="ro-note">Entwurf: Du kannst alles ändern, bis dein DM den Bogen freigibt.</span>`}
       ${isOwner && c.locked && !isDM && html`<span class="ro-note">Freigegeben: HP, Slots, Inventar & Co. änderst du selbst. Werte und Stufe ändert der DM.</span>`}
@@ -324,7 +337,7 @@ function CharForm({ user, cid, camp, card, sheet, others, isDM, onDone }) {
   const usedColors = others.map(o => o.diceColor).filter(Boolean);
   const [f, setF] = useState({ name: '', species: 'Human', speciesCustom: '', cls: 'Fighter', clsCustom: '', hitDie: 8, subclass: '', level: 1, xp: 0, ac: 10, speed: 30, hpMax: '',
     diceColor: DICE_COLORS.find(d => !usedColors.includes(d.key))?.key || '', ...(card || {}),
-    abilities: { ...s0.abilities }, saveProf: [...s0.saveProf], skills: { ...s0.skills }, background: s0.background, alignment: s0.alignment, languages: s0.languages, features: s0.features, spellAbility: s0.spellAbility });
+    abilities: { ...s0.abilities }, saveProf: card ? [...s0.saveProf] : [...(CLASSES[(card || {}).cls || 'Fighter']?.saves || [])], skills: { ...s0.skills }, background: s0.background, alignment: s0.alignment, languages: s0.languages, features: s0.features, spellAbility: s0.spellAbility });
   const [busy, setBusy] = useState(false);
   const set = k => e => setF(f => ({ ...f, [k]: e.target.value }));
   const setAb = k => e => setF(f => ({ ...f, abilities: { ...f.abilities, [k]: int(e.target.value, 10) } }));
