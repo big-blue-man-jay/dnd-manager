@@ -107,6 +107,7 @@ async function patch({ cid, chId }, cardData, sheetData) {
 
 /* ---------- header ---------- */
 function CharHeader({ c, s, isDM, isOwner, coreOk, cid, chId, onEdit, onAsOther }) {
+  const [exp, setExp] = useState(false);
   const lvl = c.level || 1, next = lvl < 20 ? XP_FOR[lvl + 1] : null, prev = XP_FOR[lvl] || 0;
   const pct = next ? Math.max(0, Math.min(100, ((c.xp || 0) - prev) / (next - prev) * 100)) : 100;
   const toggleLock = async () => { try { await store.update(cardPath(cid, chId), { locked: !c.locked, updatedAt: Date.now() }); toast(c.locked ? 'Bogen wieder zum Bearbeiten geöffnet.' : 'Bogen freigegeben.'); } catch (e) { failed(e); } };
@@ -121,10 +122,57 @@ function CharHeader({ c, s, isDM, isOwner, coreOk, cid, chId, onEdit, onAsOther 
       ${coreOk && html`<button class="btn" onClick=${onEdit}>✏️ Bogen bearbeiten</button>`}
       <${TurnHelpButton}/>
       <button class="btn" onClick=${onAsOther}>👀 Als Mitspieler ansehen</button>
+      <button class="btn" onClick=${() => setExp(true)}>📋 Als Text exportieren</button>
       ${isDM && html`<button class="btn" onClick=${toggleLock}>${c.locked ? 'Zum Bearbeiten öffnen' : 'Bogen freigeben'}</button>`}
       ${isOwner && !c.locked && !isDM && html`<span class="ro-note">Entwurf: Du kannst alles ändern, bis dein DM den Bogen freigibt.</span>`}
       ${isOwner && c.locked && !isDM && html`<span class="ro-note">Freigegeben: HP, Slots, Inventar & Co. änderst du selbst. Werte und Stufe ändert der DM.</span>`}
-    </div></section>`;
+    </div>${exp && html`<${ExportModal} c=${c} s=${s} onClose=${() => setExp(false)}/>`}</section>`;
+}
+
+
+/* ---------- plain-text export (to paste into a chat, a message or an AI) ---------- */
+export function sheetText(c, s) {
+  const lvl = c.level || 1, pb = profBonus(lvl), m = k => mod(s.abilities[k]);
+  const sa = spellAb(c, s), slots = Array.isArray(s.slotsOverride) ? s.slotsOverride : autoSlots(c.cls, lvl);
+  const L = [];
+  L.push(`${c.name}`, `Stufe ${lvl} ${[c.species, clsName(c), c.subclass && `(${c.subclass})`].filter(Boolean).join(' ')}${s.background ? ', Background: ' + s.background : ''}${s.alignment ? ', ' + s.alignment : ''}`);
+  if (c.ownerName) L.push(`Gespielt von ${c.ownerName}`);
+  L.push(`XP: ${c.xp || 0}${lvl < 20 ? ` (Stufe ${lvl + 1} bei ${XP_FOR[lvl + 1]})` : ''}`, '');
+  L.push(`HP: ${c.hp ?? c.hpMax ?? 0} / ${c.hpMax ?? 0}${c.tempHp ? ` (+${c.tempHp} temporär)` : ''} · AC: ${(s.ac ?? c.ac) ?? '–'} · Speed: ${c.speed || 30} ft · Initiative: ${sgn(m('dex'))} · Proficiency Bonus: ${sgn(pb)}`);
+  L.push(`Hit Dice: ${lvl - (s.hitDiceUsed || 0)} / ${lvl} × d${hitDie(c)} · Passive Perception: ${10 + m('wis') + (s.skills.perception || 0) * pb}`);
+  if ((c.conditions || []).length || c.exhaustion) L.push(`Zustände: ${[...(c.conditions || []), c.exhaustion ? `Exhaustion ${c.exhaustion}` : ''].filter(Boolean).join(', ')}`);
+  L.push('', 'ABILITIES');
+  L.push(ABILITIES.map(a => `${a.short} ${s.abilities[a.key]} (${sgn(m(a.key))})`).join(' · '));
+  L.push(`Saving Throws: ${ABILITIES.map(a => `${a.short} ${sgn(m(a.key) + (s.saveProf.includes(a.key) ? pb : 0))}${s.saveProf.includes(a.key) ? '*' : ''}`).join(' · ')}  (* = geübt)`);
+  const sk = SKILLS.filter(k => s.skills[k.key]);
+  L.push('', 'SKILLS (geübt)', sk.length ? sk.map(k => `${k.name} ${sgn(m(k.ab) + s.skills[k.key] * pb)}${s.skills[k.key] === 2 ? ' (Expertise)' : ''}`).join(' · ') : 'keine');
+  if ((s.attacks || []).length) { L.push('', 'ANGRIFFE'); s.attacks.forEach(a => L.push(`- ${a.name}: ${sgn(int(a.bonus))} zum Treffen, ${a.damage || '–'} Schaden${a.note ? ' (' + a.note + ')' : ''}`)); }
+  if (sa || (s.spells || []).length) {
+    L.push('', 'ZAUBER');
+    if (sa) L.push(`Spellcasting: ${sa.toUpperCase()}, Spell Save DC ${8 + pb + m(sa)}, Spell Attack ${sgn(pb + m(sa))}`);
+    const sl = slots.map((n, i) => n ? `Grad ${i + 1}: ${n - ((s.slotsUsed || [])[i] || 0)} / ${n}` : '').filter(Boolean);
+    if (sl.length) L.push(`Spell Slots${isPact(c.cls) ? ' (Pact Magic)' : ''}: ${sl.join(' · ')}`);
+    const by = {}; (s.spells || []).forEach(x => (by[x.level || 0] = by[x.level || 0] || []).push(x));
+    Object.keys(by).sort((a, b) => a - b).forEach(l => L.push(`${+l ? 'Grad ' + l : 'Cantrips'}: ${by[l].map(x => x.name + (+l && x.prepared ? ' (vorbereitet)' : '')).join(', ')}`));
+  }
+  if ((s.resources || []).length) { L.push('', 'RESSOURCEN'); s.resources.forEach(r => L.push(`- ${r.name}: ${r.max - (r.used || 0)} / ${r.max} (${RESET_LABEL[r.reset] || r.reset || ''})`)); }
+  const coins = Object.entries(s.coins || {}).filter(([, v]) => v).map(([k, v]) => `${v} ${k}`);
+  if ((s.inventory || []).length || coins.length) { L.push('', 'INVENTAR'); (s.inventory || []).forEach(x => L.push(`- ${x.qty > 1 ? x.qty + '× ' : ''}${x.name}${x.attuned ? ' (attuned)' : ''}${x.note ? ': ' + x.note : ''}`)); if (coins.length) L.push(`Geld: ${coins.join(', ')}`); }
+  if (s.features) L.push('', 'FEATURES & TRAITS', s.features.trim());
+  if (s.languages) L.push('', 'SPRACHEN & PROFICIENCIES', s.languages.trim());
+  if (s.notes) L.push('', 'NOTIZEN', s.notes.trim());
+  L.push('', '(D&D 2024, exportiert aus dem DnD Manager)');
+  return L.join('\n');
+}
+function ExportModal({ c, s, onClose }) {
+  const text = sheetText(c, s);
+  const copy = async () => { try { await navigator.clipboard.writeText(text); toast('Kopiert. Jetzt einfach einfügen.'); } catch (e) { toast('Kopieren ging nicht. Markiere den Text und kopiere ihn von Hand.'); } };
+  const download = () => { const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+    const a = Object.assign(document.createElement('a'), { href: url, download: `${(c.name || 'Charakter').replace(/[^\p{L}\p{N}]+/gu, '-')}.txt` }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); };
+  return html`<${Modal} title=${c.name} eyebrow="Bogen als Text" onClose=${onClose}><div class="form">
+    <p class="ro-note">Zum Teilen per Nachricht oder zum Einfügen in einen Chat mit Claude. Enthält die privaten Werte wie AC, also nur an Leute schicken, die sie sehen dürfen.</p>
+    <textarea class="export-text" readonly value=${text} onFocus=${e => e.target.select()}></textarea>
+    <div class="foot"><button class="btn primary" onClick=${copy}>📋 Kopieren</button><button class="btn" onClick=${download}>⬇️ Als .txt speichern</button><button class="btn" onClick=${onClose}>Schließen</button></div></div></${Modal}>`;
 }
 
 /* ---------- level up ---------- */

@@ -796,3 +796,5 @@ body { padding-bottom: calc(var(--nav-h) + 110px + env(safe-area-inset-bottom, 0
   .fa-row.four { grid-template-columns: 1fr 1fr; } .fa-atk { grid-template-columns: 1fr 64px; }
   .init-list .i-hp { min-width: 60px; } .init-list .i-hp .hpbar { width: 60px; }
 }
+
+.export-text { min-height: 360px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; line-height: 1.5; white-space: pre; }
