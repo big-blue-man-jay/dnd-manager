@@ -13,6 +13,7 @@ export async function exportCampaign(cid, user) {
   for (const k of COLS) out.collections[k] = await store.getCol(`campaigns/${cid}/${k}`);
   for (const ch of out.collections.characters) ch.sheet = strip(await store.get(`campaigns/${cid}/characters/${ch.id}/sheet/main`));
   out.notes = strip(await store.get(`users/${user.uid}/notes/${cid}`));
+  out.scenes = strip(await store.get(`users/${user.uid}/notes/${cid}__scenes`));
   const day = new Date().toISOString().slice(0, 10);
   const name = `DnD-Manager_${(camp.name || 'Kampagne').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '')}_${day}.json`;
   const url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }));
@@ -37,6 +38,7 @@ export async function importCampaign(user, file) {
   for (const k of ['sessions', 'quests', 'npcs', 'journal', 'secrets', 'revelations', 'map'])
     for (const d of C[k] || []) ops.push({ type: 'set', path: `${base}/${k}/${d.id}`, data: strip(d) });
   if (data.notes) ops.push({ type: 'set', path: `users/${user.uid}/notes/${cid}`, data: data.notes });
+  if (data.scenes) ops.push({ type: 'set', path: `users/${user.uid}/notes/${cid}__scenes`, data: data.scenes });
   for (let i = 0; i < ops.length; i += 400) await store.batch(ops.slice(i, i + 400));
   return cid;
 }

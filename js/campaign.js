@@ -426,7 +426,7 @@ function Settings(p) {
     for (const c of chars) { ops.push({ type: 'delete', path: `${base}/characters/${c.id}/sheet/main` }, { type: 'delete', path: `${base}/characters/${c.id}` }); }
     for (const [k, list] of [['sessions', p.sessions], ['quests', p.quests], ['npcs', p.npcs], ['journal', p.journal], ['secrets', p.secrets], ['revelations', p.revelations], ['members', members.map(m => ({ id: m.uid }))]]) for (const x of list) ops.push({ type: 'delete', path: `${base}/${k}/${x.id}` });
     try { for (let i = 0; i < ops.length; i += 400) await store.batch(ops.slice(i, i + 400));
-      await store.batch([{ type: 'delete', path: `joinCodes/${camp.joinCode}` }, { type: 'delete', path: base }, { type: 'delete', path: `users/${user.uid}/notes/${cid}` }]);
+      await store.batch([{ type: 'delete', path: `joinCodes/${camp.joinCode}` }, { type: 'delete', path: base }, { type: 'delete', path: `users/${user.uid}/notes/${cid}` }, { type: 'delete', path: `users/${user.uid}/notes/${cid}__scenes` }]);
       go(); toast('Kampagne gelöscht.'); } catch (x) { failed(x); } };
   return html`<section class="settings">
     <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🔑</span>Beitrittscode</h2></div>

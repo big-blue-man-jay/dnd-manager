@@ -903,3 +903,11 @@ body { padding-bottom: calc(var(--nav-h) + 110px + env(safe-area-inset-bottom, 0
 .bm-info .hpbar { width: 120px; }
 .bm-dist { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .dist-chip { font-size: 12.5px; padding: 2px 8px; border-radius: 999px; background: var(--ok-soft); } .dist-chip.npc { background: var(--blood-soft); }
+
+.scenes { padding: 14px; display: flex; flex-direction: column; gap: 10px; border-top: 3px solid var(--gild); }
+.scene-list { display: flex; flex-direction: column; gap: 6px; }
+.scene { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 10px; background: var(--raised); }
+.sc-info { display: flex; flex-direction: column; min-width: 0; } .sc-info small { color: var(--muted); font-size: 12.5px; }
+.sc-act { display: flex; gap: 8px; align-items: center; }
+.scene-save { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; } .scene-save .checkline { grid-column: 1 / -1; }
+@media (max-width: 520px) { .scene-save { grid-template-columns: 1fr; } }

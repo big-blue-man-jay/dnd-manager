@@ -2,7 +2,7 @@
 // The DM moves every token and paints terrain; players move their own character.
 // Positions live in campaigns/{cid}/map/{tokenId}: tokenId = character id for heroes, combat row id for enemies, '_terrain' for terrain.
 import { html, useState, useEffect, useRef, HpBar, toast, failed, int, initials } from './ui.js';
-import { store } from './data.js';
+import { store, newId } from './data.js';
 import { SPECIES_EMOJI, diceHex } from './rules5e.js';
 
 const SIZES = { s: [16, 10, 'Klein'], m: [20, 14, 'Mittel'], l: [28, 18, 'Groß'] };
@@ -19,6 +19,7 @@ export function BattleMap({ cid, camp, chars, isDM, user }) {
   const [brush, setBrush] = useState(null); // DM terrain painting
   const [paint, setPaint] = useState(null); // cells changed during one stroke
   const [open, setOpen] = useState(true);
+  const [scenesOpen, setScenesOpen] = useState(false);
 
   useEffect(() => { const el = wrapRef.current; if (!el) return;
     const fit = () => setCell(Math.max(14, Math.min(46, Math.floor((el.clientWidth - 2) / cols))));
@@ -39,7 +40,7 @@ export function BattleMap({ cid, camp, chars, isDM, user }) {
 
   // the DM tidies up positions of enemies that left the fight
   useEffect(() => { if (!isDM || !docs) return; const ids = new Set(tokens.map(t => t.id));
-    const orphans = docs.filter(d => d.id !== '_terrain' && !ids.has(d.id)); if (orphans.length) store.batch(orphans.map(d => ({ type: 'delete', path: `campaigns/${cid}/map/${d.id}` }))).catch(() => {}); }, [docs?.length, tokens.length]);
+    const orphans = docs.filter(d => d.id !== '_terrain' && !ids.has(d.id) && Date.now() - (d.updatedAt || 0) > 15000); /* grace period: a loaded scene writes tokens and enemies at once */ if (orphans.length) store.batch(orphans.map(d => ({ type: 'delete', path: `campaigns/${cid}/map/${d.id}` }))).catch(() => {}); }, [docs?.length, tokens.length]);
 
   const cellAt = (clientX, clientY) => { const r = gridRef.current?.getBoundingClientRect(); if (!r) return null;
     const x = Math.floor((clientX - r.left) / cell), y = Math.floor((clientY - r.top) / cell);
@@ -98,7 +99,9 @@ export function BattleMap({ cid, camp, chars, isDM, user }) {
       <div class="bm-brushes" role="group" aria-label="Gelände malen"><span class="label">Gelände</span>${Object.entries(TERRAIN).map(([k, [e, l]]) => html`<button class=${'bm-brush' + (brush === k ? ' on' : '')} title=${l} aria-label=${l} onClick=${() => setBrush(brush === k ? null : k)}>${e}</button>`)}
         <button class=${'bm-brush' + (brush === 'erase' ? ' on' : '')} title="Radieren" onClick=${() => setBrush(brush === 'erase' ? null : 'erase')}>🧽</button></div>
       <button class="btn small" onClick=${autoPlace} disabled=${!bench.length}>Aufstellen</button>
-      <button class="link quiet small" onClick=${clearTokens}>Figuren zurück</button><button class="link quiet small" onClick=${clearTerrain}>Gelände löschen</button></div>`}
+      <button class="link quiet small" onClick=${clearTokens}>Figuren zurück</button><button class="link quiet small" onClick=${clearTerrain}>Gelände löschen</button>
+      <button class=${'btn small' + (scenesOpen ? ' primary' : '')} onClick=${() => setScenesOpen(!scenesOpen)}>🎬 Szenen</button></div>
+    ${scenesOpen && html`<${Scenes} cid=${cid} camp=${camp} chars=${chars} user=${user} docs=${docs || []} tokens=${tokens} pos=${pos} onDone=${() => setScenesOpen(false)}/>`}`}
     ${brush && html`<p class="muted small-note">Malmodus: Tippe oder ziehe über Felder. Zum Beenden das Symbol noch einmal antippen.</p>`}
     <div class="bm-wrap" ref=${wrapRef}>
       <div class=${'bm-grid' + (brush ? ' painting' : '')} ref=${gridRef} style=${`width:${cols * cell}px;height:${rows * cell}px;--cell:${cell}px`}
@@ -121,6 +124,59 @@ export function BattleMap({ cid, camp, chars, isDM, user }) {
     <p class="muted small-note">${isDM ? 'Ziehe Figuren auf Felder. Antippen zeigt Abstände. Raus aus der Karte ziehen legt sie zurück in die Ablage.' : 'Ziehe deine Figur. Beim Ziehen siehst du deine Reichweite und die Entfernung in ft. Antippen zeigt Abstände.'}</p>`}
   </section>`;
 }
+
+/* ---------- prepared scenes (DM only): terrain, map size, enemies and starting positions ---------- */
+// Stored in the DM's private notes area (users/{uid}/notes/{cid}__scenes), so players never see them in advance.
+export const scenesPath = (uid, cid) => `users/${uid}/notes/${cid}__scenes`;
+function Scenes({ cid, camp, chars, user, docs, tokens, pos, onDone }) {
+  const [data, setData] = useState(undefined);
+  useEffect(() => store.watchDoc(scenesPath(user.uid, cid), setData, () => setData(null)), [cid, user.uid]);
+  const [name, setName] = useState(''); const [withFoes, setWithFoes] = useState(true); const [withParty, setWithParty] = useState(true);
+  const [ask, setAsk] = useState(null); const [busy, setBusy] = useState(false);
+  const list = (data?.scenes || []).slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const cells = docs.find(d => d.id === '_terrain')?.cells || {};
+  const foesNow = (camp.combat?.list || []).filter(r => r.kind === 'npc');
+  const snapshot = () => ({ size: camp.mapSize || 'm', cells,
+    foes: withFoes ? foesNow.map(({ id, init, ...r }) => ({ ...r, hp: r.hpMax ?? r.hp, ...(pos[id] ? { x: pos[id].x, y: pos[id].y } : {}) })) : [],
+    party: withParty ? Object.fromEntries(chars.filter(c => pos[c.id]).map(c => [c.id, pos[c.id]])) : {} });
+  const persist = async scenes => { await store.set(scenesPath(user.uid, cid), { scenes, updatedAt: Date.now() }); };
+  const saveNew = async e => { e.preventDefault(); if (!name.trim()) return toast('Gib der Szene einen Namen.'); setBusy(true);
+    try { await persist([...(data?.scenes || []), { id: newId(), name: name.trim(), ...snapshot(), updatedAt: Date.now() }]); setName(''); toast('Szene gespeichert.'); } catch (x) { failed(x); } finally { setBusy(false); } };
+  const overwrite = async sc => { try { await persist((data?.scenes || []).map(x => x.id === sc.id ? { ...x, ...snapshot(), updatedAt: Date.now() } : x)); setAsk(null); toast(`„${sc.name}“ überschrieben.`); } catch (x) { failed(x); } };
+  const remove = async sc => { try { await persist((data?.scenes || []).filter(x => x.id !== sc.id)); setAsk(null); toast('Szene gelöscht.'); } catch (x) { failed(x); } };
+  const load = async sc => { setBusy(true);
+    try {
+      const base = `campaigns/${cid}`, now = Date.now(), ops = [];
+      for (const d of docs) ops.push({ type: 'delete', path: `${base}/map/${d.id}` });           // clear the board
+      if (Object.keys(sc.cells || {}).length) ops.push({ type: 'set', path: `${base}/map/_terrain`, data: { cells: sc.cells, updatedAt: now } });
+      for (const [chId, p] of Object.entries(sc.party || {})) if (chars.some(c => c.id === chId)) ops.push({ type: 'set', path: `${base}/map/${chId}`, data: { ...p, updatedAt: now } });
+      const rows = (sc.foes || []).map(({ x, y, ...f }) => ({ ...f, id: newId(), kind: 'npc', init: '', hp: f.hpMax ?? f.hp, _p: x != null ? { x, y } : null }));
+      for (const r of rows) if (r._p) ops.push({ type: 'set', path: `${base}/map/${r.id}`, data: { ...r._p, updatedAt: now } });
+      const clean = rows.map(({ _p, ...r }) => r);
+      let combat = camp.combat || null;
+      if (clean.length) combat = combat ? { ...combat, list: [...combat.list.filter(r => r.kind !== 'npc'), ...clean] }
+        : { round: 1, turn: 0, list: [...chars.map(c => ({ id: newId(), name: c.name, charId: c.id, kind: 'pc', init: '' })), ...clean] };
+      ops.push({ type: 'update', path: base, data: { mapSize: sc.size || 'm', ...(clean.length ? { combat } : {}) } });
+      await store.batch(ops); setAsk(null); toast(`„${sc.name}“ geladen.${clean.length ? ` ${clean.length} Gegner sind im Kampf, Initiative noch würfeln.` : ''}`); onDone();
+    } catch (x) { failed(x); } finally { setBusy(false); } };
+
+  if (data === undefined) return html`<div class="scenes panel"><p class="muted">Lädt…</p></div>`;
+  return html`<div class="scenes panel">
+    <div class="box-head"><h3>🎬 Szenen</h3><span class="sub">Nur du siehst sie</span></div>
+    ${list.length ? html`<div class="scene-list">${list.map(sc => html`<div class="scene">
+      <div class="sc-info"><b>${sc.name}</b><small>${[{ s: 'Klein', m: 'Mittel', l: 'Groß' }[sc.size] || 'Mittel', `${Object.keys(sc.cells || {}).length} Geländefelder`, sc.foes?.length ? `${sc.foes.length} Gegner` : 'keine Gegner', Object.keys(sc.party || {}).length ? 'mit Startpositionen' : ''].filter(Boolean).join(' · ')}</small></div>
+      ${ask?.id === sc.id ? html`<span class="confirm">${ask.what === 'load' ? 'Karte ersetzen und laden?' : ask.what === 'over' ? 'Mit der aktuellen Karte überschreiben?' : 'Löschen?'}
+          <button class="btn primary small" disabled=${busy} onClick=${() => (ask.what === 'load' ? load(sc) : ask.what === 'over' ? overwrite(sc) : remove(sc))}>Ja</button><button class="btn small" onClick=${() => setAsk(null)}>Nein</button></span>`
+        : html`<div class="sc-act"><button class="btn small primary" onClick=${() => setAsk({ id: sc.id, what: 'load' })}>Laden</button><button class="link quiet small" onClick=${() => setAsk({ id: sc.id, what: 'over' })}>Überschreiben</button><button class="link quiet small" onClick=${() => setAsk({ id: sc.id, what: 'del' })}>Löschen</button></div>`}
+    </div>`)}</div>` : html`<p class="muted small-note">Noch keine Szenen. Bau die Karte auf und speichere sie hier, zum Beispiel „Überfall an der Moosfurt“ oder „Hruks Halle“.</p>`}
+    <form class="scene-save" onSubmit=${saveNew}><input placeholder="Name der Szene, z. B. Hruks Halle" value=${name} onInput=${e => setName(e.target.value)} aria-label="Name der Szene"/>
+      <button class="btn primary small" disabled=${busy}>Aktuelle Karte speichern</button>
+      <label class="checkline small"><input type="checkbox" checked=${withFoes} onChange=${e => setWithFoes(e.target.checked)}/><span>Gegner mitspeichern (${foesNow.length}, mit Werten und Position)</span></label>
+      <label class="checkline small"><input type="checkbox" checked=${withParty} onChange=${e => setWithParty(e.target.checked)}/><span>Startpositionen der Gruppe mitspeichern</span></label></form>
+    <p class="muted small-note">So bereitest du eine Szene vor: Gelände malen, Kampf starten, Gegner hinzufügen und auf die Karte ziehen, dann hier speichern und den Kampf wieder beenden. Beim Laden kommen die Gegner automatisch in den Kampf.</p>
+  </div>`;
+}
+
 function useCol(path) { // local copy to keep this module self-contained
   const [d, setD] = useState(undefined);
   useEffect(() => { if (!path) { setD([]); return; } return store.watchCol(path, [], setD, () => setD([])); }, [path]);
