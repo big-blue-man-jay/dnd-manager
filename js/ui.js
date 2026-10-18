@@ -49,7 +49,11 @@ export function Medal({ cls, species, size = '' }) {
 export const Logo = () => html`<svg class="logo" viewBox="0 0 24 24" aria-hidden="true" dangerouslySetInnerHTML=${{ __html: D20 }}></svg>`;
 export const Pill = ({ tone = '', children }) => html`<span class=${'pill ' + tone}>${children}</span>`;
 export const Empty = ({ title, children, action }) => html`<div class="empty">${title && html`<h3>${title}</h3>`}<p>${children}</p>${action}</div>`;
-export const Spinner = ({ label = 'Lädt…' }) => html`<div class="loading" role="status">${label}</div>`;
+export function Spinner({ label = 'Lädt…' }) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setSlow(true), 8000); return () => clearTimeout(t); }, []);
+  return html`<div class="loading" role="status">${label}${slow && html`<div class="slow"><p>Das dauert ungewöhnlich lange. Vielleicht hakt die Verbindung.</p><button class="btn" onClick=${() => location.reload()}>🔄 Neu laden</button></div>`}</div>`;
+}
 
 export function HpBar({ hp, max }) {
   const pct = max ? Math.max(0, Math.min(100, (hp / max) * 100)) : 0;

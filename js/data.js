@@ -40,7 +40,9 @@ async function firebaseImpl() {
   ]);
   const app = initializeApp(firebaseConfig);
   const auth = A.getAuth(app);
-  const db = F.getFirestore(app);
+  // Safari sometimes stalls on Firestore's default streaming connection; long polling is slower but always gets through.
+  const safari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent);
+  const db = F.initializeFirestore(app, safari ? { experimentalForceLongPolling: true } : { experimentalAutoDetectLongPolling: true });
   const conv = v => {
     if (v && typeof v === 'object' && !Array.isArray(v)) {
       if (UNION in v) return F.arrayUnion(...v[UNION]);
