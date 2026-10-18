@@ -3,7 +3,7 @@ import { html, useState, useEffect, Medal, Empty, Spinner, HpBar, toast, failed,
 import { store, newId } from './data.js';
 import { clsName } from './cards.js';
 import { CharQuick } from './character.js';
-import { useCampaign } from './campaign.js';
+import { useCampaign, RevealPopup } from './campaign.js';
 import { TurnHelpButton } from './help.js';
 
 const rnd = n => 1 + Math.floor(Math.random() * n);
@@ -79,7 +79,7 @@ function Lookup({ quests, npcs, cid }) {
 
 export function SessionPage({ user, cid }) {
   const d = useCampaign(cid, user);
-  const { camp, isDM, chars, sessions, quests, npcs } = d;
+  const { camp, isDM, chars, sessions, quests, npcs, revelations } = d;
   useEffect(() => { if (camp) applyTheme(camp.theme); }, [camp?.theme]);
   if (camp === undefined) return html`<${Spinner}/>`;
   if (!camp) return html`<main class="page"><${Empty} title="Kampagne nicht gefunden">Wähle unter 🏰 Kampagnen eine aktive Kampagne.</${Empty}></main>`;
@@ -102,5 +102,6 @@ export function SessionPage({ user, cid }) {
         <${Lookup} quests=${quests} npcs=${npcs} cid=${cid}/>
       </div>
     </div>
+    ${!isDM && html`<${RevealPopup} cid=${cid} items=${revelations}/>`}
   </main>`;
 }

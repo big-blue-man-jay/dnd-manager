@@ -377,7 +377,7 @@ function RevealModal({ s, cid, members, onClose }) {
     <p class="ro-note">${isQ ? 'Die Quest erscheint sofort bei allen im Quest-Log, dazu ein Pop-up mit dem Grund.' : 'Die Karte erscheint sofort als Pop-up auf den Bildschirmen und bleibt danach unter „Enthüllungen“, zusammen mit dem Grund.'}</p>
     <div class="foot"><button class="btn primary" disabled=${busy} onClick=${go2}>${isQ ? 'Jetzt freischalten' : 'Jetzt enthüllen'}</button><button class="btn" onClick=${onClose}>Abbrechen</button></div></div></${Modal}>`;
 }
-function RevealPopup({ cid, items }) {
+export function RevealPopup({ cid, items }) {
   const KEY = 'dndm-seen-' + cid;
   // First visit: everything revealed before now counts as seen; only new reveals pop up.
   const [seen, setSeen] = useState(() => { let v = 0; try { v = int(localStorage.getItem(KEY), 0); if (!v) { v = Date.now(); localStorage.setItem(KEY, v); } } catch (e) { v = Date.now(); } return v; });

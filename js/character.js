@@ -77,7 +77,7 @@ export function CharQuick({ user, cid, chId, camp }) {
   return html`<div class="quick-char">
     <div class="qc-head panel box"><${Medal} cls=${card.cls} species=${card.species}/><div class="nc-id"><h3>${card.name}</h3><div class="sub">Stufe ${card.level || 1} · ${[card.species, clsName(card)].filter(Boolean).join(' ')}</div></div>
       <a class="btn small" href=${href('c', cid, 'char', chId)}>📜 Ganzer Bogen</a></div>
-    <${Vitals} ...${ctx}/><${Conditions} ...${ctx}/><${Attacks} ...${ctx}/><${Spellcasting} ...${ctx}/><${Resources} ...${ctx}/></div>`;
+    <${LevelUpBanner} ...${ctx}/><${Vitals} ...${ctx}/><${Conditions} ...${ctx}/><${Attacks} ...${ctx}/><${Spellcasting} ...${ctx}/><${Resources} ...${ctx}/><${Inventory} ...${ctx}/></div>`;
 }
 
 function PublicCard({ c }) {
