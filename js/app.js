@@ -44,7 +44,7 @@ function TopBar({ user }) {
 }
 
 /* ---------- bottom navigation: the five chapters of the app ---------- */
-const NAV = [['kampagnen', '🏰', 'Kampagnen'], ['charaktere', '🧙', 'Charaktere'], ['aktiv', '⭐', 'Aktiv'], ['spiel', '🎲', 'Spieltisch'], ['wiki', '📖', 'Wiki'], ['einstellungen', '⚙️', 'Optionen']];
+const NAV = [['kampagnen', '🏰', 'Kampagnen'], ['charaktere', '🧙', 'Charaktere'], ['aktiv', '⭐', 'Aktiv'], ['spiel', '🎲', 'Spieltisch'], ['einstellungen', '⚙️', 'Einstellungen']];
 function BottomNav({ cur }) {
   return html`<nav class="bottomnav" aria-label="Hauptmenü">${NAV.map(([k, e, l]) => html`<a href=${'#/' + k} aria-current=${cur === k ? 'page' : undefined}><span class="bn-ico" aria-hidden="true">${e}</span><span class="bn-t">${l}</span></a>`)}</nav>`;
 }
@@ -222,7 +222,7 @@ function Shell({ user, mode, route }) {
   } else if (r0 === 'tisch') {
     // table screen for the tablet: no app chrome, no dice, just what everyone may see
     return data.loading ? html`<${Spinner}/>` : act ? html`<${TableScreen} key=${act} user=${user} cid=${act}/>` : html`<${NoActive} what="Der Tischbildschirm zeigt immer die aktive Kampagne."/>`;
-  } else if (r0 === 'wiki') { cur = 'wiki'; view = html`<${WikiPage} section=${r1}/>`;
+  } else if (r0 === 'wiki') { cur = 'spiel'; view = html`<${WikiPage} section=${r1}/>`;
   } else if (r0 === 'einstellungen') { cur = 'einstellungen'; view = html`<${SettingsPage} user=${user} mode=${mode}/>`; }
   else { cur = 'kampagnen'; view = data.loading ? html`<${Spinner}/>` : html`<${CampaignsPage} user=${user} data=${data}/>`; }
   return html`<${TopBar} user=${user}/>${mode === 'demo' && html`<div class="demo-bar">Demo-Modus: Daten bleiben nur in diesem Browser.</div>`}${view}<${DiceTray}/><${BottomNav} cur=${cur}/>`;

@@ -152,6 +152,17 @@ const SECTIONS = [
   ] },
 ];
 
+// search for the lookup box on the Spieltisch: exact abbreviations first ("AC"), then words anywhere
+export function searchWiki(q, limit = 6) {
+  const ql = norm(q.trim()); if (!ql) return [];
+  const all = SECTIONS.flatMap(sec => sec.entries.map(x => ({ ...x, icon: sec.icon, sec: sec.title })));
+  const abbrOf = x => (x.a || '').split(',').map(v => norm(v.replace(/\s*\(.*\)/, '').trim()));
+  const score = x => (abbrOf(x).includes(ql) ? 0 : norm(x.t) === ql || norm(x.de) === ql ? 1 : norm(x.t).startsWith(ql) || norm(x.de).startsWith(ql) ? 2
+    : [x.t, x.de, x.a].some(v => norm(v).includes(ql)) ? 3 : [x.d, x.x].some(v => norm(v).includes(ql)) ? 4 : 9);
+  const found = all.map(x => [score(x), x]).filter(([n]) => n < 9).sort((m, n) => m[0] - n[0]);
+  const best = found.some(([n]) => n === 0) ? found.filter(([n]) => n === 0) : found; // "AC" means Armor Class, not every word with "ac"
+  return best.slice(0, limit).map(([, x]) => x);
+}
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 export function WikiPage({ section }) {
@@ -167,7 +178,7 @@ export function WikiPage({ section }) {
   const hit = x => !ql || (exact ? abbrOf(x).includes(ql) : [x.t, x.a, x.de, x.d, x.x].some(v => norm(v).includes(ql)));
   const shown = SECTIONS.map(s => ({ ...s, entries: s.entries.filter(hit) })).filter(s => s.entries.length);
   const turnHit = !ql || !exact && ['dein zug', 'action', 'bonus action', 'reaction', 'bewegung', 'dash', 'dodge', 'disengage', 'help', 'hide', 'ready', 'search', 'study', 'utilize', 'influence', 'magic', 'attack'].some(w => w.includes(ql) || ql.includes(w));
-  return html`<main class="page wiki">
+  return html`<main class="page wiki"><a class="link crumb" href="#/spiel">← Spieltisch</a>
     <section class="hero"><div class="hero-id"><span class="label">📖 Wiki</span><h1>Begriffe & Regeln</h1>
       <p class="lede">Alles, was am Tisch an Wörtern und Abkürzungen fällt, kurz auf Deutsch erklärt. Nach den Regeln von 2024.</p></div></section>
     <div class="wiki-search"><input type="search" value=${q} onInput=${e => setQ(e.target.value)} placeholder="Suchen: AC, Concentration, Vorteil, Prone …" aria-label="Wiki durchsuchen"/></div>

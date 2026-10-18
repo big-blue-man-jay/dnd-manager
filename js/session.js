@@ -9,6 +9,7 @@ import { clsName } from './cards.js';
 import { CharQuick } from './character.js';
 import { useCampaign, RevealPopup, RevealModal, KINDS } from './campaign.js';
 import { TurnHelpButton } from './help.js';
+import { searchWiki } from './wiki.js';
 import { FoeForm, FoeSheet } from './foes.js';
 import { BattleMap } from './map.js';
 import { ActionLog, logEntry } from './log.js';
@@ -174,13 +175,16 @@ function Lookup({ quests, npcs, cid, isDM }) {
   const act = quests.filter(x => (x.status || 'active') === 'active');
   const hitN = npcs.filter(n => !ql || `${n.name} ${n.role || ''} ${n.location || ''} ${n.notes || ''}`.toLowerCase().includes(ql)).slice(0, ql ? 10 : 6);
   const hitQ = (ql ? quests.filter(x => `${x.title} ${x.location || ''} ${x.desc || x.description || ''}`.toLowerCase().includes(ql)) : act).slice(0, 6);
+  const rules = searchWiki(q, ql ? 6 : 0);
   const Item = (id, title, sub, body) => html`<li class=${open === id ? 'open' : ''}><button onClick=${() => setOpen(open === id ? null : id)}><b>${title}</b>${sub && html`<small>${sub}</small>`}</button>${open === id && body && html`<p class="pre">${body}</p>`}</li>`;
   return html`<section class="panel box lookup">
     <div class="box-head"><h2><span class="ico" aria-hidden="true">🔎</span>Nachschlagen</h2><a class="link small" href=${href('c', cid, 'npcs')}>Alle NPCs</a></div>
-    <input type="search" placeholder="Name, Ort oder Stichwort" value=${q} onInput=${e => setQ(e.target.value)} aria-label="NPCs und Quests durchsuchen"/>
+    <input type="search" placeholder="NPC, Quest oder Regel, z. B. AC" value=${q} onInput=${e => setQ(e.target.value)} aria-label="NPCs, Quests und Regeln durchsuchen"/>
+    ${!ql && html`<div class="lk-rules"><${TurnHelpButton} cls="btn small"/><a class="btn small" href="#/wiki">📖 Alle Begriffe & Regeln</a></div>`}
+    ${rules.length > 0 && html`<span class="label">Regeln & Begriffe</span><ul class="lk-list">${rules.map(x => Item('w' + x.t, html`${x.t}${x.a ? html` <span class="w-abbr">${x.a}</span>` : ''}`, [x.de, x.icon + ' ' + x.sec].filter(Boolean).join(' · '), x.d + (x.x ? '\n\nBeispiel: ' + x.x : '')))}</ul>`}
     ${hitQ.length > 0 && html`<span class="label">${ql ? 'Quests' : 'Laufende Quests'}</span><ul class="lk-list">${hitQ.map(x => Item('q' + x.id, x.title, [x.giver && 'von ' + x.giver, x.location].filter(Boolean).join(' · '), [x.description, x.reward && 'Belohnung: ' + x.reward].filter(Boolean).join('\n\n')))}</ul>`}
     ${hitN.length > 0 && html`<span class="label">${ql ? 'NPCs' : 'Zuletzt getroffen'}</span><ul class="lk-list">${hitN.map(n => Item('n' + n.id, n.name, [n.role, n.location].filter(Boolean).join(' · '), n.notes))}</ul>`}
-    ${ql && !hitQ.length && !hitN.length && html`<p class="muted small-note">Nichts gefunden.</p>`}
+    ${ql && !hitQ.length && !hitN.length && !rules.length && html`<p class="muted small-note">Nichts gefunden.</p>`}
   </section>`;
 }
 
@@ -242,7 +246,7 @@ function PlayerView({ camp, chars, sessions, quests, npcs, revelations, cid, use
   return html`<main class="page spieltisch player">
     <header class="st-head small">
       <div class="st-id"><span class="label">🎲 Spieltisch · Sitzung ${num}</span><h1>${camp.name}</h1>${camp.table?.place && html`<span class="st-place">📍 ${camp.table.place}</span>`}</div>
-      <span class="st-act"><${TurnHelpButton} cls="btn small"/><a class="btn small" href="#/wiki">📖 Wiki</a></span></header>
+      <${TurnHelpButton} cls="btn small"/></header>
     ${fight ? html`<${TurnStrip} cb=${camp.combat} chars=${chars} user=${user}/>` : last?.stop && html`<details class="fold st-stop"><summary>📍 Wo wir aufgehört haben</summary><p class="pre">${last.stop}</p></details>`}
     ${mine.map(c => html`<${CharQuick} key=${c.id} user=${user} cid=${cid} chId=${c.id} camp=${camp}/>`)}
     ${!mine.length && html`<${Empty} title="Noch kein Charakter in dieser Kampagne" action=${html`<a class="btn primary" href=${href('c', cid, 'neu')}>Charakter erstellen</a>`}>Ohne Charakter kannst du zuschauen, aber nicht würfeln.</${Empty}>`}
