@@ -4,6 +4,7 @@ Web-App für unsere D&D-Runde (Regeln 2024): Charakterbögen, Würfel, Sitzungen
 
 ## Was drin ist
 
+- **Fünf Bereiche unten:** 🏰 Kampagnen (beitreten, erstellen), 🧙 Charaktere (alle Helden nach Kampagne, auch ohne Kampagne vorbauen und später zuweisen), ⭐ Aktiv (die laufende Kampagne), 🎲 Im Spiel (Spielabend: Initiative-Tracker, eigener Charakter live, Gruppe, Quests, NPC-Suche), ⚙️ Einstellungen.
 - **Anmeldung mit Google.** Wer eine Kampagne erstellt, ist ihr DM. Spieler treten mit einem 6-stelligen Code bei.
 - **Charakterbogen 2024:** Abilities, Saves, Skills mit Expertise, Angriffe, Spellcasting mit Slots, Ressourcen mit Short/Long Rest, Conditions (offiziell + eigene des DMs), Exhaustion, Death Saves, Inventar, Münzen, Attunement.
 - **Entwurf → Freigabe:** Spieler bauen ihren Charakter selbst. Gibt der DM den Bogen frei, ändern Spieler nur noch Live-Werte (HP, Slots, Inventar …). Stufenaufstieg geht per XP.

@@ -5,7 +5,7 @@ import { THEMES, CONDITIONS, levelForXp } from './rules5e.js';
 import { STATUS, CharCard, clsName, AcValue } from './cards.js';
 import { exportCampaign } from './backup.js';
 import { TurnHelpButton } from './help.js';
-import { leaveCampaign, newJoinCode, createDummyCharacter } from './ops.js';
+import { leaveCampaign, newJoinCode, createDummyCharacter, setActiveCampaign } from './ops.js';
 
 const TABS = [['uebersicht', 'Übersicht', '🏠'], ['gruppe', 'Gruppe', '👥'], ['sitzungen', 'Sitzungen', '📖'], ['quests', 'Quests', '🗺️'], ['npcs', 'NPCs', '🎭'], ['enthuellungen', 'Enthüllungen', '🤯'], ['notizen', 'Notizen', '📝'], ['einstellungen', 'Einstellungen', '⚙️']];
 const QSTATUS = { active: 'Läuft', done: 'Erledigt', failed: 'Gescheitert' };
@@ -44,7 +44,7 @@ export function CampaignForm({ user, campaign = {}, onSave, onCancel }) {
 }
 
 /* ---------- data for one campaign ---------- */
-function useCampaign(cid, user) {
+export function useCampaign(cid, user) {
   const camp = useDoc(`campaigns/${cid}`);
   const ok = !!camp;
   const isDM = ok && camp.dmUid === user.uid;
@@ -73,6 +73,7 @@ export function CampaignPage({ user, cid, tab }) {
   // In the preview the DM sees exactly what a player sees: no DM tools, no hidden secrets, only reveals meant for everyone.
   const d = pv ? { ...d0, isDM: false, secrets: [], revelations: d0.revelations.filter(r => r.audience === 'all') } : d0;
   const { camp, isDM } = d;
+  const me = useDoc(`users/${user.uid}`);
   useEffect(() => { if (camp) applyTheme(camp.theme); }, [camp?.theme]);
   // older characters kept Armor Class on the public card: move it onto the private sheet
   const oldAc = realDM ? (d0.chars || []).filter(c => c.ac != null) : [];
@@ -84,7 +85,7 @@ export function CampaignPage({ user, cid, tab }) {
   const tabs = TABS.filter(([k]) => k !== 'einstellungen' || isDM);
   const t = tabs.some(([k]) => k === tab) ? tab : 'uebersicht';
   const myChar = d.chars.find(c => c.ownerUid === user.uid);
-  const props = { ...d, user, cid, myChar, realDM, preview: pv, setPreview };
+  const props = { ...d, user, cid, myChar, realDM, preview: pv, setPreview, isActive: me?.activeCampaign === cid };
   return html`<main class="page campaign">
     ${pv && html`<${PreviewBar} text="So sehen Spieler diese Kampagne. DM-Werkzeuge, vorbereitete Geheimnisse und deine Notizen sind ausgeblendet." onExit=${() => setPreview(false)}/>`}
     <${Hero} ...${props}/>
@@ -94,7 +95,7 @@ export function CampaignPage({ user, cid, tab }) {
   </main>`;
 }
 
-function Hero({ camp, isDM, realDM, preview, setPreview, sessions, chars, quests, cid }) {
+function Hero({ camp, isDM, realDM, preview, setPreview, sessions, chars, quests, cid, user, isActive }) {
   const active = chars.filter(c => (c.status || 'active') !== 'retired');
   const lv = active.map(c => c.level || 1); const avg = lv.length ? lv.reduce((a, b) => a + b, 0) / lv.length : 0;
   const n = daysUntil(camp.nextDate); const next = n !== null && n >= 0;
@@ -106,7 +107,7 @@ function Hero({ camp, isDM, realDM, preview, setPreview, sessions, chars, quests
       <div class="flag"><span class="label"><span class="ico" aria-hidden="true">🏰</span>Kampagne</span><${Pill} tone=${camp.status || 'active'}>${STATUS[camp.status || 'active']}</${Pill}>${isDM && html`<${Pill} tone="gild">DM-Ansicht</${Pill}>`}</div>
       <h1>${camp.name}</h1>${camp.description && html`<p class="lede">${camp.description}</p>`}
       <div class="hero-meta"><span>DM <b>${camp.dmName}</b></span>${camp.setting && html`<span>Setting <b>${camp.setting}</b></span>`}${camp.started && html`<span>Seit <b>${fmtDate(camp.started)}</b></span>`}</div>
-      <div class="hero-help"><${TurnHelpButton} cls="btn small"/></div></div>
+      <div class="hero-help"><${TurnHelpButton} cls="btn small"/>${isActive ? html`<span class="pill gild">⭐ Aktive Kampagne</span>` : html`<button class="btn small" onClick=${async () => { try { await setActiveCampaign(user, cid); toast('Ist jetzt deine aktive Kampagne.'); } catch (x) { failed(x); } }}>⭐ Als aktive Kampagne festlegen</button>`}${isActive && html`<a class="btn small primary" href="#/spiel">🎲 Sitzung starten</a>`}</div></div>
       ${realDM && !preview && html`<div class="hero-tools"><label class="area-pick"><span class="label">Gebiet / Theme</span><select id="area" value=${camp.theme || 'standard'} onChange=${setTheme}>${Object.entries(THEMES).map(([k, t]) => html`<option value=${k}>${t.name}</option>`)}</select></label><button class="btn small" onClick=${() => setPreview(true)}>👀 Als Spieler ansehen</button></div>`}</div>
     <div class="metrics panel">
       <div class="metric"><span class="label"><span class="ico" aria-hidden="true">📖</span>Sitzungen</span><span class="v num">${sessions.length}</span><span class="s">${sessions.length ? 'gespielt' : 'noch keine'}</span></div>
@@ -125,7 +126,7 @@ function Overview(p) {
       ${last ? html`<p class="stopbig">${last.stop || 'Kein Haltepunkt notiert.'}</p>${last.recap && html`<div><span class="label"><span class="ico" aria-hidden="true">⏪</span>Letztes Mal</span><p class="muted">${last.recap}</p></div>`}
         <div class="actions"><a class="btn small" href=${href('c', cid, 'sitzungen')}>Alle Sitzungen</a></div>`
       : html`<p class="muted">Noch keine Sitzung eingetragen.${isDM ? ' Nach dem ersten Spieleabend trägst du hier ein, wo ihr stehen geblieben seid.' : ''}</p>`}</div>
-    ${!isDM && !myChar && html`<div class="panel box cta"><h2><span class="ico" aria-hidden="true">🧙</span>Dein Charakter fehlt noch</h2><p class="muted">Erstelle deinen Helden für diese Kampagne. Dein DM schaut ihn sich danach an und gibt ihn frei.</p><div><a class="btn primary" href=${href('c', cid, 'neu')}>Charakter erstellen</a></div></div>`}
+    ${!isDM && !myChar && html`<div class="panel box cta"><h2><span class="ico" aria-hidden="true">🧙</span>Dein Charakter fehlt noch</h2><p class="muted">Erstelle deinen Helden für diese Kampagne. Dein DM schaut ihn sich danach an und gibt ihn frei.</p><div class="actions"><a class="btn primary" href=${href('c', cid, 'neu')}>Charakter erstellen</a><a class="btn" href="#/charaktere">Vorhandenen mitbringen</a></div></div>`}
     <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">👥</span>Die Gruppe</h2><a class="link" href=${href('c', cid, 'gruppe')}>Alle Karten</a></div>
       ${chars.length ? html`<div class="tablewrap"><table class="roster"><thead><tr><th>Charakter</th><th>Klasse</th><th>Hit Points</th><th class="r">AC</th><th>Zustände</th></tr></thead><tbody>
         ${chars.sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(c => html`<tr onClick=${() => go('c', cid, 'char', c.id)}>

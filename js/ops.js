@@ -106,3 +106,34 @@ export function dummyCharacterOps(cid, existing = []) {
   ];
 }
 export const createDummyCharacter = (cid, existing) => store.batch(dummyCharacterOps(cid, existing));
+
+/* ---------- personal character library (characters without a campaign) ----------
+   A private pseudo-campaign per user. Only its owner can read it (they are its "DM"), it never shows up as a campaign,
+   and characters move into a real campaign with assignToCampaign. */
+export const libId = uid => 'lib-' + uid;
+export async function ensureLibrary(user, me) {
+  const id = libId(user.uid);
+  if (me?.campaignIds?.includes(id)) return id;
+  await store.batch([
+    { type: 'set', path: `campaigns/${id}`, data: { name: 'Ohne Kampagne', library: true, status: 'active', dmUid: user.uid, dmName: user.name, createdAt: Date.now() } },
+    { type: 'merge', path: `users/${user.uid}`, data: { name: user.name, campaignIds: union(id) } },
+  ]);
+  return id;
+}
+export async function assignToCampaign(user, ch, cid) {
+  const from = `campaigns/${libId(user.uid)}/characters/${ch.id}`;
+  const [sheet, there] = await Promise.all([store.get(`${from}/sheet/main`), store.getCol(`campaigns/${cid}/characters`)]);
+  const taken = there.map(c => c.diceColor).filter(Boolean);
+  const { id: _i, campaignId: _c, ...card } = ch;
+  const { id: _s, ...sh } = sheet || {};
+  const color = card.diceColor && !taken.includes(card.diceColor) ? card.diceColor : (DICE_COLORS.find(d => !taken.includes(d.key)) || DICE_COLORS[0]).key;
+  const id = newId(), now = Date.now(), to = `campaigns/${cid}/characters/${id}`;
+  await store.batch([
+    { type: 'set', path: to, data: { ...card, diceColor: color, ownerUid: user.uid, ownerName: user.name, locked: false, xp: 0, ac: null, updatedAt: now } },
+    { type: 'set', path: `${to}/sheet/main`, data: { ...sh, ownerUid: user.uid, updatedAt: now } },
+    { type: 'delete', path: `${from}/sheet/main` },
+    { type: 'delete', path: from },
+  ]);
+  return id;
+}
+export const setActiveCampaign = (user, cid) => store.merge(`users/${user.uid}`, { activeCampaign: cid });

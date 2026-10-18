@@ -22,7 +22,8 @@ export function CharacterPage({ user, cid, chId }) {
   const card = useDoc(`campaigns/${cid}/characters/${chId}`);
   const [preview, setPreview] = usePreview(cid);
   const [asOther, setAsOther] = useState(false);
-  const realDM = !!camp && camp.dmUid === user.uid, realOwner = !!card && card.ownerUid === user.uid;
+  const lib = !!camp?.library; // character without a campaign: the owner edits it freely, there is no DM
+  const realDM = !!camp && camp.dmUid === user.uid && !lib, realOwner = !!card && card.ownerUid === user.uid;
   const hide = (realDM && preview) || asOther; // look at the character the way another player does
   const isDM = realDM && !hide, isOwner = realOwner && !hide;
   const sheet = useDoc(card && (isDM || isOwner) ? `campaigns/${cid}/characters/${chId}/sheet/main` : null);
@@ -32,7 +33,7 @@ export function CharacterPage({ user, cid, chId }) {
   const [edit, setEdit] = useState(false);
   if (camp === undefined || card === undefined) return html`<${Spinner}/>`;
   if (!camp || !card) return html`<main class="page"><${Empty} title="Charakter nicht gefunden" action=${html`<a class="btn" href=${href('c', cid)}>Zur Kampagne</a>`}>Vielleicht wurde er gelöscht.</${Empty}></main>`;
-  const back = html`<a class="link crumb" href=${href('c', cid, 'gruppe')}>← ${camp.name}</a>`;
+  const back = lib ? html`<a class="link crumb" href="#/charaktere">← Alle Charaktere</a>` : html`<a class="link crumb" href=${href('c', cid, 'gruppe')}>← ${camp.name}</a>`;
   if (!isDM && !isOwner) return html`<main class="page narrow">
     ${asOther ? html`<${PreviewBar} text="So sehen andere Spieler diesen Charakter." onExit=${() => setAsOther(false)}/>` : realDM && preview ? html`<${PreviewBar} text="So sehen Spieler diesen Charakter." onExit=${() => setPreview(false)}/>` : ''}
     ${back}<${PublicCard} c=${card}/></main>`;
@@ -59,8 +60,24 @@ export function CharacterPage({ user, cid, chId }) {
       </div>
     </div>
     ${edit && html`<${Modal} wide title=${'Bogen bearbeiten: ' + card.name} eyebrow=${card.locked && !isDM ? 'Freigegeben' : 'Charakterbogen'} onClose=${() => setEdit(false)} lead=${html`<${Medal} cls=${card.cls} species=${card.species} size="lg"/>`}>
-      <${CharForm} user=${user} cid=${cid} camp=${camp} card=${card} sheet=${s} others=${(all || []).filter(x => x.id !== chId)} isDM=${isDM} onDone=${() => setEdit(false)}/></${Modal}>`}
+      <${CharForm} user=${user} cid=${cid} camp=${camp} card=${card} sheet=${s} others=${lib ? [] : (all || []).filter(x => x.id !== chId)} isDM=${isDM} onDone=${() => setEdit(false)}/></${Modal}>`}
   </main>`;
+}
+
+// Compact live sheet for the "Im Spiel" screen: everything you touch during a fight, nothing you don't.
+export function CharQuick({ user, cid, chId, camp }) {
+  const card = useDoc(cardPath(cid, chId));
+  const sheet = useDoc(card ? sheetPath(cid, chId) : null);
+  useEffect(() => { if (card?.diceColor) dispatchEvent(new CustomEvent('dndm-dicecolor', { detail: { hex: diceHex(card.diceColor), name: card.name } })); return () => dispatchEvent(new CustomEvent('dndm-dicecolor', { detail: null })); }, [card?.diceColor, card?.name]);
+  if (card === undefined || (card && sheet === undefined)) return html`<${Spinner}/>`;
+  if (!card) return null;
+  const isDM = camp.dmUid === user.uid, isOwner = card.ownerUid === user.uid;
+  const s = { ...blankSheet(), ...(sheet || {}) };
+  const ctx = { c: card, s, cid, chId, isDM, isOwner, coreOk: isDM || (isOwner && !card.locked), camp, user };
+  return html`<div class="quick-char">
+    <div class="qc-head panel box"><${Medal} cls=${card.cls} species=${card.species}/><div class="nc-id"><h3>${card.name}</h3><div class="sub">Stufe ${card.level || 1} · ${[card.species, clsName(card)].filter(Boolean).join(' ')}</div></div>
+      <a class="btn small" href=${href('c', cid, 'char', chId)}>📜 Ganzer Bogen</a></div>
+    <${Vitals} ...${ctx}/><${Conditions} ...${ctx}/><${Attacks} ...${ctx}/><${Spellcasting} ...${ctx}/><${Resources} ...${ctx}/></div>`;
 }
 
 function PublicCard({ c }) {
@@ -333,6 +350,7 @@ export function NewCharacter({ user, cid }) {
   useEffect(() => { if (camp) applyTheme(camp.theme); }, [camp?.theme]);
   if (camp === undefined || all === undefined) return html`<${Spinner}/>`;
   if (!camp) return html`<main class="page"><${Empty} title="Kampagne nicht gefunden">Tritt der Kampagne zuerst mit dem Code bei.</${Empty}></main>`;
+  const lib = !!camp.library, others = lib ? [] : all;
   const create = async (card, sheet) => {
     const id = newId(), now = Date.now();
     try {
@@ -343,11 +361,11 @@ export function NewCharacter({ user, cid }) {
       toast(`${card.name} ist bereit für das Abenteuer.`); go('c', cid, 'char', id);
     } catch (x) { failed(x); }
   };
-  return html`<main class="page narrow"><a class="link crumb" href=${href('c', cid, 'gruppe')}>← ${camp.name}</a>
+  return html`<main class="page narrow">${lib ? html`<a class="link crumb" href="#/charaktere">← Alle Charaktere</a>` : html`<a class="link crumb" href=${href('c', cid, 'gruppe')}>← ${camp.name}</a>`}
     <div class="greet"><span class="label">Neuer Charakter</span><h1>Erschaffe deinen Helden</h1><p class="muted">${expert ? 'Alle Werte selbst eintragen.' : 'Schritt für Schritt, mit Erklärung bei jeder Entscheidung. Du kannst alles ändern, bis dein DM den Bogen freigibt.'}</p></div>
     <div class="panel box">${expert
-      ? html`<${CharForm} user=${user} cid=${cid} camp=${camp} others=${all} isDM=${camp.dmUid === user.uid} onDone=${id => go('c', cid, 'char', id)}/><p class="muted small-note"><button class="link" onClick=${() => setExpert(false)}>Zurück zur geführten Erstellung</button></p>`
-      : html`<${Builder} user=${user} others=${all} onCreate=${create} onExpert=${() => setExpert(true)}/>`}</div></main>`;
+      ? html`<${CharForm} user=${user} cid=${cid} camp=${camp} others=${others} isDM=${camp.dmUid === user.uid && !lib} onDone=${id => go('c', cid, 'char', id)}/><p class="muted small-note"><button class="link" onClick=${() => setExpert(false)}>Zurück zur geführten Erstellung</button></p>`
+      : html`<${Builder} user=${user} others=${others} onCreate=${create} onExpert=${() => setExpert(true)}/>`}</div></main>`;
 }
 
 function CharForm({ user, cid, camp, card, sheet, others, isDM, onDone }) {
