@@ -4,6 +4,7 @@ import { store, newId, union } from './data.js';
 import { THEMES, CONDITIONS, levelForXp } from './rules5e.js';
 import { STATUS, CharCard, clsName, AcValue } from './cards.js';
 import { exportCampaign } from './backup.js';
+import { TurnHelpButton } from './help.js';
 import { leaveCampaign, newJoinCode, createDummyCharacter } from './ops.js';
 
 const TABS = [['uebersicht', 'Übersicht'], ['gruppe', 'Gruppe'], ['sitzungen', 'Sitzungen'], ['quests', 'Quests'], ['npcs', 'NPCs'], ['enthuellungen', 'Enthüllungen'], ['notizen', 'Notizen'], ['einstellungen', 'Einstellungen']];
@@ -100,7 +101,8 @@ function Hero({ camp, isDM, realDM, preview, setPreview, sessions, chars, quests
     <div class="hero-top"><div class="hero-id">
       <div class="flag"><span class="label">Kampagne</span><${Pill} tone=${camp.status || 'active'}>${STATUS[camp.status || 'active']}</${Pill}>${isDM && html`<${Pill} tone="gild">DM-Ansicht</${Pill}>`}</div>
       <h1>${camp.name}</h1>${camp.description && html`<p class="lede">${camp.description}</p>`}
-      <div class="hero-meta"><span>DM <b>${camp.dmName}</b></span>${camp.setting && html`<span>Setting <b>${camp.setting}</b></span>`}${camp.started && html`<span>Seit <b>${fmtDate(camp.started)}</b></span>`}</div></div>
+      <div class="hero-meta"><span>DM <b>${camp.dmName}</b></span>${camp.setting && html`<span>Setting <b>${camp.setting}</b></span>`}${camp.started && html`<span>Seit <b>${fmtDate(camp.started)}</b></span>`}</div>
+      <div class="hero-help"><${TurnHelpButton} cls="btn small"/></div></div>
       ${realDM && !preview && html`<div class="hero-tools"><label class="area-pick"><span class="label">Gebiet / Theme</span><select id="area" value=${camp.theme || 'standard'} onChange=${setTheme}>${Object.entries(THEMES).map(([k, t]) => html`<option value=${k}>${t.name}</option>`)}</select></label><button class="btn small" onClick=${() => setPreview(true)}>Als Spieler ansehen</button></div>`}</div>
     <div class="metrics panel">
       <div class="metric"><span class="label">Sitzungen</span><span class="v num">${sessions.length}</span><span class="s">${sessions.length ? 'gespielt' : 'noch keine'}</span></div>

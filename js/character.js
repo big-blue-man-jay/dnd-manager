@@ -4,6 +4,7 @@ import { store, newId } from './data.js';
 import { ABILITIES, SKILLS, CLASSES, CLASS_NAMES, SPECIES, ALIGNMENTS, XP_FOR, levelForXp, profBonus, mod, sgn, autoSlots, isPact,
   suggestedResources, RESET_LABEL, SPECIES_EMOJI, CLASS_EMOJI, CONDITIONS, EXHAUSTION_DESC, DICE_COLORS, diceHex, D20 } from './rules5e.js';
 import { roll, withBonus } from './dice.js';
+import { TurnHelpButton } from './help.js';
 import { throwDice, loadThree, canThrow, diceSettings } from './dice3d.js';
 
 const accentHex = () => { try { return getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#2B4790'; } catch (e) { return '#2B4790'; } };
@@ -100,6 +101,7 @@ function CharHeader({ c, s, isDM, isOwner, coreOk, cid, chId, onEdit, onAsOther 
     <div class="xpwrap"><div class="xprow"><span class="label">Experience</span><span class="num">${(c.xp || 0).toLocaleString('de-DE')}${next ? ' / ' + next.toLocaleString('de-DE') + ' XP bis Stufe ' + (lvl + 1) : ' XP'}</span></div><div class="xpbar"><i style=${`width:${pct}%`}></i></div></div>
     <div class="actions">
       ${coreOk && html`<button class="btn" onClick=${onEdit}>Bogen bearbeiten</button>`}
+      <${TurnHelpButton}/>
       <button class="btn" onClick=${onAsOther}>Als Mitspieler ansehen</button>
       ${isDM && html`<button class="btn" onClick=${toggleLock}>${c.locked ? 'Zum Bearbeiten öffnen' : 'Bogen freigeben'}</button>`}
       ${isOwner && !c.locked && !isDM && html`<span class="ro-note">Entwurf: Du kannst alles ändern, bis dein DM den Bogen freigibt.</span>`}
