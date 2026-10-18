@@ -5,26 +5,32 @@ import { clsName } from './cards.js';
 import { CharQuick } from './character.js';
 import { useCampaign, RevealPopup } from './campaign.js';
 import { TurnHelpButton } from './help.js';
+import { FoeForm, FoeSheet } from './foes.js';
 
 const rnd = n => 1 + Math.floor(Math.random() * n);
 
 /* ---------- initiative tracker (stored on the campaign, so everyone sees it live; only the DM changes it) ---------- */
 function Initiative({ camp, cid, isDM, chars, user }) {
   const cb = camp.combat || null;
-  const [foe, setFoe] = useState({ name: '', init: '', hp: '' });
+  const [sel, setSel] = useState(null); // foe sheet the DM opened by tapping a row
   const save = async combat => { try { await store.update(`campaigns/${cid}`, { combat }); } catch (x) { failed(x); } };
   const sorted = list => [...list].sort((a, b) => (int(b.init, -99)) - (int(a.init, -99)) || (a.name || '').localeCompare(b.name || ''));
+  const keepTurn = list => { const curId = cb.list[cb.turn]?.id; return Math.max(0, list.findIndex(r => r.id === curId)); };
   const start = () => save({ round: 1, turn: 0, list: sorted(chars.map(c => ({ id: newId(), name: c.name, charId: c.id, kind: 'pc', init: '' }))) });
   const setRow = (id, patch) => { const list = cb.list.map(r => (r.id === id ? { ...r, ...patch } : r)); save({ ...cb, list }); };
-  const sortNow = () => { const curId = cb.list[cb.turn]?.id; const list = sorted(cb.list); save({ ...cb, list, turn: Math.max(0, list.findIndex(r => r.id === curId)) }); };
-  const next = () => { const n = cb.turn + 1; save(n >= cb.list.length ? { ...cb, turn: 0, round: cb.round + 1 } : { ...cb, turn: n }); };
-  const prev = () => { const n = cb.turn - 1; save(n < 0 ? { ...cb, turn: cb.list.length - 1, round: Math.max(1, cb.round - 1) } : { ...cb, turn: n }); };
-  const remove = id => { const i = cb.list.findIndex(r => r.id === id); const list = cb.list.filter(r => r.id !== id); save({ ...cb, list, turn: Math.min(i < cb.turn ? cb.turn - 1 : cb.turn, Math.max(0, list.length - 1)) }); };
-  const addFoe = e => { e.preventDefault(); if (!foe.name.trim()) return; const hp = int(foe.hp, 0);
-    const row = { id: newId(), name: foe.name.trim(), kind: 'npc', init: foe.init === '' ? '' : int(foe.init, 0), hp: hp || null, hpMax: hp || null };
-    const curId = cb.list[cb.turn]?.id; const list = sorted([...cb.list, row]); save({ ...cb, list, turn: Math.max(0, list.findIndex(r => r.id === curId)) }); setFoe({ name: '', init: '', hp: '' }); };
-  const rollFoes = () => { const list = sorted(cb.list.map(r => (r.kind === 'npc' && r.init === '' ? { ...r, init: rnd(20) } : r))); save({ ...cb, list, turn: 0 }); toast('Initiative für Gegner gewürfelt.'); };
-  const end = () => save(null);
+  const sortNow = () => { const list = sorted(cb.list); save({ ...cb, list, turn: keepTurn(list) }); };
+  const next = () => { const n = cb.turn + 1; setSel(null); save(n >= cb.list.length ? { ...cb, turn: 0, round: cb.round + 1 } : { ...cb, turn: n }); };
+  const prev = () => { const n = cb.turn - 1; setSel(null); save(n < 0 ? { ...cb, turn: cb.list.length - 1, round: Math.max(1, cb.round - 1) } : { ...cb, turn: n }); };
+  const remove = id => { const i = cb.list.findIndex(r => r.id === id); const list = cb.list.filter(r => r.id !== id); if (sel === id) setSel(null);
+    save({ ...cb, list, turn: Math.min(i < cb.turn ? cb.turn - 1 : cb.turn, Math.max(0, list.length - 1)) }); };
+  // several of the same kind get numbers: Goblin Warrior 1, 2, 3 (continuing if some are already in the fight)
+  const addFoes = (n, base, init) => {
+    const taken = cb.list.filter(r => r.kind === 'npc' && (r.name === base.name || r.name.startsWith(base.name + ' '))).length;
+    const rows = Array.from({ length: n }, (_, i) => ({ id: newId(), kind: 'npc', name: n > 1 || taken ? `${base.name} ${taken + i + 1}` : base.name,
+      init, initBonus: base.initBonus || 0, ac: base.ac, hp: base.hp, hpMax: base.hp, xp: base.xp || 0, attacks: base.attacks || [], note: base.note || '' }));
+    const list = sorted([...cb.list, ...rows]); save({ ...cb, list, turn: keepTurn(list) }); toast(n > 1 ? `${n} Gegner hinzugefügt.` : `${rows[0].name} hinzugefügt.`); };
+  const rollFoes = () => { const list = sorted(cb.list.map(r => (r.kind === 'npc' && r.init === '' ? { ...r, init: rnd(20) + (r.initBonus || 0) } : r))); save({ ...cb, list, turn: 0 }); toast('Initiative für Gegner gewürfelt.'); };
+  const end = () => { setSel(null); save(null); };
 
   if (!cb) return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">⚔️</span>Kampf</h2></div>
     ${isDM ? html`<p class="muted">Wenn es losgeht: Kampf starten. Alle Charaktere kommen automatisch in die Liste, Gegner fügst du dazu.</p><div><button class="btn primary" onClick=${start}>⚔️ Kampf starten</button></div>`
@@ -32,20 +38,26 @@ function Initiative({ camp, cid, isDM, chars, user }) {
 
   const cur = cb.list[cb.turn];
   const mineNow = cur?.kind === 'pc' && chars.find(c => c.id === cur.charId)?.ownerUid === user.uid;
+  const foes = cb.list.filter(r => r.kind === 'npc'), pcs = cb.list.filter(r => r.kind !== 'npc');
+  const xp = foes.reduce((t, r) => t + (r.xp || 0), 0);
+  const sheet = isDM && (cb.list.find(r => r.id === sel && r.kind === 'npc') || (cur?.kind === 'npc' ? cur : null));
   return html`<section class="panel box combat">
     <div class="box-head"><h2><span class="ico" aria-hidden="true">⚔️</span>Kampf · Runde ${cb.round}</h2>${isDM && html`<button class="link quiet small" onClick=${end}>Kampf beenden</button>`}</div>
+    <div class="sides"><span class="side pc">👥 Gruppe · ${pcs.length}</span><span class="side npc">👹 Feinde · ${foes.filter(r => (r.hp ?? 1) > 0).length}${foes.some(r => (r.hp ?? 1) <= 0) ? ` (${foes.filter(r => (r.hp ?? 1) <= 0).length} am Boden)` : ''}${isDM && xp ? ` · ${xp} XP` : ''}</span></div>
     ${mineNow && html`<div class="your-turn">🎯 Du bist dran! <${TurnHelpButton} cls="btn small"/></div>`}
-    <ol class="init-list">${cb.list.map((r, i) => { const ch = r.charId && chars.find(c => c.id === r.charId); const now = i === cb.turn;
-      return html`<li class=${(now ? 'now ' : '') + r.kind}>
-        <span class="i-init">${isDM ? html`<input type="number" aria-label="Initiative" value=${r.init} onChange=${e => setRow(r.id, { init: e.target.value === '' ? '' : int(e.target.value, 0) })} placeholder="?"/>` : html`<b class="num">${r.init === '' ? '–' : r.init}</b>`}</span>
-        <span class="i-who">${ch ? html`<${Medal} cls=${ch.cls} species=${ch.species} size="md"/>` : html`<span class="foe-ico" aria-hidden="true">👹</span>`}<span><b>${r.name}</b>${ch && html`<small>${ch.hp ?? 0} / ${ch.hpMax ?? 0} HP${(ch.conditions || []).length ? ' · ' + ch.conditions.join(', ') : ''}</small>`}</span></span>
-        ${r.kind === 'npc' && isDM && r.hpMax ? html`<span class="i-hp"><button class="btn small" onClick=${() => setRow(r.id, { hp: Math.max(0, (r.hp ?? r.hpMax) - 1) })} aria-label="1 Schaden">−</button><b class="num">${r.hp}</b><small>/${r.hpMax}</small><button class="btn small" onClick=${() => setRow(r.id, { hp: Math.min(r.hpMax, (r.hp ?? 0) + 1) })} aria-label="1 Heilung">+</button></span>` : html`<span></span>`}
-        ${isDM ? html`<button class="x" aria-label="Entfernen" onClick=${() => remove(r.id)}>×</button>` : html`<span></span>`}</li>`; })}</ol>
-    ${isDM && html`<div class="actions"><button class="btn" onClick=${prev}>◀</button><button class="btn primary" onClick=${next}>Nächster Zug ▶</button><button class="btn small" onClick=${sortNow}>Sortieren</button>${cb.list.some(r => r.kind === 'npc' && r.init === '') && html`<button class="btn small" onClick=${rollFoes}>🎲 Gegner würfeln</button>`}</div>
-      <form class="foe-form" onSubmit=${addFoe}><input aria-label="Gegner" placeholder="Gegner, z. B. Goblin 1" value=${foe.name} onInput=${e => setFoe({ ...foe, name: e.target.value })}/>
-        <input type="number" aria-label="Initiative" placeholder="Init" value=${foe.init} onInput=${e => setFoe({ ...foe, init: e.target.value })}/><input type="number" aria-label="Hit Points" placeholder="HP" value=${foe.hp} onInput=${e => setFoe({ ...foe, hp: e.target.value })}/>
-        <button class="btn small">➕ Gegner</button></form>
-      <p class="muted small-note">Initiative der Spieler: Sie tippen auf ⚡ Initiative in ihrem Bogen und sagen dir die Zahl. Gegner-HP sehen nur du.</p>`}
+    ${cur?.kind === 'npc' && !isDM && html`<div class="foe-turn">👹 ${cur.name} ist am Zug …</div>`}
+    <ol class="init-list">${cb.list.map((r, i) => { const ch = r.charId && chars.find(c => c.id === r.charId); const now = i === cb.turn; const foe = r.kind === 'npc'; const down = foe && (r.hp ?? 1) <= 0;
+      return html`<li class=${(now ? 'now ' : '') + (foe ? 'npc' : 'pc') + (down ? ' down' : '') + (foe && isDM ? ' tap' : '') + (sheet && sheet.id === r.id ? ' open' : '')} onClick=${foe && isDM ? () => setSel(sel === r.id ? null : r.id) : null}>
+        <span class="i-init" onClick=${e => e.stopPropagation()}>${isDM ? html`<input type="number" aria-label="Initiative" value=${r.init} onChange=${e => setRow(r.id, { init: e.target.value === '' ? '' : int(e.target.value, 0) })} placeholder="?"/>` : html`<b class="num">${r.init === '' ? '–' : r.init}</b>`}</span>
+        <span class="i-who">${ch ? html`<${Medal} cls=${ch.cls} species=${ch.species} size="md"/>` : html`<span class="foe-ico" aria-hidden="true">${down ? '💀' : '👹'}</span>`}
+          <span><b>${r.name}</b>${ch ? html`<small>${ch.hp ?? 0} / ${ch.hpMax ?? 0} HP${(ch.conditions || []).length ? ' · ' + ch.conditions.join(', ') : ''}</small>`
+            : html`<small>${down ? 'Am Boden' : 'Feind'}${isDM && r.ac ? ` · AC ${r.ac}` : ''}</small>`}</span></span>
+        ${foe && r.hpMax ? html`<span class="i-hp"><span class="num"><b>${r.hp ?? r.hpMax}</b><small> / ${r.hpMax}</small></span><${HpBar} hp=${r.hp ?? r.hpMax} max=${r.hpMax}/></span>` : html`<span></span>`}
+        ${isDM ? html`<button class="x" aria-label="Entfernen" onClick=${e => { e.stopPropagation(); remove(r.id); }}>×</button>` : html`<span></span>`}</li>`; })}</ol>
+    ${sheet && html`<${FoeSheet} key=${sheet.id} r=${sheet} now=${sheet.id === cur?.id} onPatch=${patch => setRow(sheet.id, patch)} onClose=${sel ? () => setSel(null) : null}/>`}
+    ${isDM && html`<div class="actions"><button class="btn" onClick=${prev}>◀</button><button class="btn primary" onClick=${next}>Nächster Zug ▶</button><button class="btn small" onClick=${sortNow}>Sortieren</button>${foes.some(r => r.init === '') && html`<button class="btn small" onClick=${rollFoes}>🎲 Gegner würfeln</button>`}</div>
+      <${FoeForm} onAdd=${addFoes}/>
+      <p class="muted small-note">Tippe auf einen Gegner, um seinen Bogen zu öffnen. Ist ein Gegner am Zug, öffnet sich sein Bogen von selbst. Alle sehen die HP der Gegner live, AC und Angriffe nur du. Initiative der Spieler: Sie tippen auf ⚡ Initiative in ihrem Bogen und sagen dir die Zahl.</p>`}
   </section>`;
 }
 

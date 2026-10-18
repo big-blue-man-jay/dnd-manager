@@ -454,9 +454,9 @@ export function DiceTray() {
   const [opts, setOpts] = useState({ anim: diceSettings.anim, sound: diceSettings.sound });
   const toggle = k => { diceSettings[k] = !opts[k]; setOpts({ ...opts, [k]: !opts[k] }); };
   // the 3D dice fly first; the result lands in the tray once they settle (or the throw is skipped)
-  const push = (label, r) => {
+  const push = (label, r, own) => {
     if (!r) { toast('Das verstehe ich nicht. Beispiel: 2d6+3'); return; }
-    const hex = colorRef.current?.hex, entry = { label, r, hex };
+    const hex = own || colorRef.current?.hex, entry = { label, r, hex };
     const show = () => { setHist(h => [entry, ...h].slice(0, 25)); setOpen(true); };
     throwDice(r, hex || accentHex(), label).then(show, show);
   };
@@ -465,7 +465,7 @@ export function DiceTray() {
     const t = setTimeout(loadThree, 2500); return () => clearTimeout(t);
   }, []);
   useEffect(() => {
-    const onRoll = e => { const d = e.detail; push(d.label, d.result || roll(d.expr, modeRef.current)); };
+    const onRoll = e => { const d = e.detail; push(d.label, d.result || roll(d.expr, /^1d20[+-]?\d*$/.test(String(d.expr).replace(/\s/g, '')) ? modeRef.current : 'normal'), d.hex); };
     const onColor = e => setColor(e.detail);
     addEventListener('dndm-roll', onRoll); addEventListener('dndm-dicecolor', onColor);
     return () => { removeEventListener('dndm-roll', onRoll); removeEventListener('dndm-dicecolor', onColor); };

@@ -735,7 +735,6 @@ body { padding-bottom: calc(var(--nav-h) + 110px + env(safe-area-inset-bottom, 0
 .init-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .init-list li { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto 26px; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: var(--raised); }
 .init-list li.now { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
-.init-list li.npc .i-who b { color: var(--blood); }
 .i-init input { width: 58px; text-align: center; padding: 6px 4px; }
 .i-init b { display: block; text-align: center; font-size: 20px; }
 .i-who { display: flex; gap: 10px; align-items: center; min-width: 0; }
@@ -757,3 +756,43 @@ body { padding-bottom: calc(var(--nav-h) + 110px + env(safe-area-inset-bottom, 0
 @media (max-width: 440px) { .bottomnav a { font-size: 10px; letter-spacing: -.01em; padding: 6px 0; } .bn-t { overflow: visible; } .bottomnav { width: calc(100% - 12px); padding: 5px; } }
 
 .login-warn { width: 100%; text-align: left; font-size: 14.5px; line-height: 1.45; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--gild); background: var(--raised); }
+.sides { display: flex; flex-wrap: wrap; gap: 6px; }
+.side { font-size: 13.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+.side.pc { background: var(--ok-soft); color: var(--ok); }
+.side.npc { background: var(--blood-soft); color: var(--blood); }
+.init-list li { border-left: 4px solid transparent; }
+.init-list li.pc { border-left-color: var(--ok); }
+.init-list li.npc { border-left-color: var(--blood); background: var(--blood-soft); }
+.init-list li.npc .i-who b { color: var(--blood); }
+.init-list li.now { box-shadow: inset 0 0 0 2px var(--accent); }
+.init-list li.npc.now { box-shadow: inset 0 0 0 2px var(--blood); }
+.init-list li.down { opacity: .55; }
+.init-list li.down .i-who b { text-decoration: line-through; }
+.init-list li.tap { cursor: pointer; }
+.init-list li.open { outline: 2px dashed var(--blood); outline-offset: 2px; }
+.init-list .i-hp { display: flex; flex-direction: column; align-items: end; gap: 3px; min-width: 76px; }
+.init-list .i-hp .hpbar { width: 76px; }
+.foe-turn { padding: 10px 14px; border-radius: 12px; background: var(--blood-soft); color: var(--blood); font-weight: 700; }
+.foe-sheet { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; border-top: 3px solid var(--blood); }
+.foe-sheet.now { box-shadow: 0 0 0 2px var(--blood); }
+.fs-head { display: flex; gap: 10px; align-items: center; } .fs-head > div { flex: 1; } .fs-head h3 { font-family: var(--display); font-size: 20px; } .fs-head .label { color: var(--blood); }
+.fs-stats { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 16px; align-items: end; }
+.fs-stats b { font-size: 22px; display: block; } .fs-stats small { font-size: 14px; color: var(--muted); }
+.fs-hp .hpbar { margin-top: 4px; }
+.fs-dmg { display: flex; gap: 6px; align-items: center; } .fs-dmg input { width: 64px; }
+.fs-atks { display: flex; flex-direction: column; gap: 6px; }
+.fs-atk { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 6px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--raised); }
+.fs-an small { display: block; color: var(--muted); font-size: 12.5px; }
+.btn.quiet { background: none; }
+.foe-add { padding: 14px; display: flex; flex-direction: column; gap: 10px; border-top: 3px solid var(--blood); }
+.fa-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px; gap: 8px; }
+.fa-row.four { grid-template-columns: minmax(0, 1fr) 80px 90px 100px; }
+.fld { display: flex; flex-direction: column; gap: 4px; }
+.fa-atks { display: flex; flex-direction: column; gap: 6px; align-items: start; } .fa-atks .fld { width: 100%; }
+.fa-atk { display: grid; grid-template-columns: minmax(0, 1fr) 64px 100px 110px; gap: 6px; width: 100%; }
+@media (max-width: 560px) {
+  .fs-stats { grid-template-columns: auto 1fr; } .fs-dmg { grid-column: 1 / -1; }
+  .fs-atk { grid-template-columns: 1fr auto auto; } .fs-atk .fs-an { grid-column: 1 / -1; }
+  .fa-row.four { grid-template-columns: 1fr 1fr; } .fa-atk { grid-template-columns: 1fr 64px; }
+  .init-list .i-hp { min-width: 60px; } .init-list .i-hp .hpbar { width: 60px; }
+}
