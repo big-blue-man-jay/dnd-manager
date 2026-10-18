@@ -755,3 +755,5 @@ body { padding-bottom: calc(var(--nav-h) + 110px + env(safe-area-inset-bottom, 0
 .qc-head { display: flex; flex-direction: row; gap: 12px; align-items: center; } .qc-head .nc-id { flex: 1; }
 .qc-head h3 { font-size: 20px; }
 @media (max-width: 440px) { .bottomnav a { font-size: 10px; letter-spacing: -.01em; padding: 6px 0; } .bn-t { overflow: visible; } .bottomnav { width: calc(100% - 12px); padding: 5px; } }
+
+.login-warn { width: 100%; text-align: left; font-size: 14.5px; line-height: 1.45; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--gild); background: var(--raised); }

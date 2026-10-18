@@ -15,13 +15,18 @@ import { CharacterPage, NewCharacter, DiceTray } from './character.js';
 /* ---------- login ---------- */
 function Login({ mode }) {
   const [busy, setBusy] = useState(false);
-  const signIn = async () => { setBusy(true); try { await store.signIn(); } catch (e) { failed(e); } finally { setBusy(false); } };
+  const [err, setErr] = useState('');
+  const signIn = async () => { setBusy(true); setErr(''); try { await store.signIn(); } catch (e) { if (e.friendly) setErr(e.message); else failed(e); } finally { setBusy(false); } };
+  // Links opened from WhatsApp, Instagram & co. open in a built-in browser where Google sign-in fails.
+  const inApp = /FBAN|FBAV|Instagram|WhatsApp|Snapchat|TikTok|musical_ly|Line\/|Telegram|GSA\/|; wv\)/i.test(navigator.userAgent);
   return html`<main class="login-wrap"><section class="login panel">
     <${Logo}/>
     <div class="login-head"><span class="label">DnD Manager</span><h1>Willkommen am Tisch</h1>
       <p class="muted">Charaktere, Würfel, Sitzungen und Geheimnisse deiner Kampagnen an einem Ort.</p></div>
     ${mode === 'firebase'
-      ? html`<button class="btn primary big" onClick=${signIn} disabled=${busy}><span class="g">G</span> Mit Google anmelden</button>
+      ? html`${inApp && html`<div class="login-warn"><b>Bitte im richtigen Browser öffnen.</b> Du hast die Seite aus einer App heraus geöffnet, dort klappt die Google-Anmeldung oft nicht. Tippe auf <b>⋯</b> oder das Teilen-Symbol und wähle <b>„In Safari öffnen“</b> bzw. <b>„Im Browser öffnen“</b>.</div>`}
+          <button class="btn primary big" onClick=${signIn} disabled=${busy}><span class="g">G</span> Mit Google anmelden</button>
+          ${err && html`<div class="login-warn" role="alert">${err}</div>`}
           <p class="ro-note">Dein Google-Konto bestimmt, was du sehen und ändern darfst. Wir speichern nur deinen Namen.</p>`
       : html`<div class="demo-note"><b>Demo-Modus.</b> Firebase ist noch nicht eingerichtet, deshalb bleiben alle Daten nur in diesem Browser. Wähle ein Test-Konto:</div>
           <div class="people">${store.demoUsers().map(u => html`<button class="person" onClick=${() => store.demoSwitch(u.uid)}><span class="ava sm">${u.name[0]}</span><span class="pt"><b>${u.name}</b></span><span class="go" aria-hidden="true">→</span></button>`)}</div>`}

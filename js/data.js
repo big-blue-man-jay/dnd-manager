@@ -9,6 +9,7 @@ export const arrRemove = (...v) => ({ [REMOVE]: v });
 export const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 let impl;
+const friendly = msg => Object.assign(new Error(msg), { friendly: true });
 export const store = {
   get mode() { return impl?.mode; },
   init: async () => { impl = firebaseConfig && firebaseConfig.apiKey ? await firebaseImpl() : demoImpl(); return impl.mode; },
@@ -40,6 +41,8 @@ async function firebaseImpl() {
   ]);
   const app = initializeApp(firebaseConfig);
   const auth = A.getAuth(app);
+  // Finish a sign-in that older versions started as a redirect, so it isn't lost.
+  A.getRedirectResult(auth).catch(() => {});
   // Safari sometimes stalls on Firestore's default streaming connection; long polling is slower but always gets through.
   const safari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(navigator.userAgent);
   const db = F.initializeFirestore(app, safari ? { experimentalForceLongPolling: true } : { experimentalAutoDetectLongPolling: true });
@@ -55,10 +58,19 @@ async function firebaseImpl() {
   return {
     mode: 'firebase',
     onUser: cb => A.onAuthStateChanged(auth, u => cb(u ? { uid: u.uid, name: u.displayName || u.email || 'Abenteurer', photo: u.photoURL || '' } : null)),
+    // Always the popup. The redirect flow silently fails on github.io: Safari and newer Chrome block the
+    // cross-site storage it needs (authDomain is firebaseapp.com), so the user lands back on the login page.
     signIn: async () => {
       const p = new A.GoogleAuthProvider();
+      p.setCustomParameters({ prompt: 'select_account' });
       try { await A.signInWithPopup(auth, p); }
-      catch (e) { if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') await A.signInWithRedirect(auth, p); else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') throw e; }
+      catch (e) {
+        if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+        if (e.code === 'auth/popup-blocked') throw friendly('Der Browser hat das Anmeldefenster blockiert. Erlaube Pop-ups für diese Seite und tippe nochmal auf „Mit Google anmelden“.');
+        if (e.code === 'auth/operation-not-supported-in-this-environment' || e.code === 'auth/web-storage-unsupported') throw friendly('In diesem Browser klappt die Anmeldung nicht. Öffne die Seite direkt in Safari oder Chrome, nicht aus WhatsApp, Instagram & Co.');
+        if (e.code === 'auth/unauthorized-domain') throw friendly('Diese Adresse ist in Firebase nicht freigegeben. Öffne die App über big-blue-man-jay.github.io/dnd-manager.');
+        throw e;
+      }
     },
     signOut: () => A.signOut(auth),
     get: async path => snapDoc(await F.getDoc(F.doc(db, path))),
