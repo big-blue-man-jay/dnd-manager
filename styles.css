@@ -776,7 +776,7 @@ body { padding-bottom: calc(var(--nav-h) + 110px + env(safe-area-inset-bottom, 0
 .foe-sheet { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; border-top: 3px solid var(--blood); }
 .foe-sheet.now { box-shadow: 0 0 0 2px var(--blood); }
 .fs-head { display: flex; gap: 10px; align-items: center; } .fs-head > div { flex: 1; } .fs-head h3 { font-family: var(--display); font-size: 20px; } .fs-head .label { color: var(--blood); }
-.fs-stats { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 16px; align-items: end; }
+.fs-stats { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: end; } .fs-hp { flex: 1 1 120px; min-width: 0; } .fs-dmg { flex: 1 1 250px; }
 .fs-stats b { font-size: 22px; display: block; } .fs-stats small { font-size: 14px; color: var(--muted); }
 .fs-hp .hpbar { margin-top: 4px; }
 .fs-dmg { display: flex; gap: 6px; align-items: center; } .fs-dmg input { width: 64px; }
@@ -911,3 +911,31 @@ body { padding-bottom: calc(var(--nav-h) + 110px + env(safe-area-inset-bottom, 0
 .sc-act { display: flex; gap: 8px; align-items: center; }
 .scene-save { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; } .scene-save .checkline { grid-column: 1 / -1; }
 @media (max-width: 520px) { .scene-save { grid-template-columns: 1fr; } }
+/* map: extra figures (NPCs) */
+.tok.fig .tk-face { border-color: var(--gild); background: var(--gild-soft); }
+.tok.fig.friendly .tk-face { border-color: var(--ok); background: var(--ok-soft); }
+.tok.fig.hostile .tk-face { border-color: var(--blood); background: var(--blood-soft); }
+.tok.fig .tk-face { font-weight: 700; }
+.dist-chip.fig { background: var(--gild-soft); } .dist-chip.fig.friendly { background: var(--ok-soft); } .dist-chip.fig.hostile { background: var(--blood-soft); }
+.figs { padding: 14px; display: flex; flex-direction: column; gap: 10px; border-top: 3px solid var(--gild); }
+.fig-npcs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.fig-npc.friendly { border-color: var(--ok); } .fig-npc.hostile { border-color: var(--blood); }
+.fig-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .fig-form .label { flex-basis: 100%; }
+.fig-form input { flex: 1 1 200px; min-width: 0; }
+.fig-emoji { display: flex; flex-wrap: wrap; gap: 3px; }
+/* map: full-screen table view for a tablet */
+.bm-table { position: fixed; inset: 0; z-index: 55; display: flex; flex-direction: column; gap: 10px; padding: 10px max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); background: var(--bg); }
+.bm-table .bm-wrap { flex: 1 1 auto; min-height: 0; display: grid; place-items: center; overflow: hidden; }
+.bm-table .bm-grid { margin: 0; }
+.bm-table .tok .tk-tag { font-size: max(10px, calc(var(--cell) * .2)); min-width: max(16px, calc(var(--cell) * .3)); height: max(16px, calc(var(--cell) * .3)); line-height: max(16px, calc(var(--cell) * .3)); border-radius: 999px; }
+.bm-table .tok .tk-hp { height: max(4px, calc(var(--cell) * .08)); }
+.bt-head { display: flex; align-items: center; gap: 12px; min-height: 40px; }
+.bt-round { font-family: var(--font-display, inherit); font-weight: 700; font-size: 18px; white-space: nowrap; }
+.bt-order { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; overflow-x: auto; flex: 1; scrollbar-width: none; }
+.bt-order li { padding: 6px 12px; border-radius: 999px; font-weight: 600; white-space: nowrap; background: var(--ok-soft); }
+.bt-order li.npc { background: var(--blood-soft); }
+.bt-order li.down { opacity: .45; text-decoration: line-through; }
+.bt-order li.now { box-shadow: 0 0 0 3px var(--gild); font-size: 1.08em; }
+.bt-close { margin-left: auto; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font-size: 18px; cursor: pointer; flex: none; }
+.bt-foot { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: flex-start; }
+.bt-foot .bm-info { flex: 1 1 320px; }

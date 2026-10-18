@@ -104,10 +104,10 @@ export function SessionPage({ user, cid }) {
       <div class="actions"><span class="sub">Sitzung ${(last?.num || 0) + 1}</span><${TurnHelpButton} cls="btn small"/><a class="btn small" href=${href('c', cid)}>🏰 Kampagne</a>
         ${isDM && html`<a class="btn small" href=${href('c', cid, 'enthuellungen')}>🤯 Enthüllen</a><a class="btn small" href=${href('c', cid, 'notizen')}>📝 DM-Notizen</a><a class="btn small primary" href=${href('c', cid, 'sitzungen')}>📖 Sitzung eintragen</a>`}</div>
       ${last?.stop && html`<p class="stopbig"><span class="label"><span class="ico" aria-hidden="true">📍</span>Wo wir aufgehört haben</span><br/>${last.stop}</p>`}</section>
-    <div class="play-top">
-      <${BattleMap} cid=${cid} camp=${camp} chars=${chars} isDM=${isDM} user=${user}/>
+    ${isDM ? html`<div class="play-top">
+      <${BattleMap} cid=${cid} camp=${camp} chars=${chars} isDM=${isDM} user=${user} npcs=${npcs}/>
       <${Initiative} camp=${camp} cid=${cid} isDM=${isDM} chars=${chars} user=${user}/>
-    </div>
+    </div>` : html`<${Initiative} camp=${camp} cid=${cid} isDM=${isDM} chars=${chars} user=${user}/>`}
     ${mine.map(c => html`<${CharQuick} key=${c.id} user=${user} cid=${cid} chId=${c.id} camp=${camp}/>`)}
     ${!mine.length && !isDM && html`<${Empty} title="Noch kein Charakter in dieser Kampagne" action=${html`<a class="btn primary" href=${href('c', cid, 'neu')}>Charakter erstellen</a>`}>Ohne Charakter kannst du zuschauen, aber nicht würfeln.</${Empty}>`}
     <div class="ov">
