@@ -11,6 +11,13 @@ import { throwDice, loadThree, canThrow, diceSettings } from './dice3d.js';
 const accentHex = () => { try { return getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#2B4790'; } catch (e) { return '#2B4790'; } };
 import { clsName } from './cards.js';
 
+/* shared advantage/disadvantage state: set in the tray or the turn panel, used by the next d20 roll, then back to normal */
+let diceMode = 'normal'; const modeSubs = new Set();
+export const setDiceMode = m => { diceMode = m; modeSubs.forEach(f => f(m)); };
+export function useDiceMode() { const [m, setM] = useState(diceMode); useEffect(() => { modeSubs.add(setM); return () => modeSubs.delete(setM); }, []); return m; }
+const isD20 = expr => /^1d20([+-]\d+)?$/.test(String(expr || '').replace(/\s|−/g, x => (x === '−' ? '-' : '')));
+const ModeSeg = ({ small }) => { const m = useDiceMode(); return html`<div class=${'seg mode-seg' + (small ? ' small' : '')} role="group" aria-label="Nächster d20-Wurf">${[['normal', 'Normal'], ['adv', '⬆️ Vorteil'], ['dis', '⬇️ Nachteil']].map(([k, l]) => html`<button type="button" aria-pressed=${m === k} onClick=${() => setDiceMode(k)}>${l}</button>`)}</div>`; };
+
 const hitDie = c => (c.cls === 'Homebrew' ? int(c.hitDie, 8) : CLASSES[c.cls]?.die || 8);
 const spellAb = (c, s) => s.spellAbility || CLASSES[c.cls]?.spell || '';
 const blankSheet = () => ({ abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, saveProf: [], skills: {}, attacks: [], spells: [], slotsUsed: Array(9).fill(0), slotsOverride: null,
@@ -77,7 +84,9 @@ export function CharQuick({ user, cid, chId, camp }) {
   return html`<div class="quick-char">
     <div class="qc-head panel box"><${Medal} cls=${card.cls} species=${card.species}/><div class="nc-id"><h3>${card.name}</h3><div class="sub">Stufe ${card.level || 1} · ${[card.species, clsName(card)].filter(Boolean).join(' ')}</div></div>
       <a class="btn small" href=${href('c', cid, 'char', chId)}>📜 Ganzer Bogen</a></div>
-    <${LevelUpBanner} ...${ctx}/><${Vitals} ...${ctx}/><${Conditions} ...${ctx}/><${Attacks} ...${ctx}/><${Spellcasting} ...${ctx}/><${Resources} ...${ctx}/><${Inventory} ...${ctx}/></div>`;
+    <${LevelUpBanner} ...${ctx}/><${Vitals} ...${ctx}/>
+    ${camp?.combat ? html`<${TurnPanel} ...${ctx}/>` : html`<${Attacks} ...${ctx}/>`}
+    <${Conditions} ...${ctx}/><${Abilities} ...${ctx}/><${Skills} ...${ctx}/><${Spellcasting} ...${ctx}/><${Resources} ...${ctx}/><${Inventory} ...${ctx}/></div>`;
 }
 
 function PublicCard({ c }) {
@@ -201,6 +210,86 @@ function LevelUpModal({ c, s, cid, chId, onClose }) {
     </div></${Modal}>`;
 }
 
+
+/* ---------- combat: what you can do on your turn, with a tracker for movement, action, bonus action and reaction ---------- */
+// 2024 casting times of common spells; anything else counts as an Action unless the player sets it on the spell
+const SPELL_TIME = Object.fromEntries([
+  ...['hex', 'armor of agathys', 'healing word', 'ensnaring strike', "hunter's mark", 'shield of faith', 'divine favor', 'searing smite', 'thunderous smite', 'wrathful smite',
+    'expeditious retreat', 'sanctuary', 'misty step', 'spiritual weapon', 'shillelagh', 'magic weapon', 'mass healing word', 'compelled duel', 'hail of thorns', 'divine smite', 'zephyr strike'].map(n => [n, 'bonus']),
+  ...['shield', 'hellish rebuke', 'feather fall', 'counterspell', 'absorb elements', 'silvery barbs'].map(n => [n, 'reaction']),
+]);
+const CONC = new Set(['hex', 'faerie fire', 'bless', "hunter's mark", 'ensnaring strike', 'shield of faith', 'entangle', 'sleep', 'bane', 'heroism', 'command', 'hold person', 'invisibility', 'detect magic', 'spiritual weapon', 'fog cloud', 'compelled duel', 'protection from evil and good', 'silence', 'web', 'blur', 'darkness', 'haste', 'fly', 'hypnotic pattern', 'divine favor', 'searing smite', 'wrathful smite', 'expeditious retreat', 'magic weapon']);
+const spellTime = x => x.time || SPELL_TIME[(x.name || '').trim().toLowerCase()] || 'action';
+const isConc = x => CONC.has((x.name || '').trim().toLowerCase()) || /concentration/i.test(x.note || '');
+const ECON = [['move', '👟', 'Bewegung'], ['action', '🎯', 'Action'], ['bonus', '⚡', 'Bonus Action'], ['reaction', '↩️', 'Reaction']];
+const OTHER_ACTIONS = [
+  ['Dash', 'Doppelte Bewegung in diesem Zug.'], ['Dodge', 'Bis zu deinem nächsten Zug haben Angriffe gegen dich Disadvantage, deine Dex Saves Advantage.'],
+  ['Disengage', 'Du kannst dich in diesem Zug bewegen, ohne Opportunity Attacks auszulösen.'], ['Help', 'Ein Verbündeter bekommt Advantage auf seinen nächsten Check oder Angriff gegen einen Gegner neben dir.'],
+  ['Hide', 'Dexterity (Stealth), DC 15. Klappt nur, wenn du außer Sicht bist.'], ['Ready', 'Du legst eine Action und einen Auslöser fest und reagierst später mit deiner Reaction.'],
+  ['Search', 'Wisdom (Perception) oder Investigation, um etwas zu finden.'], ['Influence', 'Charisma-Check, um jemanden zu überzeugen oder einzuschüchtern.'], ['Utilize', 'Einen Gegenstand benutzen, z. B. einen Hebel ziehen.'],
+];
+// local per device: resets automatically at the start of each of your turns
+function useEconomy(cid, chId, round, myTurn) {
+  const KEY = `dndm-turn-${cid}-${chId}`;
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } };
+  const [st, setSt] = useState(load);
+  const save = v => { setSt(v); try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} };
+  useEffect(() => { if (myTurn && st.round !== round) save({ ...st, round, used: {} }); }, [myTurn, round]);
+  return [st, save];
+}
+function TurnPanel(ctx) {
+  const { c, s, cid, chId, camp } = ctx; const cb = camp?.combat;
+  const cur = cb?.list?.[cb.turn], myTurn = !!cb && cur?.charId === chId;
+  const [st, save] = useEconomy(cid, chId, cb?.round, myTurn);
+  const [tip, setTip] = useState(null);
+  if (!cb) return null;
+  const used = st.used || {};
+  const mark = (k, v = true) => save({ ...st, used: { ...used, [k]: v } });
+  const use = (k, label) => { if (used[k] && k !== 'move') toast(`${label}: schon verbraucht in diesem Zug.`); mark(k); };
+  const pb = profBonus(c.level || 1), ab = spellAb(c, s), m = ab ? mod(s.abilities[ab]) : 0;
+  const slotsMax = s.slotsOverride || autoSlots(c.cls, c.level), slotsUsed = s.slotsUsed || Array(9).fill(0);
+  const spells = (s.spells || []).filter(x => int(x.level) === 0 || x.prepared !== false);
+  const atkNames = new Set((s.attacks || []).map(a => (a.name || '').toLowerCase()));
+  const cast = x => { const lv = int(x.level), k = spellTime(x);
+    if (lv > 0) { const i = slotsMax.findIndex((n, j) => j >= lv - 1 && n > (slotsUsed[j] || 0));
+      if (i < 0) return toast('Kein Spell Slot mehr frei. Erst nach einer Rast wieder.');
+      const u = [...slotsUsed]; u[i] = (u[i] || 0) + 1; patch(ctx, null, { slotsUsed: u }); }
+    save({ ...st, used: { ...used, [k]: true }, ...(isConc(x) ? { conc: x.name } : {}) });
+    toast(`${x.name} gewirkt${lv > 0 ? ', 1 Slot verbraucht' : ''}.${isConc(x) ? ' Concentration läuft.' : ''}${atkNames.has(x.name.toLowerCase()) ? ' Jetzt Treffer würfeln.' : ''}`); };
+  const spellRow = x => html`<div class="tp-row"><div class="tp-name"><b>${x.name}</b><small>${int(x.level) ? 'Stufe ' + x.level + ' · Slot' : 'Cantrip'}${isConc(x) ? ' · Concentration' : ''}${x.note ? ' · ' + x.note : ''}</small></div>
+    ${!atkNames.has((x.name || '').toLowerCase()) && html`<button class="btn small" onClick=${() => cast(x)}>✨ Wirken</button>`}</div>`;
+  const group = (k, list) => list.filter(x => spellTime(x) === k);
+  const atkRow = a => html`<div class="tp-row"><div class="tp-name"><b>${a.name}</b>${a.note && html`<small>${a.note}</small>`}</div>
+    <button class="btn small roll" onClick=${() => { const sp = spells.find(x => x.name.toLowerCase() === (a.name || '').toLowerCase()); if (sp && int(sp.level)) cast(sp); else mark('action'); requestRoll({ label: `${a.name}: Treffer`, expr: withBonus('1d20', int(a.bonus)) }); }} title="Angriffswurf gegen die AC">🎯 ${sgn(int(a.bonus))}</button>
+    <button class="btn small roll" onClick=${() => requestRoll({ label: `${a.name}: Schaden`, expr: a.damage })} title="Schaden, nur bei Treffer">💥 ${a.damage}</button></div>`;
+  const econ = ECON.map(([k, e, l]) => html`<button class=${'econ' + (used[k] ? ' used' : '')} aria-pressed=${!!used[k]} onClick=${() => mark(k, !used[k])}>
+      <span aria-hidden="true">${e}</span><b>${l}</b><small>${used[k] ? 'verbraucht' : k === 'move' ? `${c.speed || 30} ft` : 'frei'}</small></button>`);
+  const bonusSpells = group('bonus', spells), reactSpells = group('reaction', spells), actSpells = group('action', spells);
+  return html`<section class=${'panel box turnpanel' + (myTurn ? ' mine' : '')}>
+    <div class="box-head"><h2><span class="ico" aria-hidden="true">${myTurn ? '🎯' : '⏳'}</span>${myTurn ? 'Du bist dran!' : `Kampf · Runde ${cb.round}`}</h2>
+      <button class="link quiet small" onClick=${() => save({ ...st, used: {} })}>Zurücksetzen</button></div>
+    <p class="muted small-note">${myTurn ? 'Tippe an, was du verbraucht hast. Beim nächsten Zug ist alles wieder frei.' : `Gerade dran: ${cur?.name || '–'}. Deine Reaction kannst du auch jetzt nutzen.`}</p>
+    <div class="econ-row">${econ}</div>
+    ${st.conc && html`<div class="conc">🧠 Concentration: <b>${st.conc}</b><small>Nimmst du Schaden: Constitution Save, DC 10 oder halber Schaden.</small>
+      <button class="btn small" onClick=${() => requestRoll({ label: 'Concentration (CON Save)', expr: withBonus('1d20', mod(s.abilities.con) + (s.saveProf.includes('con') ? pb : 0)) })}>CON Save</button><button class="link quiet small" onClick=${() => save({ ...st, conc: null })}>Beenden</button></div>`}
+    <div class="tp-mode"><span class="label">Nächster d20-Wurf</span><${ModeSeg} small/></div>
+
+    <div class=${'tp-group' + (used.action ? ' spent' : '')}><div class="tp-head"><span>🎯 Action</span><small>eine pro Zug</small></div>
+      ${(s.attacks || []).map(atkRow)}
+      ${actSpells.filter(x => !atkNames.has(x.name.toLowerCase())).map(spellRow)}
+      <div class="tp-chips">${OTHER_ACTIONS.map(([n, d]) => html`<button class=${'act-chip' + (tip === n ? ' on' : '')} onClick=${() => setTip(tip === n ? null : n)}>${n}</button>`)}</div>
+      ${tip && html`<div class="tp-tip"><b>${tip}:</b> ${OTHER_ACTIONS.find(x => x[0] === tip)[1]} <button class="btn small" onClick=${() => { mark('action'); setTip(null); toast(tip + ' genutzt.'); }}>Als Action nutzen</button></div>`}</div>
+
+    <div class=${'tp-group' + (used.bonus ? ' spent' : '')}><div class="tp-head"><span>⚡ Bonus Action</span><small>nur mit Feature oder Zauber</small></div>
+      ${bonusSpells.map(spellRow)}
+      <div class="tp-row"><div class="tp-name"><b>Trank trinken</b><small>Potion of Healing: 2d4 + 2 HP</small></div><button class="btn small" onClick=${() => { use('bonus', 'Bonus Action'); requestRoll({ label: 'Potion of Healing', expr: '2d4+2' }); }}>🧪 Trinken</button></div></div>
+
+    <div class=${'tp-group' + (used.reaction ? ' spent' : '')}><div class="tp-head"><span>↩️ Reaction</span><small>eine pro Runde, auch im Zug anderer</small></div>
+      <div class="tp-row"><div class="tp-name"><b>Opportunity Attack</b><small>Ein Gegner verlässt deine Reichweite: ein Nahkampfangriff.</small></div><button class="btn small" onClick=${() => use('reaction', 'Reaction')}>Nutzen</button></div>
+      ${reactSpells.map(spellRow)}</div>
+  </section>`;
+}
+
 /* ---------- vitals ---------- */
 function Vitals(ctx) {
   const { c, s, cid, chId } = ctx;
@@ -316,6 +405,7 @@ function Spellcasting(ctx) {
       <${Field} label="Zauber"><input id="sp-name" value=${f.name} onInput=${e => setF(f => ({ ...f, name: e.target.value }))} placeholder="Cure Wounds"/></${Field}>
       <${Field} label="Stufe"><select id="sp-lv" value=${f.level} onChange=${e => setF(f => ({ ...f, level: int(e.target.value) }))}>${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(l => html`<option value=${l}>${l === 0 ? 'Cantrip' : l}</option>`)}</select></${Field}>
       <${Field} label="Notiz"><input id="sp-note" value=${f.note} onInput=${e => setF(f => ({ ...f, note: e.target.value }))} placeholder="Concentration, 60 ft"/></${Field}>
+      <${Field} label="Wirkzeit"><select id="sp-time" value=${f.time || ''} onChange=${e => setF(f => ({ ...f, time: e.target.value }))}><option value="">Automatisch (${{ action: 'Action', bonus: 'Bonus Action', reaction: 'Reaction' }[SPELL_TIME[(f.name || '').trim().toLowerCase()] || 'action']})</option><option value="action">Action</option><option value="bonus">Bonus Action</option><option value="reaction">Reaction</option></select></${Field}>
       <div class="actions"><button class="btn primary small">Speichern</button><button type="button" class="btn small" onClick=${() => setF(null)}>Abbrechen</button>${f.id && html`<button type="button" class="btn danger small" onClick=${() => { patch(ctx, null, { spells: spells.filter(x => x.id !== f.id) }); setF(null); }}>Entfernen</button>`}</div></form>`}
   </section>`;
 }
@@ -493,7 +583,7 @@ function CharForm({ user, cid, camp, card, sheet, others, isDM, onDone }) {
 /* ======================= dice tray ======================= */
 export function DiceTray() {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState('normal');
+  const mode = useDiceMode(), setMode = setDiceMode;
   const [expr, setExpr] = useState('');
   const [hist, setHist] = useState([]);
   const [color, setColor] = useState(null);
@@ -513,24 +603,26 @@ export function DiceTray() {
     const t = setTimeout(loadThree, 2500); return () => clearTimeout(t);
   }, []);
   useEffect(() => {
-    const onRoll = e => { const d = e.detail; push(d.label, d.result || roll(d.expr, /^1d20[+-]?\d*$/.test(String(d.expr).replace(/\s/g, '')) ? modeRef.current : 'normal'), d.hex); };
+    // advantage/disadvantage counts for one d20 roll, then the tray goes back to normal
+    const onRoll = e => { const d = e.detail; const m = !d.result && isD20(d.expr) ? modeRef.current : 'normal'; push(d.label, d.result || roll(d.expr, m), d.hex); if (m !== 'normal') setDiceMode('normal'); };
     const onColor = e => setColor(e.detail);
     addEventListener('dndm-roll', onRoll); addEventListener('dndm-dicecolor', onColor);
     return () => { removeEventListener('dndm-roll', onRoll); removeEventListener('dndm-dicecolor', onColor); };
   }, []);
   const last = hist[0];
-  const free = e => { e.preventDefault(); if (!expr.trim()) return; push(expr.trim(), roll(expr, mode)); };
-  return html`<button class="dice-fab" style=${color ? `--dc:${color.hex}` : ''} onClick=${() => setOpen(!open)} aria-label="Würfel" aria-expanded=${open}><svg viewBox="0 0 24 24" dangerouslySetInnerHTML=${{ __html: D20 }}></svg></button>
+  const free = e => { e.preventDefault(); if (!expr.trim()) return; push(expr.trim(), roll(expr, mode)); if (isD20(expr) && mode !== 'normal') setDiceMode('normal'); };
+  return html`<button class="dice-fab" style=${color ? `--dc:${color.hex}` : ''} onClick=${() => setOpen(!open)} aria-label="Würfel" aria-expanded=${open}><svg viewBox="0 0 24 24" dangerouslySetInnerHTML=${{ __html: D20 }}></svg>${mode !== 'normal' && html`<span class=${'fab-mode ' + mode}>${mode === 'adv' ? '⬆️' : '⬇️'}</span>`}</button>
+    ${mode !== 'normal' && !open && html`<button class=${'mode-pill ' + mode} onClick=${() => setDiceMode('normal')} title="Zurück auf Normal">${mode === 'adv' ? 'Nächster d20 mit Vorteil' : 'Nächster d20 mit Nachteil'} ×</button>`}
     ${open && html`<aside class="dice-tray" role="dialog" aria-label="Würfel">
       <div class="tray-head"><b>Würfel</b>${color && html`<span class="sub"><span class="dice-dot inline" style=${`--dc:${color.hex}`}></span> ${color.name}</span>`}
         <span class="tray-opts"><button class="tray-opt" aria-pressed=${opts.anim} onClick=${() => toggle('anim')} title=${opts.anim ? '3D-Wurf ausschalten' : '3D-Wurf einschalten'}>3D</button><button class="tray-opt" aria-pressed=${opts.sound} onClick=${() => toggle('sound')} title=${opts.sound ? 'Ton ausschalten' : 'Ton einschalten'} aria-label="Ton">${opts.sound ? '🔊' : '🔇'}</button></span>
         <button class="x" onClick=${() => setOpen(false)} aria-label="Schließen">×</button></div>
-      <div class="seg">${[['normal', 'Normal'], ['adv', 'Vorteil'], ['dis', 'Nachteil']].map(([k, l]) => html`<button aria-pressed=${mode === k} onClick=${() => setMode(k)}>${l}</button>`)}</div>
+      <${ModeSeg}/><p class="tray-note">Vorteil oder Nachteil gilt für den nächsten d20-Wurf und springt danach auf Normal zurück.</p>
       ${last && html`<div class=${'result' + (last.r.crit ? ' crit' : '') + (last.r.fumble ? ' fumble' : '')} style=${`--dc:${last.hex || 'var(--accent)'}`}>
         <span class="label">${last.label}</span><b class="total num">${last.r.total}</b>
-        <span class="breakdown">${last.r.parts.map(p => p.flat !== undefined ? (p.flat >= 0 ? ' + ' + p.flat : ' − ' + Math.abs(p.flat)) : html`${p.sign < 0 ? ' − ' : ''}<span class="die">${p.rolls.join(', ')}</span><span class="sub">d${p.sides}</span>`)}${last.r.dropped !== null ? html` <span class="sub">(${last.r.mode === 'adv' ? 'Vorteil' : 'Nachteil'}, verworfen ${last.r.dropped})</span>` : ''}</span>
+        <span class="breakdown">${last.r.parts.map(p => p.flat !== undefined ? (p.flat >= 0 ? ' + ' + p.flat : ' − ' + Math.abs(p.flat)) : html`${p.sign < 0 ? ' − ' : ''}<span class="die">${p.rolls.join(', ')}</span><span class="sub">d${p.sides}</span>`)}${last.r.dropped !== null ? html`<span class=${'adv-note ' + last.r.mode}>${last.r.mode === 'adv' ? '⬆️ Vorteil' : '⬇️ Nachteil'}: ${last.r.nat} und ${last.r.dropped} gewürfelt, ${last.r.nat} zählt</span>` : ''}</span>
         ${last.r.crit && html`<span class="flag-crit">Natürliche 20!</span>`}${last.r.fumble && html`<span class="flag-crit">Natürliche 1</span>`}</div>`}
-      <div class="quick">${[4, 6, 8, 10, 12, 20, 100].map(d => html`<button class="btn small" onClick=${() => push('d' + d, roll('1d' + d, d === 20 ? mode : 'normal'))}>d${d}</button>`)}</div>
+      <div class="quick">${[4, 6, 8, 10, 12, 20, 100].map(d => html`<button class="btn small" onClick=${() => { push('d' + d, roll('1d' + d, d === 20 ? mode : 'normal')); if (d === 20 && mode !== 'normal') setDiceMode('normal'); }}>d${d}</button>`)}</div>
       <form class="inline-add" onSubmit=${free}><input id="dice-expr" value=${expr} onInput=${e => setExpr(e.target.value)} placeholder="z. B. 2d6+3" autocomplete="off"/><button class="btn primary small">Würfeln</button></form>
       ${hist.length > 1 && html`<div class="hist">${hist.slice(1, 8).map(h => html`<div class="h"><span class="dot" style=${`--dc:${h.hex || 'var(--accent)'}`}></span><span>${h.label}</span><b class="num">${h.r.total}</b></div>`)}</div>`}
     </aside>`}`;

@@ -442,7 +442,7 @@ fieldset:disabled input, fieldset:disabled select, fieldset:disabled textarea { 
 .cond-row b { color: var(--blood); }
 .exh { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .cond-pick { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; background: var(--raised); border-radius: var(--r); }
-.chip-btn { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 3px 12px; cursor: pointer; font-size: 14px; }
+.chip-btn { color: var(--ink); border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 3px 12px; cursor: pointer; font-size: 14px; }
 .chip-btn.on { background: var(--blood); color: #fff; border-color: var(--blood); }
 .chip-btn.custom { border-style: dashed; }
 .inv { display: flex; flex-direction: column; }
@@ -798,3 +798,32 @@ body { padding-bottom: calc(var(--nav-h) + 110px + env(safe-area-inset-bottom, 0
 }
 
 .export-text { min-height: 360px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; line-height: 1.5; white-space: pre; }
+
+/* dice mode */
+.dice-fab { position: fixed; } .fab-mode { position: absolute; top: -6px; right: -6px; font-size: 14px; background: var(--surface); border-radius: 999px; padding: 2px 4px; box-shadow: 0 2px 6px rgb(0 0 0 / .25); }
+.mode-pill { position: fixed; right: 18px; bottom: 150px; z-index: 40; border: 0; border-radius: 999px; padding: 7px 12px; font-weight: 700; font-size: 13.5px; cursor: pointer; box-shadow: 0 4px 14px rgb(0 0 0 / .25); }
+.mode-pill.adv, .adv-note.adv { background: var(--ok-soft); color: var(--ok); } .mode-pill.dis, .adv-note.dis { background: var(--blood-soft); color: var(--blood); }
+.mode-seg button[aria-pressed=true] { font-weight: 700; }
+.tray-note { font-size: 12.5px; color: var(--muted); margin: 0; }
+.adv-note { display: block; margin-top: 6px; font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 6px; }
+/* turn panel */
+.turnpanel { display: flex; flex-direction: column; gap: 12px; }
+.turnpanel.mine { box-shadow: 0 0 0 2px var(--gild); }
+.econ-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.econ { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; border-radius: 10px; border: 2px solid var(--ok); background: var(--ok-soft); color: var(--ink); cursor: pointer; }
+.econ b { font-size: 13.5px; } .econ small { font-size: 12px; color: var(--ok); }
+.econ.used { border-color: var(--line-strong); background: var(--raised); opacity: .6; } .econ.used b { text-decoration: line-through; } .econ.used small { color: var(--muted); }
+.conc { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 12px; border-radius: 10px; background: var(--gild-soft); }
+.conc small { flex-basis: 100%; color: var(--muted); font-size: 12.5px; order: 3; }
+.tp-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tp-group { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.tp-group.spent { opacity: .55; }
+.tp-head { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; } .tp-head small { font-weight: 400; color: var(--muted); font-size: 12.5px; }
+.tp-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+.tp-name { display: flex; flex-direction: column; min-width: 0; } .tp-name small { color: var(--muted); font-size: 12.5px; }
+.tp-chips { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 6px; border-top: 1px solid var(--line); }
+.act-chip { color: var(--ink); border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 3px 10px; font-size: 13px; cursor: pointer; }
+.act-chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+.tp-tip { font-size: 13.5px; background: var(--raised); border-radius: 8px; padding: 8px 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.checkline.small { padding: 8px 10px; font-size: 13.5px; }
+@media (max-width: 480px) { .econ-row { grid-template-columns: repeat(2, 1fr); } }
