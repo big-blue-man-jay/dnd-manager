@@ -5,6 +5,7 @@ import { ABILITIES, SKILLS, CLASSES, CLASS_NAMES, SPECIES, ALIGNMENTS, XP_FOR, l
   suggestedResources, RESET_LABEL, SPECIES_EMOJI, CLASS_EMOJI, CONDITIONS, EXHAUSTION_DESC, DICE_COLORS, diceHex, D20 } from './rules5e.js';
 import { roll, withBonus } from './dice.js';
 import { TurnHelpButton } from './help.js';
+import { Builder } from './builder.js';
 import { throwDice, loadThree, canThrow, diceSettings } from './dice3d.js';
 
 const accentHex = () => { try { return getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#2B4790'; } catch (e) { return '#2B4790'; } };
@@ -328,12 +329,25 @@ function TextBlocks(ctx) {
 export function NewCharacter({ user, cid }) {
   const camp = useDoc(`campaigns/${cid}`);
   const all = useCol(camp ? `campaigns/${cid}/characters` : null);
+  const [expert, setExpert] = useState(false);
   useEffect(() => { if (camp) applyTheme(camp.theme); }, [camp?.theme]);
   if (camp === undefined || all === undefined) return html`<${Spinner}/>`;
   if (!camp) return html`<main class="page"><${Empty} title="Kampagne nicht gefunden">Tritt der Kampagne zuerst mit dem Code bei.</${Empty}></main>`;
+  const create = async (card, sheet) => {
+    const id = newId(), now = Date.now();
+    try {
+      await store.batch([
+        { type: 'set', path: cardPath(cid, id), data: { ...card, ownerUid: user.uid, ownerName: user.name, xp: 0, hp: card.hpMax, tempHp: 0, conditions: [], exhaustion: 0, locked: false, createdAt: now, updatedAt: now } },
+        { type: 'set', path: sheetPath(cid, id), data: { ...blankSheet(), ...sheet, ownerUid: user.uid, updatedAt: now } },
+      ]);
+      toast(`${card.name} ist bereit für das Abenteuer.`); go('c', cid, 'char', id);
+    } catch (x) { failed(x); }
+  };
   return html`<main class="page narrow"><a class="link crumb" href=${href('c', cid, 'gruppe')}>← ${camp.name}</a>
-    <div class="greet"><span class="label">Neuer Charakter</span><h1>Erschaffe deinen Helden</h1><p class="muted">Du kannst alles ändern, bis dein DM den Bogen freigibt. Unsicher bei Werten? Frag deinen DM oder schau ins Player's Handbook.</p></div>
-    <div class="panel box"><${CharForm} user=${user} cid=${cid} camp=${camp} others=${all} isDM=${camp.dmUid === user.uid} onDone=${id => go('c', cid, 'char', id)}/></div></main>`;
+    <div class="greet"><span class="label">Neuer Charakter</span><h1>Erschaffe deinen Helden</h1><p class="muted">${expert ? 'Alle Werte selbst eintragen.' : 'Schritt für Schritt, mit Erklärung bei jeder Entscheidung. Du kannst alles ändern, bis dein DM den Bogen freigibt.'}</p></div>
+    <div class="panel box">${expert
+      ? html`<${CharForm} user=${user} cid=${cid} camp=${camp} others=${all} isDM=${camp.dmUid === user.uid} onDone=${id => go('c', cid, 'char', id)}/><p class="muted small-note"><button class="link" onClick=${() => setExpert(false)}>Zurück zur geführten Erstellung</button></p>`
+      : html`<${Builder} user=${user} others=${all} onCreate=${create} onExpert=${() => setExpert(true)}/>`}</div></main>`;
 }
 
 function CharForm({ user, cid, camp, card, sheet, others, isDM, onDone }) {
