@@ -18,7 +18,7 @@ export function CharCard({ c, camp, showCamp, onOpen }) {
       <div class="sub">Stufe ${c.level || 1} · ${[c.species, clsName(c)].filter(Boolean).join(' ')}</div>
       <div class="sub">${showCamp ? camp?.name || '' : c.ownerName ? 'Gespielt von ' + c.ownerName : ''}</div></div>
       ${diceOf(c) && html`<span class="dice-dot" style=${`--dc:${diceOf(c)}`} title="Würfelfarbe"></span>`}</div>
-    <div class="hprow"><span class="label">Hit Points</span><span class="num"><b>${c.hp ?? 0}</b> / ${c.hpMax ?? 0}${c.tempHp ? html` <span class="xp">+${c.tempHp}</span>` : ''}</span></div>
+    <div class="hprow"><span class="label"><span class="ico" aria-hidden="true">❤️</span>Hit Points</span><span class="num"><b>${c.hp ?? 0}</b> / ${c.hpMax ?? 0}${c.tempHp ? html` <span class="xp">+${c.tempHp}</span>` : ''}</span></div>
     <${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/>
     ${(c.conditions?.length || c.exhaustion) ? html`<div class="chips">${(c.conditions || []).map(x => html`<span class="chip cond">${x}</span>`)}${c.exhaustion ? html`<span class="chip cond">Exhaustion ${c.exhaustion}</span>` : ''}</div>` : ''}
   </article>`;

@@ -7,7 +7,7 @@ import { exportCampaign } from './backup.js';
 import { TurnHelpButton } from './help.js';
 import { leaveCampaign, newJoinCode, createDummyCharacter } from './ops.js';
 
-const TABS = [['uebersicht', 'Übersicht'], ['gruppe', 'Gruppe'], ['sitzungen', 'Sitzungen'], ['quests', 'Quests'], ['npcs', 'NPCs'], ['enthuellungen', 'Enthüllungen'], ['notizen', 'Notizen'], ['einstellungen', 'Einstellungen']];
+const TABS = [['uebersicht', 'Übersicht', '🏠'], ['gruppe', 'Gruppe', '👥'], ['sitzungen', 'Sitzungen', '📖'], ['quests', 'Quests', '🗺️'], ['npcs', 'NPCs', '🎭'], ['enthuellungen', 'Enthüllungen', '🤯'], ['notizen', 'Notizen', '📝'], ['einstellungen', 'Einstellungen', '⚙️']];
 const QSTATUS = { active: 'Läuft', done: 'Erledigt', failed: 'Gescheitert' };
 const ATT = { friendly: 'Freundlich', neutral: 'Neutral', hostile: 'Feindlich' };
 const NSTAT = { alive: 'Lebt', missing: 'Vermisst', dead: 'Tot', unknown: 'Unbekannt' };
@@ -84,7 +84,7 @@ export function CampaignPage({ user, cid, tab }) {
   return html`<main class="page campaign">
     ${pv && html`<${PreviewBar} text="So sehen Spieler diese Kampagne. DM-Werkzeuge, vorbereitete Geheimnisse und deine Notizen sind ausgeblendet." onExit=${() => setPreview(false)}/>`}
     <${Hero} ...${props}/>
-    <nav class="subnav" role="tablist" aria-label="Bereiche der Kampagne">${tabs.map(([k, l]) => html`<a role="tab" href=${href('c', cid, k)} aria-selected=${t === k}>${l}${k === 'enthuellungen' && d.revelations.length ? html`<span class="count">${d.revelations.length}</span>` : ''}</a>`)}</nav>
+    <nav class="subnav" role="tablist" aria-label="Bereiche der Kampagne">${tabs.map(([k, l, e]) => html`<a role="tab" href=${href('c', cid, k)} aria-selected=${t === k}><span class="ico" aria-hidden="true">${e}</span><span class="tl">${l}</span>${k === 'enthuellungen' && d.revelations.length ? html`<span class="count">${d.revelations.length}</span>` : ''}</a>`)}</nav>
     <${{ uebersicht: Overview, gruppe: Party, sitzungen: Sessions, quests: Quests, npcs: Npcs, enthuellungen: Reveals, notizen: Notes, einstellungen: Settings }[t]} key=${t} ...${props}/>
     ${!isDM && !pv && html`<${RevealPopup} cid=${cid} items=${d.revelations}/>`}
   </main>`;
@@ -99,16 +99,16 @@ function Hero({ camp, isDM, realDM, preview, setPreview, sessions, chars, quests
   return html`<section class="hero">
     <a class="link crumb" href="#/">← Alle Kampagnen</a>
     <div class="hero-top"><div class="hero-id">
-      <div class="flag"><span class="label">Kampagne</span><${Pill} tone=${camp.status || 'active'}>${STATUS[camp.status || 'active']}</${Pill}>${isDM && html`<${Pill} tone="gild">DM-Ansicht</${Pill}>`}</div>
+      <div class="flag"><span class="label"><span class="ico" aria-hidden="true">🏰</span>Kampagne</span><${Pill} tone=${camp.status || 'active'}>${STATUS[camp.status || 'active']}</${Pill}>${isDM && html`<${Pill} tone="gild">DM-Ansicht</${Pill}>`}</div>
       <h1>${camp.name}</h1>${camp.description && html`<p class="lede">${camp.description}</p>`}
       <div class="hero-meta"><span>DM <b>${camp.dmName}</b></span>${camp.setting && html`<span>Setting <b>${camp.setting}</b></span>`}${camp.started && html`<span>Seit <b>${fmtDate(camp.started)}</b></span>`}</div>
       <div class="hero-help"><${TurnHelpButton} cls="btn small"/></div></div>
-      ${realDM && !preview && html`<div class="hero-tools"><label class="area-pick"><span class="label">Gebiet / Theme</span><select id="area" value=${camp.theme || 'standard'} onChange=${setTheme}>${Object.entries(THEMES).map(([k, t]) => html`<option value=${k}>${t.name}</option>`)}</select></label><button class="btn small" onClick=${() => setPreview(true)}>Als Spieler ansehen</button></div>`}</div>
+      ${realDM && !preview && html`<div class="hero-tools"><label class="area-pick"><span class="label">Gebiet / Theme</span><select id="area" value=${camp.theme || 'standard'} onChange=${setTheme}>${Object.entries(THEMES).map(([k, t]) => html`<option value=${k}>${t.name}</option>`)}</select></label><button class="btn small" onClick=${() => setPreview(true)}>👀 Als Spieler ansehen</button></div>`}</div>
     <div class="metrics panel">
-      <div class="metric"><span class="label">Sitzungen</span><span class="v num">${sessions.length}</span><span class="s">${sessions.length ? 'gespielt' : 'noch keine'}</span></div>
-      <div class="metric"><span class="label">Gruppenstufe</span><span class="v num">${lv.length ? (Number.isInteger(avg) ? avg : avg.toFixed(1)) : '–'}</span><span class="s">${plural(active.length, 'Held', 'Helden')}</span></div>
-      <div class="metric"><span class="label">Quests</span><span class="v num">${aq}</span><span class="s">laufen gerade</span></div>
-      <div class="metric next"><span class="label">Nächste Sitzung</span><span class="v">${next ? fmtDay(camp.nextDate) : 'Offen'}</span><span class="s">${next ? [camp.nextTime, relDays(n), camp.nextPlace].filter(Boolean).join(' · ') : isDM ? 'In den Einstellungen festlegen' : 'Der DM plant noch'}</span></div>
+      <div class="metric"><span class="label"><span class="ico" aria-hidden="true">📖</span>Sitzungen</span><span class="v num">${sessions.length}</span><span class="s">${sessions.length ? 'gespielt' : 'noch keine'}</span></div>
+      <div class="metric"><span class="label"><span class="ico" aria-hidden="true">⭐</span>Gruppenstufe</span><span class="v num">${lv.length ? (Number.isInteger(avg) ? avg : avg.toFixed(1)) : '–'}</span><span class="s">${plural(active.length, 'Held', 'Helden')}</span></div>
+      <div class="metric"><span class="label"><span class="ico" aria-hidden="true">🗺️</span>Quests</span><span class="v num">${aq}</span><span class="s">laufen gerade</span></div>
+      <div class="metric next"><span class="label"><span class="ico" aria-hidden="true">📅</span>Nächste Sitzung</span><span class="v">${next ? fmtDay(camp.nextDate) : 'Offen'}</span><span class="s">${next ? [camp.nextTime, relDays(n), camp.nextPlace].filter(Boolean).join(' · ') : isDM ? 'In den Einstellungen festlegen' : 'Der DM plant noch'}</span></div>
     </div></section>`;
 }
 
@@ -117,12 +117,12 @@ function Overview(p) {
   const { sessions, chars, quests, npcs, revelations, isDM, myChar, cid, camp } = p;
   const last = sessions[0];
   return html`<div class="ov"><div class="ov-col">
-    <div class="panel box"><div class="box-head"><h2>Wo wir aufgehört haben</h2>${last && html`<span class="sub">Sitzung ${last.num}${last.date ? ' · ' + fmtDate(last.date) : ''}</span>`}</div>
-      ${last ? html`<p class="stopbig">${last.stop || 'Kein Haltepunkt notiert.'}</p>${last.recap && html`<div><span class="label">Letztes Mal</span><p class="muted">${last.recap}</p></div>`}
+    <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">📍</span>Wo wir aufgehört haben</h2>${last && html`<span class="sub">Sitzung ${last.num}${last.date ? ' · ' + fmtDate(last.date) : ''}</span>`}</div>
+      ${last ? html`<p class="stopbig">${last.stop || 'Kein Haltepunkt notiert.'}</p>${last.recap && html`<div><span class="label"><span class="ico" aria-hidden="true">⏪</span>Letztes Mal</span><p class="muted">${last.recap}</p></div>`}
         <div class="actions"><a class="btn small" href=${href('c', cid, 'sitzungen')}>Alle Sitzungen</a></div>`
       : html`<p class="muted">Noch keine Sitzung eingetragen.${isDM ? ' Nach dem ersten Spieleabend trägst du hier ein, wo ihr stehen geblieben seid.' : ''}</p>`}</div>
-    ${!isDM && !myChar && html`<div class="panel box cta"><h2>Dein Charakter fehlt noch</h2><p class="muted">Erstelle deinen Helden für diese Kampagne. Dein DM schaut ihn sich danach an und gibt ihn frei.</p><div><a class="btn primary" href=${href('c', cid, 'neu')}>Charakter erstellen</a></div></div>`}
-    <div class="panel box"><div class="box-head"><h2>Die Gruppe</h2><a class="link" href=${href('c', cid, 'gruppe')}>Alle Karten</a></div>
+    ${!isDM && !myChar && html`<div class="panel box cta"><h2><span class="ico" aria-hidden="true">🧙</span>Dein Charakter fehlt noch</h2><p class="muted">Erstelle deinen Helden für diese Kampagne. Dein DM schaut ihn sich danach an und gibt ihn frei.</p><div><a class="btn primary" href=${href('c', cid, 'neu')}>Charakter erstellen</a></div></div>`}
+    <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">👥</span>Die Gruppe</h2><a class="link" href=${href('c', cid, 'gruppe')}>Alle Karten</a></div>
       ${chars.length ? html`<div class="tablewrap"><table class="roster"><thead><tr><th>Charakter</th><th>Klasse</th><th>Hit Points</th><th class="r">AC</th><th>Zustände</th></tr></thead><tbody>
         ${chars.sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(c => html`<tr onClick=${() => go('c', cid, 'char', c.id)}>
           <td><div class="who"><${Medal} cls=${c.cls} species=${c.species} size="md"/><div><b>${c.name}</b><div class="sub">${c.ownerName || ''}</div></div></div></td>
@@ -133,20 +133,20 @@ function Overview(p) {
       </tbody></table></div>` : html`<p class="muted">Noch keine Charaktere.</p>`}</div></div>
     <div class="ov-col">
       <${NextBox} camp=${camp} isDM=${isDM} cid=${cid}/>
-      <div class="panel box"><div class="box-head"><h2>Laufende Quests</h2><a class="link" href=${href('c', cid, 'quests')}>Alle</a></div>
+      <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🗺️</span>Laufende Quests</h2><a class="link" href=${href('c', cid, 'quests')}>Alle</a></div>
         ${quests.filter(q => (q.status || 'active') === 'active').slice(0, 5).map(q => html`<a class="mini" href=${href('c', cid, 'quests')}><div><div class="t">${q.title}</div><div class="d">${[q.giver && 'Von ' + q.giver, q.location].filter(Boolean).join(' · ')}</div></div>${q.reward && html`<span class="reward">${q.reward}</span>`}</a>`)}
         ${!quests.some(q => (q.status || 'active') === 'active') && html`<p class="muted">Keine offenen Quests.</p>`}</div>
-      <div class="panel box"><div class="box-head"><h2>Enthüllungen</h2><a class="link" href=${href('c', cid, 'enthuellungen')}>Alle</a></div>
+      <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🤯</span>Enthüllungen</h2><a class="link" href=${href('c', cid, 'enthuellungen')}>Alle</a></div>
         ${revelations.slice(0, 3).map(r => html`<a class="mini" href=${href('c', cid, 'enthuellungen')}><div><div class="t">${r.title}</div><div class="d">${KINDS[r.kind] || ''}</div></div></a>`)}
         ${!revelations.length && html`<p class="muted">Noch nichts enthüllt…</p>`}</div>
-      <div class="panel box"><div class="box-head"><h2>Zuletzt getroffen</h2><a class="link" href=${href('c', cid, 'npcs')}>Alle NPCs</a></div>
+      <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">👋</span>Zuletzt getroffen</h2><a class="link" href=${href('c', cid, 'npcs')}>Alle NPCs</a></div>
         ${npcs.slice(0, 4).map(n => html`<a class="mini" href=${href('c', cid, 'npcs')}><span class=${'ava sm ' + (n.attitude || 'neutral') + (n.status === 'dead' ? ' dead' : '')}>${initials(n.name)}</span><div><div class="t">${n.name}</div><div class="d">${[n.role, n.location].filter(Boolean).join(' · ')}</div></div></a>`)}
         ${!npcs.length && html`<p class="muted">Noch niemand.</p>`}</div>
     </div></div>`;
 }
 function NextBox({ camp, isDM, cid }) {
   const n = daysUntil(camp.nextDate); const ok = n !== null && n >= 0;
-  return html`<div class="panel box"><div class="box-head"><h2>Nächste Sitzung</h2></div>
+  return html`<div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">📅</span>Nächste Sitzung</h2></div>
     ${ok ? html`<div class="next-big"><div class="cal"><span>${new Date(ts(camp.nextDate)).toLocaleDateString('de-DE', { month: 'short' })}</span><b class="num">${new Date(ts(camp.nextDate)).getDate()}</b></div>
       <div><div class="strong">${fmtDay(camp.nextDate)}${camp.nextTime ? ' · ' + camp.nextTime + ' Uhr' : ''}</div><div class="sub">${relDays(n)}${camp.nextPlace ? ' · ' + camp.nextPlace : ''}</div></div></div>`
     : html`<p class="muted">${isDM ? html`Noch kein Termin. <a class="link" href=${href('c', cid, 'einstellungen')}>Termin festlegen</a>` : 'Noch kein Termin.'}</p>`}</div>`;
@@ -156,7 +156,7 @@ function NextBox({ camp, isDM, cid }) {
 function Party({ chars, members, isDM, user, cid, camp, myChar }) {
   const addDummy = async () => { try { await createDummyCharacter(cid, chars); toast('Test-Mitspieler angelegt.'); } catch (x) { failed(x); } };
   const [leaving, setLeaving] = useState(false);
-  return html`<section><div class="bar"><h2>Die Gruppe</h2><div class="actions">${isDM && html`<button class="btn" onClick=${addDummy} title="Ein Beispiel-Charakter, der einem erfundenen Mitspieler gehört">Test-Mitspieler anlegen</button>`}<a class="btn primary" href=${href('c', cid, 'neu')}>${isDM ? 'Charakter anlegen' : myChar ? 'Weiteren Charakter erstellen' : 'Charakter erstellen'}</a></div></div>
+  return html`<section><div class="bar"><h2><span class="ico" aria-hidden="true">👥</span>Die Gruppe</h2><div class="actions">${isDM && html`<button class="btn" onClick=${addDummy} title="Ein Beispiel-Charakter, der einem erfundenen Mitspieler gehört">Test-Mitspieler anlegen</button>`}<a class="btn primary" href=${href('c', cid, 'neu')}>${isDM ? 'Charakter anlegen' : myChar ? 'Weiteren Charakter erstellen' : 'Charakter erstellen'}</a></div></div>
     ${chars.length ? html`<div class="grid cards">${chars.map(c => html`<${CharCard} c=${c}/>`)}</div>` : html`<${Empty} title="Noch keine Helden">${isDM ? 'Gib deinen Spielern den Beitrittscode. Sie erstellen ihre Charaktere dann selbst.' : 'Sei der Erste und erstelle deinen Charakter.'}</${Empty}>`}
     <p class="ro-note">Von anderen Charakteren siehst du Stufe und Hit Points. Den vollen Bogen sehen nur der Spieler selbst und der DM.</p>
     <div class="label group-label">Mitspieler</div>
@@ -172,7 +172,7 @@ function Sessions(p) {
   const last = sessions[0];
   return html`<section>
     ${last && html`<div class="resume panel"><div class="when"><span class="label">Sitzung</span><b class="num">${last.num}</b></div><p><span class="label">Wo wir aufgehört haben</span><br/>${last.stop || last.title || '–'}</p></div>`}
-    <div class="bar"><h2>Sitzungen</h2>${isDM && html`<button class="btn primary" onClick=${() => setOpen('new')}>Sitzung eintragen</button>`}</div>
+    <div class="bar"><h2><span class="ico" aria-hidden="true">📖</span>Sitzungen</h2>${isDM && html`<button class="btn primary" onClick=${() => setOpen('new')}>Sitzung eintragen</button>`}</div>
     ${sessions.length ? html`<div class="sessions">${sessions.map(s => { const j = p.journal.filter(e => e.sessionId === s.id).length; const who = (s.present || []).map(id => p.chars.find(c => c.id === id)).filter(Boolean);
       return html`<article class="srow panel" role="button" tabindex="0" onClick=${() => setOpen(s.id)}>
         <div class="n num"><small>Sitzung</small>${s.num}</div>
@@ -237,7 +237,7 @@ function Journal({ entries, sid, cid, user, chars, isDM }) {
 function Quests({ quests, isDM, cid }) {
   const [open, setOpen] = useState(null);
   const toggle = async q => { try { await store.update(`campaigns/${cid}/quests/${q.id}`, { status: (q.status || 'active') === 'active' ? 'done' : 'active' }); } catch (x) { failed(x); } };
-  return html`<section><div class="bar"><h2>Quest-Log</h2>${isDM && html`<button class="btn primary" onClick=${() => setOpen('new')}>Neue Quest</button>`}</div>
+  return html`<section><div class="bar"><h2><span class="ico" aria-hidden="true">🗺️</span>Quest-Log</h2>${isDM && html`<button class="btn primary" onClick=${() => setOpen('new')}>Neue Quest</button>`}</div>
     ${!quests.length ? html`<${Empty} title="Noch keine Quests">${isDM ? 'Halte fest, welche Aufträge und Rätsel die Gruppe verfolgt: wer sie vergeben hat, wohin sie führen, was sie einbringen.' : 'Der DM hat noch keine Quests eingetragen.'}</${Empty}>`
     : Object.entries(QSTATUS).map(([k, l]) => { const g = quests.filter(q => (q.status || 'active') === k); return g.length ? html`<div class="label group-label">${l} · ${g.length}</div><div class="panel quests">${g.map(q => html`
       <div class=${'qrow' + (k === 'active' ? '' : ' done')} onClick=${() => setOpen(q.id)}>
@@ -267,7 +267,7 @@ function QuestModal({ q, isDM, cid, onClose }) {
 function Npcs({ npcs, isDM, cid, sessions }) {
   const [open, setOpen] = useState(null); const [q, setQ] = useState(''); const [att, setAtt] = useState('all');
   const list = npcs.filter(n => (att === 'all' || (n.attitude || 'neutral') === att) && (!q || [n.name, n.role, n.location, n.notes].join(' ').toLowerCase().includes(q.toLowerCase())));
-  return html`<section><div class="bar"><h2>NPCs</h2>${isDM && html`<button class="btn primary" onClick=${() => setOpen('new')}>Neuer NPC</button>`}</div>
+  return html`<section><div class="bar"><h2><span class="ico" aria-hidden="true">🎭</span>NPCs</h2>${isDM && html`<button class="btn primary" onClick=${() => setOpen('new')}>Neuer NPC</button>`}</div>
     ${!npcs.length ? html`<${Empty} title="Noch niemand getroffen">${isDM ? 'Halte fest, wen die Gruppe trifft: Rolle, Ort, Haltung zur Gruppe, lebendig oder nicht.' : 'Der DM hat noch keine NPCs eingetragen.'}</${Empty}>` : html`
     <div class="filters"><input id="npc-q" type="search" placeholder="Name, Rolle oder Ort suchen" value=${q} onInput=${e => setQ(e.target.value)}/>
       <div class="seg">${[['all', 'Alle'], ...Object.entries(ATT)].map(([k, l]) => html`<button aria-pressed=${att === k} onClick=${() => setAtt(k)}>${l}</button>`)}</div></div>
@@ -299,7 +299,7 @@ function Reveals({ revelations, secrets, isDM, cid, members }) {
   const [open, setOpen] = useState(null); const [reveal, setReveal] = useState(null);
   const delRev = async r => { try { await store.batch([{ type: 'delete', path: `campaigns/${cid}/revelations/${r.id}` }, ...(r.secretId && secrets.some(s => s.id === r.secretId) ? [{ type: 'update', path: `campaigns/${cid}/secrets/${r.secretId}`, data: { revealedAt: 0 } }] : [])]); toast('Enthüllung zurückgenommen.'); } catch (x) { failed(x); } };
   return html`<section>
-    ${isDM && html`<div class="bar"><h2>Vorbereitete Geheimnisse</h2><button class="btn primary" onClick=${() => setOpen('new')}>Geheimnis vorbereiten</button></div>
+    ${isDM && html`<div class="bar"><h2><span class="ico" aria-hidden="true">🤫</span>Vorbereitete Geheimnisse</h2><button class="btn primary" onClick=${() => setOpen('new')}>Geheimnis vorbereiten</button></div>
       <p class="ro-note">Nur du siehst diese Karten. Mit „Enthüllen“ erscheinen sie auf den Bildschirmen der Spieler, für alle oder nur für ausgewählte.</p>
       ${secrets.filter(s => !s.revealedAt).length ? html`<div class="grid reveals">${secrets.filter(s => !s.revealedAt).map(s => html`<article class="rcard panel sealed"><span class="label">${KINDS[s.kind] || 'Geheimnis'}</span><h3>${s.title}</h3><p class="muted clamp">${s.body}</p>
         <div class="actions"><button class="btn primary small" onClick=${() => setReveal(s)}>Enthüllen</button><button class="btn small" onClick=${() => setOpen(s.id)}>Bearbeiten</button></div></article>`)}</div>`
@@ -348,7 +348,7 @@ function RevealPopup({ cid, items }) {
 
 /* ---------- notes ---------- */
 function Notes({ notes, isDM, cid, user, preview }) {
-  if (preview) return html`<section><div class="bar"><h2>Meine Notizen</h2></div><${Empty}>Hier schreiben Spieler private Notizen, die nur sie selbst sehen. In der Vorschau ausgeblendet.</${Empty}></section>`;
+  if (preview) return html`<section><div class="bar"><h2><span class="ico" aria-hidden="true">📝</span>Meine Notizen</h2></div><${Empty}>Hier schreiben Spieler private Notizen, die nur sie selbst sehen. In der Vorschau ausgeblendet.</${Empty}></section>`;
   const [f, setF] = useState(null);
   const cur = f || { text: '', secrets: '', prep: '', ideas: '', ...(notes || {}) };
   const set = k => e => setF({ ...cur, [k]: e.target.value });
@@ -384,20 +384,20 @@ function Settings(p) {
       await store.batch([{ type: 'delete', path: `joinCodes/${camp.joinCode}` }, { type: 'delete', path: base }, { type: 'delete', path: `users/${user.uid}/notes/${cid}` }]);
       go(); toast('Kampagne gelöscht.'); } catch (x) { failed(x); } };
   return html`<section class="settings">
-    <div class="panel box"><div class="box-head"><h2>Beitrittscode</h2></div>
+    <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🔑</span>Beitrittscode</h2></div>
       <div class="codebox"><span class="code num">${camp.joinCode}</span><button class="btn" onClick=${copy}>Kopieren</button><button class="btn" onClick=${async () => { try { await newJoinCode(camp); toast('Neuer Code erstellt. Der alte gilt nicht mehr.'); } catch (x) { failed(x); } }}>Neuen Code erstellen</button></div>
       <p class="ro-note">Schick den Code deinen Spielern. Sie melden sich an, tippen „Mit Code beitreten“ und erstellen ihren Charakter.</p>
       <div class="label">Mitspieler · ${members.length}</div>
       ${members.length ? html`<div class="mini-list">${members.map(m => html`<div class="mini static"><span class="ava sm">${initials(m.name)}</span><div><div class="t">${m.name}</div><div class="d">${chars.filter(c => c.ownerUid === m.uid).map(c => c.name).join(', ') || 'Noch kein Charakter'}</div></div><${DeleteButton} label="Entfernen" question=${`${m.name} entfernen?`} onConfirm=${() => kick(m)}/></div>`)}</div>` : html`<p class="muted">Noch niemand beigetreten.</p>`}</div>
-    <div class="panel box"><div class="box-head"><h2>Eigene Zustände</h2></div>
+    <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🌀</span>Eigene Zustände</h2></div>
       <p class="ro-note">Zusätzlich zu den offiziellen Conditions. Du kannst sie Charakteren im Bogen zuweisen.</p>
       ${custom.map((c, i) => html`<div class="mini static"><div><div class="t">${c.name}</div><div class="d">${c.desc}</div></div><button class="link quiet small" onClick=${() => delCond(i)}>Entfernen</button></div>`)}
       <form class="form inline-form cond-form" onSubmit=${addCond}><${Field} label="Name"><input id="cc-name" value=${cond.name} onInput=${e => setCond({ ...cond, name: e.target.value })} placeholder="Verflucht"/></${Field}><${Field} label="Wirkung"><input id="cc-desc" value=${cond.desc} onInput=${e => setCond({ ...cond, desc: e.target.value })} placeholder="−1 auf alle Saving Throws bis zum Long Rest"/></${Field}><button class="btn">Hinzufügen</button></form></div>
-    <div class="panel box"><div class="box-head"><h2>Kampagne bearbeiten</h2></div><${CampaignForm} user=${user} campaign=${camp} onSave=${saveCamp}/></div>
-    <div class="panel box"><div class="box-head"><h2>Sicherung</h2></div>
+    <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">✏️</span>Kampagne bearbeiten</h2></div><${CampaignForm} user=${user} campaign=${camp} onSave=${saveCamp}/></div>
+    <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">💾</span>Sicherung</h2></div>
       <p class="ro-note">Lädt die ganze Kampagne als Datei herunter: Charaktere mit Bögen, Sitzungen, Tagebuch, Quests, NPCs, Geheimnisse, Enthüllungen und deine DM-Notizen. Mach das alle paar Sitzungen. Wiederherstellen geht auf der Startseite unter „Neue Kampagne“.</p>
       <div><button class="btn" disabled=${busyExp} onClick=${async () => { setBusyExp(true); try { const n = await exportCampaign(cid, user); toast('Gespeichert: ' + n); } catch (x) { failed(x); } finally { setBusyExp(false); } }}>${busyExp ? 'Wird gespeichert …' : 'Sicherung herunterladen'}</button></div></div>
-    <div class="panel box danger-zone"><div class="box-head"><h2>Kampagne löschen</h2></div><p class="muted">Löscht die Kampagne mit allen Charakteren, Sitzungen, Quests, NPCs und Enthüllungen. Das lässt sich nicht rückgängig machen.</p>
+    <div class="panel box danger-zone"><div class="box-head"><h2><span class="ico" aria-hidden="true">🗑️</span>Kampagne löschen</h2></div><p class="muted">Löscht die Kampagne mit allen Charakteren, Sitzungen, Quests, NPCs und Enthüllungen. Das lässt sich nicht rückgängig machen.</p>
       <div><${DeleteButton} label="Kampagne löschen" question=${`${camp.name} endgültig löschen?`} onConfirm=${deleteAll}/></div></div>
   </section>`;
 }

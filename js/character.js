@@ -70,8 +70,8 @@ function PublicCard({ c }) {
       <div class="nc-id"><h1 class="h-name">${c.name}</h1><div class="sub">Stufe ${c.level || 1} · ${[c.species, clsName(c), c.subclass && `(${c.subclass})`].filter(Boolean).join(' ')}</div>
         <div class="sub">Gespielt von ${c.ownerName || '–'}${dc ? html` · Würfelfarbe <span class="dice-dot inline" style=${`--dc:${dc.hex}`}></span>${dc.name}` : ''}</div></div></div>
     <div class="pc-body">
-      <div class="statline two"><div class="stat"><span class="label">Stufe</span><b class="num">${c.level || 1}</b></div>
-        <div class="stat"><span class="label">Hit Points</span><b class="num">${c.hp ?? 0}<span class="sub"> / ${c.hpMax ?? 0}</span>${c.tempHp ? html` <span class="xp">+${c.tempHp}</span>` : ''}</b></div></div>
+      <div class="statline two"><div class="stat"><span class="label"><span class="ico" aria-hidden="true">⭐</span>Stufe</span><b class="num">${c.level || 1}</b></div>
+        <div class="stat"><span class="label"><span class="ico" aria-hidden="true">❤️</span>Hit Points</span><b class="num">${c.hp ?? 0}<span class="sub"> / ${c.hpMax ?? 0}</span>${c.tempHp ? html` <span class="xp">+${c.tempHp}</span>` : ''}</b></div></div>
       <${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/>
       ${(c.conditions?.length || c.exhaustion) ? html`<div><span class="label">Zustände</span><div class="chips" style="margin-top:6px">${(c.conditions || []).map(x => html`<span class="chip cond">${x}</span>`)}${c.exhaustion ? html`<span class="chip cond">Exhaustion ${c.exhaustion}</span>` : ''}</div></div>` : ''}
     </div>
@@ -99,11 +99,11 @@ function CharHeader({ c, s, isDM, isOwner, coreOk, cid, chId, onEdit, onAsOther 
       <h1 class="h-name">${c.name}</h1>
       <div class="sub">Stufe ${lvl} · ${[c.species, clsName(c), c.subclass && `(${c.subclass})`].filter(Boolean).join(' ')}${s.background ? ' · ' + s.background : ''}${s.alignment ? ' · ' + s.alignment : ''}</div>
       <div class="sub">Gespielt von ${c.ownerName}${c.diceColor ? html` · <span class="dice-dot inline" style=${`--dc:${diceHex(c.diceColor)}`}></span> ${DICE_COLORS.find(d => d.key === c.diceColor)?.name}` : ''}</div></div></div>
-    <div class="xpwrap"><div class="xprow"><span class="label">Experience</span><span class="num">${(c.xp || 0).toLocaleString('de-DE')}${next ? ' / ' + next.toLocaleString('de-DE') + ' XP bis Stufe ' + (lvl + 1) : ' XP'}</span></div><div class="xpbar"><i style=${`width:${pct}%`}></i></div></div>
+    <div class="xpwrap"><div class="xprow"><span class="label"><span class="ico" aria-hidden="true">✨</span>Experience</span><span class="num">${(c.xp || 0).toLocaleString('de-DE')}${next ? ' / ' + next.toLocaleString('de-DE') + ' XP bis Stufe ' + (lvl + 1) : ' XP'}</span></div><div class="xpbar"><i style=${`width:${pct}%`}></i></div></div>
     <div class="actions">
-      ${coreOk && html`<button class="btn" onClick=${onEdit}>Bogen bearbeiten</button>`}
+      ${coreOk && html`<button class="btn" onClick=${onEdit}>✏️ Bogen bearbeiten</button>`}
       <${TurnHelpButton}/>
-      <button class="btn" onClick=${onAsOther}>Als Mitspieler ansehen</button>
+      <button class="btn" onClick=${onAsOther}>👀 Als Mitspieler ansehen</button>
       ${isDM && html`<button class="btn" onClick=${toggleLock}>${c.locked ? 'Zum Bearbeiten öffnen' : 'Bogen freigeben'}</button>`}
       ${isOwner && !c.locked && !isDM && html`<span class="ro-note">Entwurf: Du kannst alles ändern, bis dein DM den Bogen freigibt.</span>`}
       ${isOwner && c.locked && !isDM && html`<span class="ro-note">Freigegeben: HP, Slots, Inventar & Co. änderst du selbst. Werte und Stufe ändert der DM.</span>`}
@@ -155,24 +155,24 @@ function Vitals(ctx) {
     patch(ctx, { hp: Math.min(max, hp + Math.max(0, r.total)) }, { hitDiceUsed: (s.hitDiceUsed || 0) + 1 }); };
   return html`<section class="panel box vitals">
     <div class="statline five">
-      <div class="stat ac"><span class="label">AC</span><b class="num">${(s.ac ?? c.ac) || '–'}</b></div>
-      <button class="stat roll" onClick=${() => requestRoll({ label: 'Initiative', expr: withBonus('1d20', dex) })}><span class="label">Initiative</span><b class="num">${sgn(dex)}</b></button>
-      <div class="stat"><span class="label">Speed</span><b class="num">${c.speed || 30}</b></div>
-      <div class="stat"><span class="label">Proficiency</span><b class="num">${sgn(pb)}</b></div>
-      <div class="stat"><span class="label">Passive Perc.</span><b class="num">${10 + mod(s.abilities.wis) + (s.skills.perception ? pb * s.skills.perception : 0)}</b></div>
+      <div class="stat ac"><span class="label"><span class="ico" aria-hidden="true">🛡️</span>AC</span><b class="num">${(s.ac ?? c.ac) || '–'}</b></div>
+      <button class="stat roll" onClick=${() => requestRoll({ label: 'Initiative', expr: withBonus('1d20', dex) })}><span class="label"><span class="ico" aria-hidden="true">⚡</span>Initiative</span><b class="num">${sgn(dex)}</b></button>
+      <div class="stat"><span class="label"><span class="ico" aria-hidden="true">👟</span>Speed</span><b class="num">${c.speed || 30}</b></div>
+      <div class="stat"><span class="label"><span class="ico" aria-hidden="true">🎓</span>Proficiency</span><b class="num">${sgn(pb)}</b></div>
+      <div class="stat"><span class="label"><span class="ico" aria-hidden="true">👁️</span>Passive Perc.</span><b class="num">${10 + mod(s.abilities.wis) + (s.skills.perception ? pb * s.skills.perception : 0)}</b></div>
     </div>
     <div class="hpblock">
-      <div class="hpnum"><span class="label">Hit Points</span><div><b class="big num">${hp}</b><span class="num"> / ${max}</span>${temp ? html` <span class="xp num">+${temp} temp</span>` : ''}</div><${HpBar} hp=${hp} max=${max}/></div>
+      <div class="hpnum"><span class="label"><span class="ico" aria-hidden="true">❤️</span>Hit Points</span><div><b class="big num">${hp}</b><span class="num"> / ${max}</span>${temp ? html` <span class="xp num">+${temp} temp</span>` : ''}</div><${HpBar} hp=${hp} max=${max}/></div>
       <div class="hpctl"><input id="hp-amt" type="number" min="0" inputmode="numeric" placeholder="Wert" value=${amt} onInput=${e => setAmt(e.target.value)} aria-label="HP-Wert"/>
-        <button class="btn danger-soft" onClick=${damage}>Schaden</button><button class="btn ok-soft" onClick=${heal}>Heilen</button><button class="btn small" onClick=${setTemp}>Temp HP</button></div>
+        <button class="btn danger-soft" onClick=${damage}>💥 Schaden</button><button class="btn ok-soft" onClick=${heal}>💚 Heilen</button><button class="btn small" onClick=${setTemp}>Temp HP</button></div>
     </div>
-    ${hp === 0 && html`<div class="deathsaves"><span class="label">Death Saves</span>
+    ${hp === 0 && html`<div class="deathsaves"><span class="label"><span class="ico" aria-hidden="true">💀</span>Death Saves</span>
       <div class="pips ok">${[0, 1, 2].map(i => html`<button class=${i < ds.ok ? 'on' : ''} aria-label="Erfolg" onClick=${() => patch(ctx, null, { deathSaves: { ...ds, ok: i < ds.ok ? i : i + 1 } })}></button>`)}<span class="sub">Erfolge</span></div>
       <div class="pips fail">${[0, 1, 2].map(i => html`<button class=${i < ds.fail ? 'on' : ''} aria-label="Fehlschlag" onClick=${() => patch(ctx, null, { deathSaves: { ...ds, fail: i < ds.fail ? i : i + 1 } })}></button>`)}<span class="sub">Fehlschläge</span></div>
       <button class="btn small" onClick=${deathRoll}>Death Save würfeln</button></div>`}
     <div class="row-split">
-      <div><span class="label">Hit Dice</span><div class="num">${lvl - (s.hitDiceUsed || 0)} / ${lvl} × d${die}</div><button class="btn small" disabled=${(s.hitDiceUsed || 0) >= lvl || hp >= max} onClick=${spendHD}>Hit Die ausgeben</button></div>
-      <div><span class="label">Heroic Inspiration</span><div><button class=${'toggle' + (s.inspiration ? ' on' : '')} onClick=${() => patch(ctx, null, { inspiration: !s.inspiration })}>${s.inspiration ? 'Vorhanden' : 'Keine'}</button></div></div>
+      <div><span class="label"><span class="ico" aria-hidden="true">🎲</span>Hit Dice</span><div class="num">${lvl - (s.hitDiceUsed || 0)} / ${lvl} × d${die}</div><button class="btn small" disabled=${(s.hitDiceUsed || 0) >= lvl || hp >= max} onClick=${spendHD}>Hit Die ausgeben</button></div>
+      <div><span class="label"><span class="ico" aria-hidden="true">🌟</span>Heroic Inspiration</span><div><button class=${'toggle' + (s.inspiration ? ' on' : '')} onClick=${() => patch(ctx, null, { inspiration: !s.inspiration })}>${s.inspiration ? 'Vorhanden' : 'Keine'}</button></div></div>
     </div>
     <${Rests} ...${ctx}/>
   </section>`;
@@ -187,13 +187,13 @@ function Rests(ctx) {
     { resources: (s.resources || []).map(r => ({ ...r, used: 0 })), slotsUsed: Array(9).fill(0), hitDiceUsed: 0, deathSaves: { ok: 0, fail: 0 } }); setAsk(null); toast('Long Rest: alles aufgefüllt.'); };
   return html`<div class="rests">${ask ? html`<span class="confirm">${ask === 'short' ? 'Short Rest machen? Füllt Short-Rest-Ressourcen auf.' : 'Long Rest machen? HP, Slots, Ressourcen und Hit Dice voll, Exhaustion −1.'}
       <button class="btn primary small" onClick=${ask === 'short' ? shortRest : longRest}>Ja</button><button class="btn small" onClick=${() => setAsk(null)}>Abbrechen</button></span>`
-    : html`<button class="btn" onClick=${() => setAsk('short')}>Short Rest</button><button class="btn" onClick=${() => setAsk('long')}>Long Rest</button>`}</div>`;
+    : html`<button class="btn" onClick=${() => setAsk('short')}>☕ Short Rest</button><button class="btn" onClick=${() => setAsk('long')}>🌙 Long Rest</button>`}</div>`;
 }
 
 /* ---------- abilities + skills ---------- */
 function Abilities({ c, s }) {
   const pb = profBonus(c.level || 1);
-  return html`<section class="panel box"><div class="box-head"><h2>Abilities</h2><span class="sub">Tippen zum Würfeln</span></div>
+  return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">💪</span>Abilities</h2><span class="sub">Tippen zum Würfeln</span></div>
     <div class="abil">${ABILITIES.map(a => { const m = mod(s.abilities[a.key]); const prof = s.saveProf.includes(a.key); const save = m + (prof ? pb : 0);
       return html`<div class="ab"><span class="label" title=${a.name}>${a.short}</span>
         <button class="m num" onClick=${() => requestRoll({ label: `${a.name} Check`, expr: withBonus('1d20', m) })} title="Ability Check">${sgn(m)}</button>
@@ -202,7 +202,7 @@ function Abilities({ c, s }) {
 }
 function Skills({ c, s }) {
   const pb = profBonus(c.level || 1);
-  return html`<section class="panel box"><div class="box-head"><h2>Skills</h2><span class="sub">● geübt · ◆ Expertise</span></div>
+  return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🎯</span>Skills</h2><span class="sub">● geübt · ◆ Expertise</span></div>
     <div class="skills">${SKILLS.map(k => { const lvl = s.skills[k.key] || 0; const b = mod(s.abilities[k.ab]) + lvl * pb;
       return html`<button class="skill" onClick=${() => requestRoll({ label: k.name, expr: withBonus('1d20', b) })}><span class=${'mark m' + lvl}>${lvl === 2 ? '◆' : lvl ? '●' : '○'}</span><span class="nm">${k.name}</span><span class="ab-tag">${k.ab.toUpperCase()}</span><b class="num">${sgn(b)}</b></button>`; })}</div></section>`;
 }
@@ -212,7 +212,7 @@ function Attacks(ctx) {
   const { s } = ctx; const list = s.attacks || [];
   const [f, setF] = useState(null);
   const save = e => { e.preventDefault(); if (!f.name.trim()) return; const next = f.id ? list.map(a => a.id === f.id ? f : a) : [...list, { ...f, id: newId() }]; patch(ctx, null, { attacks: next }); setF(null); };
-  return html`<section class="panel box"><div class="box-head"><h2>Angriffe</h2><button class="btn small" onClick=${() => setF({ name: '', bonus: 0, damage: '1d6', note: '' })}>Hinzufügen</button></div>
+  return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">⚔️</span>Angriffe</h2><button class="btn small" onClick=${() => setF({ name: '', bonus: 0, damage: '1d6', note: '' })}>Hinzufügen</button></div>
     ${list.length ? html`<div class="attacks">${list.map(a => html`<div class="atk">
       <div class="atk-name"><b>${a.name}</b>${a.note && html`<span class="sub">${a.note}</span>`}</div>
       <button class="btn small roll" onClick=${() => requestRoll({ label: `${a.name}: Angriff`, expr: withBonus('1d20', int(a.bonus)) })}>${sgn(int(a.bonus))}</button>
@@ -239,9 +239,9 @@ function Spellcasting(ctx) {
   const tapSlot = (lv, i) => { const u = [...used]; u[lv] = i < (u[lv] || 0) ? i : i + 1; patch(ctx, null, { slotsUsed: u }); };
   const save = e => { e.preventDefault(); if (!f.name.trim()) return; const next = f.id ? spells.map(x => x.id === f.id ? f : x) : [...spells, { ...f, id: newId() }]; patch(ctx, null, { spells: next }); setF(null); };
   const byLevel = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(l => [l, spells.filter(x => int(x.level) === l)]).filter(([, l]) => l.length);
-  return html`<section class="panel box"><div class="box-head"><h2>Spellcasting</h2><button class="btn small" onClick=${() => setF({ name: '', level: 1, prepared: true, note: '' })}>Zauber hinzufügen</button></div>
-    ${ab && html`<div class="statline three"><div class="stat"><span class="label">Ability</span><b>${ab.toUpperCase()}</b></div><div class="stat"><span class="label">Spell Save DC</span><b class="num">${8 + pb + m}</b></div>
-      <button class="stat roll" onClick=${() => requestRoll({ label: 'Spell Attack', expr: withBonus('1d20', pb + m) })}><span class="label">Spell Attack</span><b class="num">${sgn(pb + m)}</b></button></div>`}
+  return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">✨</span>Spellcasting</h2><button class="btn small" onClick=${() => setF({ name: '', level: 1, prepared: true, note: '' })}>Zauber hinzufügen</button></div>
+    ${ab && html`<div class="statline three"><div class="stat"><span class="label">Ability</span><b>${ab.toUpperCase()}</b></div><div class="stat"><span class="label"><span class="ico" aria-hidden="true">🎯</span>Spell Save DC</span><b class="num">${8 + pb + m}</b></div>
+      <button class="stat roll" onClick=${() => requestRoll({ label: 'Spell Attack', expr: withBonus('1d20', pb + m) })}><span class="label"><span class="ico" aria-hidden="true">✨</span>Spell Attack</span><b class="num">${sgn(pb + m)}</b></button></div>`}
     ${slotsMax.some(Boolean) && html`<div class="slots"><span class="label">${isPact(c.cls) ? 'Pact Magic Slots (Short Rest)' : 'Spell Slots'}</span>
       ${slotsMax.map((n, lv) => n ? html`<div class="slotrow"><span class="lv">${lv + 1}</span><div class="pips">${Array.from({ length: n }, (_, i) => html`<button class=${i < (used[lv] || 0) ? 'on' : ''} aria-label=${`Slot Stufe ${lv + 1}`} onClick=${() => tapSlot(lv, i)}></button>`)}</div><span class="sub">${n - Math.min(n, used[lv] || 0)} frei</span></div>` : null)}</div>`}
     ${byLevel.map(([l, list]) => html`<div class="spell-lv"><span class="label">${l === 0 ? 'Cantrips' : 'Stufe ' + l}</span>${list.map(x => html`<div class="spell">
@@ -264,7 +264,7 @@ function Resources(ctx) {
   const save = e => { e.preventDefault(); if (!f.name.trim()) return; const r = { ...f, max: Math.max(1, int(f.max, 1)) }; patch(ctx, null, { resources: f.id ? list.map(x => x.id === f.id ? r : x) : [...list, { ...r, id: newId(), used: 0 }] }); setF(null); };
   const takeSugg = () => { const byName = Object.fromEntries(list.map(r => [r.name, r])); const merged = [...list.map(r => { const g = sugg.find(x => x.name === r.name); return g ? { ...r, max: g.max, reset: g.reset } : r; }), ...sugg.filter(g => !byName[g.name]).map(g => ({ ...g, id: newId(), used: 0 }))]; patch(ctx, null, { resources: merged }); toast('Ressourcen übernommen.'); };
   const differs = sugg.some(g => { const r = list.find(x => x.name === g.name); return !r || r.max !== g.max; });
-  return html`<section class="panel box"><div class="box-head"><h2>Ressourcen</h2><button class="btn small" onClick=${() => setF({ name: '', max: 1, reset: 'long' })}>Hinzufügen</button></div>
+  return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🔋</span>Ressourcen</h2><button class="btn small" onClick=${() => setF({ name: '', max: 1, reset: 'long' })}>Hinzufügen</button></div>
     ${list.map(r => html`<div class="res"><div class="res-name"><b>${r.name}</b><span class="sub">${RESET_LABEL[r.reset] || ''}</span></div>
       ${r.max <= 12 ? html`<div class="pips">${Array.from({ length: r.max }, (_, i) => html`<button class=${i < (r.used || 0) ? 'on' : ''} aria-label=${r.name} onClick=${() => tap(r, i)}></button>`)}</div>`
         : html`<div class="counter"><button class="btn small" onClick=${() => patch(ctx, null, { resources: list.map(x => x.id === r.id ? { ...x, used: Math.min(x.max, (x.used || 0) + 1) } : x) })}>−</button><span class="num">${r.max - (r.used || 0)} / ${r.max}</span><button class="btn small" onClick=${() => patch(ctx, null, { resources: list.map(x => x.id === r.id ? { ...x, used: Math.max(0, (x.used || 0) - 1) } : x) })}>+</button></div>`}
@@ -287,9 +287,9 @@ function Conditions(ctx) {
   const desc = n => all.find(x => x.name === n)?.desc || '';
   const toggle = n => patch(ctx, { conditions: active.includes(n) ? active.filter(x => x !== n) : [...active, n] });
   const ex = c.exhaustion || 0;
-  return html`<section class="panel box"><div class="box-head"><h2>Zustände</h2><button class="btn small" onClick=${() => setPick(!pick)}>${pick ? 'Fertig' : 'Zustand hinzufügen'}</button></div>
+  return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🩹</span>Zustände</h2><button class="btn small" onClick=${() => setPick(!pick)}>${pick ? 'Fertig' : 'Zustand hinzufügen'}</button></div>
     ${active.length ? html`<div class="conds">${active.map(n => html`<div class="cond-row"><b>${n}</b><span class="sub">${desc(n)}</span><button class="link quiet small" onClick=${() => toggle(n)}>Entfernen</button></div>`)}</div>` : html`<p class="muted">Keine Zustände aktiv.</p>`}
-    <div class="exh"><span class="label">Exhaustion</span><div class="counter"><button class="btn small" disabled=${!ex} onClick=${() => patch(ctx, { exhaustion: ex - 1 })}>−</button><b class="num">${ex}</b><button class="btn small" disabled=${ex >= 6} onClick=${() => patch(ctx, { exhaustion: ex + 1 })}>+</button></div>
+    <div class="exh"><span class="label"><span class="ico" aria-hidden="true">😮‍💨</span>Exhaustion</span><div class="counter"><button class="btn small" disabled=${!ex} onClick=${() => patch(ctx, { exhaustion: ex - 1 })}>−</button><b class="num">${ex}</b><button class="btn small" disabled=${ex >= 6} onClick=${() => patch(ctx, { exhaustion: ex + 1 })}>+</button></div>
       ${ex > 0 && html`<span class="sub">−${ex * 2} auf d20-Würfe, −${ex * 5} ft Speed</span>`}</div><p class="ro-note">${EXHAUSTION_DESC}</p>
     ${pick && html`<div class="cond-pick">${all.map(x => html`<button class=${'chip-btn' + (active.includes(x.name) ? ' on' : '') + (x.custom ? ' custom' : '')} title=${x.desc} onClick=${() => toggle(x.name)}>${x.name}</button>`)}</div>`}
   </section>`;
@@ -303,7 +303,7 @@ function Inventory(ctx) {
   const upd = (id, d) => patch(ctx, null, { inventory: inv.map(x => x.id === id ? { ...x, ...d } : x) });
   const attunedN = inv.filter(x => x.attuned).length;
   const cur = cn || coins;
-  return html`<section class="panel box"><div class="box-head"><h2>Inventar</h2><span class="sub">Attunement ${attunedN} / 3</span></div>
+  return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🎒</span>Inventar</h2><span class="sub">Attunement ${attunedN} / 3</span></div>
     ${inv.length ? html`<div class="inv">${inv.map(x => html`<div class="inv-row">
       <div class="counter"><button class="btn small" onClick=${() => upd(x.id, { qty: Math.max(0, (x.qty || 0) - 1) })}>−</button><b class="num">${x.qty ?? 1}</b><button class="btn small" onClick=${() => upd(x.id, { qty: (x.qty || 0) + 1 })}>+</button></div>
       <div class="inv-name"><b>${x.name}</b><input class="note-in" value=${x.note || ''} placeholder="Notiz" onChange=${e => upd(x.id, { note: e.target.value })} aria-label="Notiz"/></div>
@@ -318,7 +318,7 @@ function Inventory(ctx) {
 function TextBlocks(ctx) {
   const { s, coreOk } = ctx;
   const [notes, setNotes] = useState(null);
-  return html`<section class="panel box"><div class="box-head"><h2>Features & Traits</h2></div>
+  return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">📜</span>Features & Traits</h2></div>
     ${s.features ? html`<p class="pre">${s.features}</p>` : html`<p class="muted">${coreOk ? 'Über „Bogen bearbeiten“ eintragen: Klassen- und Species-Features, Feats.' : 'Noch nichts eingetragen.'}</p>`}
     ${s.languages && html`<div><span class="label">Sprachen & Proficiencies</span><p class="pre">${s.languages}</p></div>`}
     <${Field} label="Notizen zum Charakter"><textarea id="ch-notes" value=${notes ?? s.notes} onInput=${e => setNotes(e.target.value)} onBlur=${() => { if (notes !== null && notes !== s.notes) { patch(ctx, null, { notes }); } setNotes(null); }} placeholder="Persönlichkeit, Ziele, Beziehungen…"></textarea></${Field}>

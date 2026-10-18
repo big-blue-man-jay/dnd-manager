@@ -79,14 +79,14 @@ function Home({ user }) {
   if (loading) return html`<${Spinner}/>`;
   return html`<main class="page">
     <section class="greet"><span class="label">Willkommen zurück</span><h1>${user.name}</h1></section>
-    <section><div class="bar"><h2>Deine Charaktere</h2></div>
+    <section><div class="bar"><h2><span class="ico" aria-hidden="true">🧙</span>Deine Charaktere</h2></div>
       ${sorted.length ? html`<${FeatureCard} c=${sorted[0]} camp=${campById[sorted[0].campaignId]}/>
         ${sorted.length > 1 && html`<div class="label group-label">Weitere Charaktere</div><div class="grid cards">${sorted.slice(1).map(c => html`<${CharCard} c=${c} camp=${campById[c.campaignId]} showCamp/>`)}</div>`}`
       : html`<${Empty} title="Noch kein Charakter">Tritt einer Kampagne mit dem Code deines DMs bei und erstelle dort deinen Charakter.</${Empty}>`}
     </section>
-    <section><div class="bar"><h2>Kampagnen</h2><div class="actions">
-      <button class="btn" onClick=${() => setModal('join')}>Mit Code beitreten</button>
-      <button class="btn primary" onClick=${() => setModal('create')}>Neue Kampagne</button></div></div>
+    <section><div class="bar"><h2><span class="ico" aria-hidden="true">🏰</span>Kampagnen</h2><div class="actions">
+      <button class="btn" onClick=${() => setModal('join')}>🔑 Mit Code beitreten</button>
+      <button class="btn primary" onClick=${() => setModal('create')}>➕ Neue Kampagne</button></div></div>
       ${!camps.length ? html`<${Empty} title="Noch keine Kampagne" action=${html`<button class="btn" onClick=${example}>Beispielkampagne zum Ausprobieren anlegen</button>`}>Als Spieler: Lass dir vom DM den Beitrittscode geben. Als DM: Erstelle eine neue Kampagne, du wirst automatisch ihr Dungeon Master.</${Empty}>`
         : ['active', 'paused', 'finished'].map(st => { const g = camps.filter(c => (c.status || 'active') === st); return g.length ? html`<div class="label group-label">${st === 'active' ? 'Aktive Kampagnen' : STATUS[st]}</div><div class="grid camps">${g.map(c => html`<${CampCard} c=${c} user=${user} mine=${myChars.filter(x => x.campaignId === c.id)}/>`)}</div>` : null; })}
     </section>
@@ -105,13 +105,13 @@ function FeatureCard({ c, camp }) {
     <div class="feat-main">
       <div class="flag"><span class="most">Zuletzt gespielt</span><span class="label">${camp?.name || ''}</span>${!c.locked && html`<${Pill} tone="warn">Entwurf</${Pill}>`}</div>
       <div class="feat-name"><${Medal} cls=${c.cls} species=${c.species} size="lg"/><div class="nc-id"><h3>${c.name}</h3><div class="sub">Stufe ${c.level || 1} · ${[c.species, clsName(c), c.subclass && `(${c.subclass})`].filter(Boolean).join(' ')}</div></div></div>
-      <div class="statline"><div class="stat ac"><span class="label">AC</span><b class="num"><${AcValue} c=${c}/></b></div><div class="stat"><span class="label">Stufe</span><b class="num">${c.level || 1}</b></div><div class="stat"><span class="label">Speed</span><b class="num">${c.speed || 30}</b></div><div class="stat"><span class="label">XP</span><b class="num">${(c.xp || 0).toLocaleString('de-DE')}</b></div></div>
-      <div><div class="hprow"><span class="label">Hit Points</span><span class="num"><b>${c.hp ?? 0}</b> / ${c.hpMax ?? 0}</span></div><${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/></div>
+      <div class="statline"><div class="stat ac"><span class="label"><span class="ico" aria-hidden="true">🛡️</span>AC</span><b class="num"><${AcValue} c=${c}/></b></div><div class="stat"><span class="label"><span class="ico" aria-hidden="true">⭐</span>Stufe</span><b class="num">${c.level || 1}</b></div><div class="stat"><span class="label"><span class="ico" aria-hidden="true">👟</span>Speed</span><b class="num">${c.speed || 30}</b></div><div class="stat"><span class="label">XP</span><b class="num">${(c.xp || 0).toLocaleString('de-DE')}</b></div></div>
+      <div><div class="hprow"><span class="label"><span class="ico" aria-hidden="true">❤️</span>Hit Points</span><span class="num"><b>${c.hp ?? 0}</b> / ${c.hpMax ?? 0}</span></div><${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/></div>
       <div class="actions"><a class="btn primary" href=${href('c', c.campaignId, 'char', c.id)}>Charakterbogen öffnen</a><a class="btn" href=${href('c', c.campaignId)}>Zur Kampagne</a></div>
     </div>
     <aside class="feat-side">
-      ${n !== null && n >= 0 && html`<div><span class="label">Nächste Sitzung</span><p><b>${fmtDay(camp.nextDate)}${camp.nextTime ? ' · ' + camp.nextTime : ''}</b> <span class="muted">${relDays(n)}</span></p></div>`}
-      <div><span class="label">Kampagne</span><p>${camp?.name}</p>${camp?.description && html`<p class="muted small">${camp.description}</p>`}</div>
+      ${n !== null && n >= 0 && html`<div><span class="label"><span class="ico" aria-hidden="true">📅</span>Nächste Sitzung</span><p><b>${fmtDay(camp.nextDate)}${camp.nextTime ? ' · ' + camp.nextTime : ''}</b> <span class="muted">${relDays(n)}</span></p></div>`}
+      <div><span class="label"><span class="ico" aria-hidden="true">🏰</span>Kampagne</span><p>${camp?.name}</p>${camp?.description && html`<p class="muted small">${camp.description}</p>`}</div>
     </aside></article>`;
 }
 

@@ -50,5 +50,5 @@ export function TurnHelp({ onClose }) {
 
 export function TurnHelpButton({ cls = 'btn' }) {
   const [open, setOpen] = useState(false);
-  return html`<button class=${cls} onClick=${() => setOpen(true)} aria-haspopup="dialog"><span class="th-ico" aria-hidden="true">?</span> Dein Zug</button>${open && html`<${TurnHelp} onClose=${() => setOpen(false)}/>`}`;
+  return html`<button class=${cls} onClick=${() => setOpen(true)} aria-haspopup="dialog"><span class="ico" aria-hidden="true">🧭</span> Dein Zug</button>${open && html`<${TurnHelp} onClose=${() => setOpen(false)}/>`}`;
 }
