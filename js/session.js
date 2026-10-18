@@ -12,7 +12,7 @@ import { TurnHelpButton } from './help.js';
 import { searchWiki } from './wiki.js';
 import { useLoot, LootButton, LootStage, LootPopup } from './loot.js';
 import { FoeForm, FoeSheet } from './foes.js';
-import { BattleMap } from './map.js';
+import { BattleMap, scenesPath } from './map.js';
 import { ActionLog, logEntry } from './log.js';
 import { ABILITIES, SKILLS, CLASSES, profBonus, mod, sgn, autoSlots, isPact, diceHex } from './rules5e.js';
 
@@ -26,7 +26,12 @@ function useCombat({ camp, cid, chars }) {
   const keepTurn = list => { const curId = cb.list[cb.turn]?.id; return Math.max(0, list.findIndex(r => r.id === curId)); };
   return {
     cb,
-    start: () => { save({ round: 1, turn: 0, list: sorted(chars.map(c => ({ id: newId(), name: c.name, charId: c.id, kind: 'pc', init: '' }))) }); logEntry(cid, { kind: 'combat', label: 'Kampf beginnt · Runde 1', session }); },
+    // prepared enemies from a scene loaded as "map only" join now, on their squares
+    start: async () => { const now = Date.now(), prep = (camp.prepFoes || []).map(({ x, y, ...r }) => ({ ...r, id: newId(), kind: 'npc', init: '', _p: Number.isInteger(x) ? { x, y } : null }));
+      const list = sorted([...chars.map(c => ({ id: newId(), name: c.name, charId: c.id, kind: 'pc', init: '' })), ...prep.map(({ _p, ...r }) => r)]);
+      try { await store.batch([...prep.filter(r => r._p).map(r => ({ type: 'set', path: `campaigns/${cid}/map/${r.id}`, data: { ...r._p, updatedAt: now } })),
+        { type: 'update', path: `campaigns/${cid}`, data: { combat: { round: 1, turn: 0, list }, prepFoes: [] } }]); } catch (x) { return failed(x); }
+      logEntry(cid, { kind: 'combat', label: 'Kampf beginnt · Runde 1', session }); },
     end: () => { save(null); logEntry(cid, { kind: 'combat', label: `Kampf vorbei nach ${cb.round} ${cb.round === 1 ? 'Runde' : 'Runden'}`, session }); },
     setRow: (id, patch) => save({ ...cb, list: cb.list.map(r => (r.id === id ? { ...r, ...patch } : r)) }),
     sortNow: () => { const list = sorted(cb.list); save({ ...cb, list, turn: keepTurn(list) }); },
@@ -138,16 +143,27 @@ function PartyCard({ c, cid, now }) {
 function SceneBar({ camp, cid, user }) {
   const t = camp.table || {};
   const [f, setF] = useState(null); const cur = f || { place: t.place || '', mood: t.mood || '' };
-  const save = async e => { e?.preventDefault(); if (!f) return;
-    try { await store.update(`campaigns/${cid}`, { table: { ...t, place: cur.place.trim(), mood: cur.mood.trim() } });
-      if (cur.place.trim() && cur.place.trim() !== (t.place || '')) logEntry(cid, { kind: 'scene', label: cur.place.trim(), session: t.session || 0 });
+  // prepared places live next to the map scenes in the DM's private notes
+  const [sc, setSc] = useState(null);
+  useEffect(() => store.watchDoc(scenesPath(user.uid, cid), setSc, () => setSc(null)), [cid, user.uid]);
+  const places = sc?.places || [];
+  const apply = async (place, mood) => {
+    try { await store.update(`campaigns/${cid}`, { table: { ...t, place, mood } });
+      if (place && place !== (t.place || '')) logEntry(cid, { kind: 'scene', label: place, session: t.session || 0 });
       setF(null); toast('Szene aktualisiert.'); } catch (x) { failed(x); } };
+  const save = e => { e?.preventDefault(); if (f) apply(cur.place.trim(), cur.mood.trim()); };
+  const keep = async () => { const place = cur.place.trim(); if (!place) return toast('Erst einen Ort eintragen.');
+    const rest = places.filter(x => x.place !== place);
+    try { const { id, ...doc } = sc || {}; await store.set(scenesPath(user.uid, cid), { scenes: [], ...doc, places: [...rest, { id: newId(), place, mood: cur.mood.trim() }], updatedAt: Date.now() }); toast('Ort gemerkt.'); } catch (x) { failed(x); } };
   const show = async v => { try { await store.update(`campaigns/${cid}`, { table: { ...t, show: v } }); } catch (x) { failed(x); } };
   return html`<form class="panel scenebar" onSubmit=${save}>
     <span class="label">📍 Szene</span>
+    ${places.length > 0 && html`<select class="sb-pick" value="" onChange=${e => { const p = places.find(x => x.id === e.target.value); if (p) apply(p.place, p.mood); }} aria-label="Vorbereiteter Ort">
+      <option value="">Vorbereitet …</option>${places.map(p => html`<option value=${p.id}>${p.place}</option>`)}</select>`}
     <input class="sb-place" value=${cur.place} onInput=${e => setF({ ...cur, place: e.target.value })} placeholder="Ort, z. B. Die Moosfurt" aria-label="Ort"/>
     <input class="sb-mood" value=${cur.mood} onInput=${e => setF({ ...cur, mood: e.target.value })} placeholder="Stimmung fürs Tablet, z. B. Nebel liegt über dem Wasser" aria-label="Stimmung"/>
     ${f && html`<button class="btn small primary">Übernehmen</button>`}
+    ${cur.place && !places.some(x => x.place === cur.place.trim() && x.mood === cur.mood.trim()) && html`<button type="button" class="link quiet small" onClick=${keep} title="Für später merken">Ort merken</button>`}
     <span class="sb-show"><span class="label">Tablet zeigt</span><span class="seg small">${[['scene', 'Szene'], ['map', 'Karte']].map(([k, l]) => html`<button type="button" aria-pressed=${(camp.combat ? 'map' : t.show || 'scene') === k} disabled=${!!camp.combat} onClick=${() => show(k)}>${l}</button>`)}</span></span>
   </form>`;
 }
@@ -163,7 +179,7 @@ function Tonight({ cid, last, notes, secrets, members }) {
     ${notes?.secrets && html`<details class="fold"><summary>🤫 Das große Ganze</summary><p class="pre">${notes.secrets}</p></details>`}
     <div><span class="label">Bereit zum Enthüllen · ${sealed.length}</span>
       ${sealed.length ? html`<ul class="seal-list">${sealed.map(s => html`<li><span><b>${s.title}</b><small>${KINDS[s.kind] || 'Geheimnis'}${s.condition ? ` · wenn: ${s.condition}` : ''}</small></span>
-        <button class="btn small" onClick=${() => setReveal(s)}>${s.kind === 'quest' ? 'Freischalten' : 'Enthüllen'}</button></li>`)}</ul>`
+        <button class="btn small" onClick=${() => setReveal(s)}>${s.kind === 'quest' ? 'Freischalten' : s.kind === 'npc' ? 'Vorstellen' : 'Enthüllen'}</button></li>`)}</ul>`
         : html`<p class="muted small-note">Nichts vorbereitet.</p>`}</div>
     ${reveal && html`<${RevealModal} s=${reveal} cid=${cid} members=${members} onClose=${() => setReveal(null)}/>`}
   </section>`;
@@ -222,7 +238,7 @@ function DMView({ camp, chars, sessions, quests, npcs, secrets, notes, members, 
       <div class="st-act">
         <button class="btn" onClick=${() => go('tisch')} title="Auf dem Tablet öffnen: zeigt Szene oder Karte für alle">📺 Tischbildschirm</button>
         <${LootButton} cid=${cid} loot=${loot}/>
-        ${fight ? html`<button class="btn danger-soft" onClick=${c.end}>Kampf beenden</button>` : html`<button class="btn primary" onClick=${c.start}>⚔️ Kampf starten</button>`}
+        ${fight ? html`<button class="btn danger-soft" onClick=${c.end}>Kampf beenden</button>` : html`<button class="btn primary" onClick=${c.start}>⚔️ Kampf starten${camp.prepFoes?.length ? ` · ${camp.prepFoes.length} Gegner` : ''}</button>`}
         <details class="st-menu"><summary class="btn" aria-label="Mehr">⋯</summary><div class="st-menu-pop">
           <a href=${href('c', cid)}>🏰 Kampagne</a><a href=${href('c', cid, 'enthuellungen')}>🤯 Enthüllungen</a><a href=${href('c', cid, 'notizen')}>📝 DM-Notizen</a>
           <a href=${href('c', cid, 'npcs')}>🎭 NPCs</a><a href=${href('c', cid, 'sitzungen')}>📖 Sitzung eintragen</a><a href="#/wiki">📚 Wiki: Begriffe & Regeln</a></div></details>
@@ -235,7 +251,7 @@ function DMView({ camp, chars, sessions, quests, npcs, secrets, notes, members, 
         <div class="col"><${BattleMap} cid=${cid} camp=${camp} chars=${chars} isDM user=${user} npcs=${npcs}/><${PartyBoard} cid=${cid} chars=${chars} camp=${camp}/></div>
         <div class="col"><${CombatPanel} camp=${camp} cid=${cid} chars=${chars} user=${user} c=${c}/><${ActionLog} cid=${cid} camp=${camp} chars=${chars} user=${user} compact/></div>
       </div>`
-      : html`${showMap && html`<${BattleMap} cid=${cid} camp=${camp} chars=${chars} isDM user=${user} npcs=${npcs}/>`}
+      : html`<${BattleMap} cid=${cid} camp=${camp} chars=${chars} isDM user=${user} npcs=${npcs} startOpen=${showMap}/>
       <div class="dm-grid calm">
         <div class="col"><${Tonight} cid=${cid} last=${last} notes=${notes} secrets=${secrets} members=${members}/><${Lookup} quests=${quests} npcs=${npcs} cid=${cid} isDM/></div>
         <div class="col"><${PartyBoard} cid=${cid} chars=${chars} camp=${camp}/></div>

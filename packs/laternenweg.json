@@ -1,0 +1,913 @@
+{
+ "type": "dndm-prep",
+ "id": "laternenweg",
+ "title": "Der Laternenweg – Abend 1 und 2",
+ "notes": {
+  "prep": "DER LATERNENWEG – ABEND 1\n0:00 Tischregeln (10 Min): Tabus, eine Gruppe, Regelfragen entscheide ich, Handys weg im Kampf\n0:10 Szene 1 Straße – Vorstellung (Oddas Fragen). Rad: Athletics DC 10, Help = Advantage. Beute: 3 Potions of Healing zeigen\n0:30 Szene 2 Moosfurt – Szene laden „Überfall an der Moosfurt“. Goblins Stealth 16: wer Passive Perception 16+ hat, würfelt Initiative normal, alle anderen mit Disadvantage. Ende Runde 2: Hruk (Figur in der Ablage) schnappt Odda → Quest „Odda befreien“ freischalten, Hruk vorstellen\n1:15 Szene 3 Danach – Zwick vorstellen. Intimidation DC 10 / Persuasion DC 12 (Essen = Advantage). Brief der Motte enthüllen. Spur: Survival DC 10, ab 15 Kreidepfeile enthüllen. Short Rest anbieten. Beute: Krempel + Kupfer\n1:45 Szene 4 Schweigwald – Marschreihenfolge! Schlinge und Grube: Passive Perception 12 entdeckt, sonst Dex Save DC 11 (Schlinge: Restrained; Grube: 1d6, raus mit Athletics DC 10)\n2:15 Szene 5 Zoll – 6 sp zahlen / Deception DC 12 / Stealth-Gruppe DC 12 / Kampf: Szene „Der Goblin-Zoll“. Überlebt einer 2 Runden → Abend 2 Alarm\n2:45 Szene 6 Cliffhanger – Ort „Das Hakenzahnloch“. Oddas Stimme. Sitzung eintragen, XP: 225 (75 pro Held)\n\nDER LATERNENWEG – ABEND 2\n0:00 Rückblick, Cliffhanger nochmal vorlesen\n0:10 Dornenmaul – „Nur Karte“ laden. Vorbeischleichen Stealth-Gruppe DC 10, sonst Alarm. Klettern Athletics DC 10, Angriffe mit Advantage\n     Zwinger – Wölfe: füttern + Animal Handling DC 10. Kamin: Perception DC 10, Klettern Athletics DC 10 (sonst 1d6)\n0:45 Bachgang & Damm – Perception DC 12 entdeckt die Damm-Goblins zuerst. Flut: STR Save DC 10, sonst 1d6, Prone, 20 ft zurück\n1:15 Nibs Ecke – „Nur Karte“ laden, Nib vorstellen. Insight DC 12: Nib wechselt zum Gewinner. Intimidation DC 12 = Infos gratis\n1:45 Vorratskammer – Short Rest. Quest „Die Kisten von Laternfels“ freischalten\n2:00 Hruks Halle – Surprise bei Kamin + Stealth DC 12 oder Nickerchen. Befreien aus Griff: Athletics/Acrobatics DC 12. Odda befreien = Help jede Runde\n2:45 Rettung – Beutesack: Beute zeigen, Ecke + Meisterzeichen enthüllen. Laternfels: Marga + Tobin vorstellen, Gold aufteilen, Quest Neumond. XP 675 → alle Stufe 2",
+  "secrets": "DAS GROSSE GANZE (Laternenweg)\nDie Glutschmiede: Vor dem Grau bauten Zwerge und Menschen eine Schmiede, deren Laternen den Nebel zurückhalten. Die große Laterne von Laternfels ist eine davon.\nOddas Karte in der Messingrolle zeigt den Weg zur Glutschmiede.\nDie Motte (graues Wachs, Mottenstempel) hat die Hakenzähne angeheuert, um Odda und die Karte zu schnappen. Übergabe in der Neumondnacht (in 6 Tagen) am alten Wachturm.\nDas Grau schläft in den Bergen. Wer die Schmiede kontrolliert, kann es fernhalten – oder zurückrufen.\nSicherheitsnetze: Goblins erledigen keine Gefallenen. Hruk sackt ein, er tötet nicht. Moral: Goblins fliehen, wenn die Hälfte liegt."
+ },
+ "places": [
+  {
+   "place": "Der Laternenweg",
+   "mood": "Euer Wagen knarrt an Bauernhäusern ohne Dächer vorbei. Noch ein halber Tag bis Laternfels."
+  },
+  {
+   "place": "Die Moosfurt",
+   "mood": "Eine umgestürzte Birke versperrt die Furt. Die Ochsen bleiben stehen. Die Büsche kichern."
+  },
+  {
+   "place": "Der Schweigwald",
+   "mood": "Alte Eichen, dickes Moos. Kein Vogel singt. Nur ab und zu ein Kreidepfeil auf einem Stein."
+  },
+  {
+   "place": "Die Hakenzahn-Brücke",
+   "mood": "HAKENZAHN-ZOLL. 1 SILBER PRO BEIN. HOLZBEINE HALBER PREIS. KEIN GELD ZURÜCK."
+  },
+  {
+   "place": "Das Hakenzahnloch",
+   "mood": "Ein Bach verschwindet im Hügel. Eine Kette klirrt. Etwas knurrt."
+  },
+  {
+   "place": "Der Zwinger",
+   "mood": "Zwei Wölfe an einem Pfahl. Sie haben euch längst gerochen."
+  },
+  {
+   "place": "Der Bachgang",
+   "mood": "Das Wasser rauscht euch entgegen. Irgendwo über euch knarrt Holz."
+  },
+  {
+   "place": "Nibs Ecke",
+   "mood": "Rauch, klackernde Knöchel und ein Helm, der drei Nummern zu groß ist."
+  },
+  {
+   "place": "Hruks Halle",
+   "mood": "Über dem Feuer zappelt ein Sack und flucht auf Zwergisch. „Hruk hat … Platz.“"
+  },
+  {
+   "place": "Laternfels",
+   "mood": "Hundert kleine Laternen an hundert Türen. Lasst euer Licht brennen."
+  }
+ ],
+ "secrets": [
+  {
+   "kind": "quest",
+   "title": "Odda befreien",
+   "condition": "Hruk hat Odda an der Moosfurt verschleppt",
+   "quest": {
+    "location": "Hakenzahnloch, zwei Stunden nördlich",
+    "description": "Ein riesiger Bugbear hat Odda Eisenkiel in einem Sack verschleppt. Holt sie zurück – und ihre Messingrolle.",
+    "reward": "Oddas Lohn: 10 gp pro Held"
+   }
+  },
+  {
+   "kind": "npc",
+   "title": "Hruk Zweisack",
+   "condition": "Er schnappt sich Odda an der Moosfurt",
+   "npc": {
+    "role": "Bugbear, Boss der Hakenzähne",
+    "location": "Hakenzahnloch",
+    "attitude": "hostile",
+    "notes": "Riesig und zottelig, mit zwei Säcken am Gürtel: einer für Beute, einer für Leute. Hat Odda verschleppt."
+   }
+  },
+  {
+   "kind": "npc",
+   "title": "Zwick",
+   "condition": "Der letzte Goblin an der Furt ergibt sich",
+   "npc": {
+    "role": "Junger Hakenzahn-Goblin, euer Gefangener",
+    "location": "Moosfurt",
+    "attitude": "neutral",
+    "notes": "Verängstigt und geschwätzig, sagt viel zu viel. Murmelt ständig „noch nicht, noch nicht“. Mag Snacks."
+   }
+  },
+  {
+   "kind": "letter",
+   "title": "Der Brief der Motte",
+   "condition": "Ihr habt die Goblins an der Moosfurt durchsucht",
+   "body": "Versiegelt mit grauem Wachs und einem Mottenstempel:\n\n„Die Zwergin und das Rohr. Beide lebend, beide unversehrt. Bringt sie in der Neumondnacht zum alten Wachturm. Öffnet das Rohr nicht. – M“"
+  },
+  {
+   "kind": "secret",
+   "title": "Kreidepfeile",
+   "condition": "Survival 15 oder mehr auf der Spur",
+   "body": "Auf Steinen am Pfad: kleine Kreidepfeile nach Norden, neben jedem ein Zwergen-Schimpfwort. Odda markiert euch den Weg – aus dem Sack heraus."
+  },
+  {
+   "kind": "npc",
+   "title": "Nib",
+   "condition": "Zwick verpetzt ihn, oder ihr trefft ihn in seiner Ecke",
+   "npc": {
+    "role": "Goblin, Hruks „Zweitbester“",
+    "location": "Hakenzahnloch",
+    "attitude": "neutral",
+    "notes": "Dürr, mit einem Helm drei Nummern zu groß. Will selbst Boss werden. „Nib kämpft nicht. Nib … verhandelt.“"
+   }
+  },
+  {
+   "kind": "npc",
+   "title": "Schnüff und Schnaff",
+   "condition": "Ihr betretet den Zwinger",
+   "npc": {
+    "role": "Zwei Wölfe, angekettet",
+    "location": "Hakenzahnloch, Zwinger",
+    "attitude": "hostile",
+    "notes": "An einen Pfahl gekettet, die Ketten reichen 10 ft. Mögen Wurst."
+   }
+  },
+  {
+   "kind": "npc",
+   "title": "Grub",
+   "condition": "Ihr betretet Hruks Halle",
+   "npc": {
+    "role": "Goblin, Hruks Leibwächter",
+    "location": "Hruks Halle",
+    "attitude": "hostile",
+    "notes": "Steht am Eingang der Halle und passt auf den Boss auf."
+   }
+  },
+  {
+   "kind": "quest",
+   "title": "Die Kisten von Laternfels",
+   "condition": "Ihr habt die Vorratskammer gefunden",
+   "quest": {
+    "location": "Hakenzahnloch, Vorratskammer",
+    "description": "Drei Kisten Lampenöl mit dem Laternenzeichen von Laternfels. In der Stadt vermisst die bestimmt jemand.",
+    "reward": "Finderlohn in Laternfels"
+   }
+  },
+  {
+   "kind": "item",
+   "title": "Die abgerissene Ecke",
+   "condition": "Ihr habt die Messingrolle aus Hruks Beutesack geöffnet",
+   "body": "Oddas Karte steckt in der Rolle – aber eine Ecke ist abgerissen.\n„Graukapuze wollte Beweis. Hruk hat ein Stück geschickt.“\nDie Motte kennt jetzt einen Teil des Weges."
+  },
+  {
+   "kind": "item",
+   "title": "Das Meisterzeichen",
+   "condition": "Die Kleine Laterne genau untersucht",
+   "body": "Am Boden der Kleinen Laterne: ein winziges Schmiedezeichen. Genau dasselbe Zeichen trägt die große Laterne auf dem Turm von Laternfels."
+  },
+  {
+   "kind": "npc",
+   "title": "Marga Brendel",
+   "condition": "Ankunft in Laternfels",
+   "npc": {
+    "role": "Wirtin des Gasthauses „Zur letzten Laterne“",
+    "location": "Laternfels",
+    "attitude": "friendly",
+    "notes": "Herzlich und neugierig, weiß über alle Bescheid. Gibt euch freie Zimmer."
+   }
+  },
+  {
+   "kind": "npc",
+   "title": "Hüter Tobin Asch",
+   "condition": "Ankunft in Laternfels",
+   "npc": {
+    "role": "Wächter der großen Laterne, so etwas wie der Sheriff",
+    "location": "Laternfels",
+    "attitude": "friendly",
+    "notes": "Müde, ehrlich, hat zu wenig Leute. Zahlt Kopfgeld auf Hakenzähne."
+   }
+  },
+  {
+   "kind": "quest",
+   "title": "Die Übergabe bei Neumond",
+   "condition": "Hüter Tobin hat den Brief der Motte gelesen",
+   "quest": {
+    "giver": "Hüter Tobin Asch",
+    "location": "Der alte Wachturm",
+    "description": "Die Motte erwartet Hruk in der Neumondnacht am alten Wachturm, mit Odda und der Karte. Statt Hruk könntet ihr dort auftauchen.",
+    "reward": "Antworten. Und vielleicht ein Kopfgeld."
+   }
+  }
+ ],
+ "loot": [
+  {
+   "name": "Potion of Healing",
+   "rarity": "common",
+   "kind": "potion",
+   "desc": "Trinken (Bonus Action): heilt 2d4 + 2 HP.",
+   "note": "Szene 1 · Oddas Vorschuss, 1 von 3"
+  },
+  {
+   "name": "Potion of Healing",
+   "rarity": "common",
+   "kind": "potion",
+   "desc": "Trinken (Bonus Action): heilt 2d4 + 2 HP.",
+   "note": "Szene 1 · Oddas Vorschuss, 2 von 3"
+  },
+  {
+   "name": "Potion of Healing",
+   "rarity": "common",
+   "kind": "potion",
+   "desc": "Trinken (Bonus Action): heilt 2d4 + 2 HP.",
+   "note": "Szene 1 · Oddas Vorschuss, 3 von 3"
+  },
+  {
+   "name": "Goblin-Krempel",
+   "rarity": "common",
+   "kind": "gear",
+   "desc": "Ein geklauter Löffel, eine halbe Wurst, eine einzelne Socke.",
+   "note": "Moosfurt · Die Wurst hilft an Abend 2 bei den Wölfen"
+  },
+  {
+   "kind": "gold",
+   "qty": 21,
+   "coin": "cp",
+   "note": "Moosfurt · Kupfer der Goblins (3× 2d6, schon gewürfelt)"
+  },
+  {
+   "kind": "gold",
+   "qty": 2,
+   "coin": "gp",
+   "note": "Zoll · nur wenn die Zoll-Goblins besiegt sind"
+  },
+  {
+   "kind": "gold",
+   "qty": 14,
+   "coin": "sp",
+   "note": "Zoll · nur wenn die Zoll-Goblins besiegt sind"
+  },
+  {
+   "kind": "gold",
+   "qty": 45,
+   "coin": "gp",
+   "note": "Abend 2 · Hruks Beutesack"
+  },
+  {
+   "kind": "gold",
+   "qty": 120,
+   "coin": "sp",
+   "note": "Abend 2 · Hruks Beutesack"
+  },
+  {
+   "name": "Silberring mit Laterne",
+   "rarity": "common",
+   "kind": "ring",
+   "desc": "Ein Silberring mit eingravierter Laterne. Kein magischer Ring, aber etwa 25 gp wert.",
+   "note": "Abend 2 · Hruks Beutesack"
+  },
+  {
+   "name": "Potion of Healing",
+   "rarity": "common",
+   "kind": "potion",
+   "qty": 2,
+   "desc": "Trinken (Bonus Action): heilt 2d4 + 2 HP.",
+   "note": "Abend 2 · Hruks Beutesack"
+  },
+  {
+   "name": "Die Kleine Laterne",
+   "rarity": "common",
+   "kind": "wondrous",
+   "desc": "Eine handtellergroße Messinglaterne aus Zwergenhand. Bright Light 20 ft, Dim Light weitere 20 ft, braucht kein Öl. Mit einer Bonus Action abdecken oder öffnen. Ihre Flamme brennt blau, sobald das Grau weniger als eine Meile entfernt ist.",
+   "note": "Abend 2 · Hruks Beutesack · Geheimnis: Enthüllung „Das Meisterzeichen“"
+  },
+  {
+   "kind": "gold",
+   "qty": 75,
+   "coin": "gp",
+   "note": "Laternfels · Oddas Lohn: 10 + 15 gp pro Held → Gleich aufteilen"
+  },
+  {
+   "kind": "gold",
+   "qty": 10,
+   "coin": "gp",
+   "note": "Laternfels · Hüter Tobin für die Kisten"
+  }
+ ],
+ "scenes": [
+  {
+   "name": "A1 · Überfall an der Moosfurt",
+   "size": "m",
+   "place": "Die Moosfurt",
+   "terrain": [
+    {
+     "t": "water",
+     "x": 9,
+     "y": 0,
+     "w": 2,
+     "h": 14
+    },
+    {
+     "t": "tree",
+     "x": 8,
+     "y": 5,
+     "w": 1,
+     "h": 4
+    },
+    {
+     "t": "bush",
+     "x": 13,
+     "y": 2,
+     "w": 3,
+     "h": 3
+    },
+    {
+     "t": "bush",
+     "x": 13,
+     "y": 9,
+     "w": 3,
+     "h": 3
+    },
+    {
+     "t": "bush",
+     "x": 0,
+     "y": 9,
+     "w": 3,
+     "h": 4
+    },
+    {
+     "t": "rock",
+     "x": 12,
+     "y": 7,
+     "w": 1,
+     "h": 1
+    },
+    {
+     "t": "rock",
+     "x": 17,
+     "y": 5,
+     "w": 1,
+     "h": 1
+    },
+    {
+     "t": "tree",
+     "x": 17,
+     "y": 0,
+     "w": 2,
+     "h": 2
+    },
+    {
+     "t": "tree",
+     "x": 1,
+     "y": 0,
+     "w": 2,
+     "h": 2
+    }
+   ],
+   "foes": [
+    {
+     "preset": "goblin-warrior",
+     "name": "Goblin-Schütze 1",
+     "x": 14,
+     "y": 3,
+     "note": "AC 17 solange im Gebüsch (Half Cover). Abend 1: kein +1d4 bei Advantage, höchstens 1 Goblin pro Runde nutzt Hide."
+    },
+    {
+     "preset": "goblin-warrior",
+     "name": "Goblin-Schütze 2",
+     "x": 14,
+     "y": 10,
+     "note": "AC 17 solange im Gebüsch (Half Cover). Abend 1: kein +1d4 bei Advantage, höchstens 1 Goblin pro Runde nutzt Hide."
+    },
+    {
+     "preset": "goblin-minion",
+     "name": "Ochsendieb",
+     "x": 13,
+     "y": 11,
+     "note": "Rennt zu den Ochsen: 2 Züge Geschirr durchschneiden, im 3. Zug weg auf Bertha. Jeder Treffer: gibt auf und kämpft."
+    }
+   ],
+   "figs": [
+    {
+     "name": "Wagen",
+     "emoji": "🛒",
+     "att": "neutral",
+     "x": 4,
+     "y": 6
+    },
+    {
+     "name": "Bertha",
+     "emoji": "🐂",
+     "att": "neutral",
+     "x": 5,
+     "y": 6
+    },
+    {
+     "name": "Klaus",
+     "emoji": "🐂",
+     "att": "neutral",
+     "x": 5,
+     "y": 7
+    },
+    {
+     "name": "Odda Eisenkiel",
+     "att": "friendly",
+     "x": 4,
+     "y": 7
+    },
+    {
+     "name": "Hruk Zweisack",
+     "emoji": "🐻",
+     "att": "hostile"
+    }
+   ]
+  },
+  {
+   "name": "A1 · Der Goblin-Zoll",
+   "size": "s",
+   "place": "Die Hakenzahn-Brücke",
+   "terrain": [
+    {
+     "t": "water",
+     "x": 7,
+     "y": 0,
+     "w": 2,
+     "h": 10
+    },
+    {
+     "t": "clear",
+     "x": 7,
+     "y": 4,
+     "w": 2,
+     "h": 2
+    },
+    {
+     "t": "rock",
+     "x": 6,
+     "y": 1,
+     "w": 1,
+     "h": 1
+    },
+    {
+     "t": "rock",
+     "x": 9,
+     "y": 8,
+     "w": 1,
+     "h": 1
+    },
+    {
+     "t": "rock",
+     "x": 5,
+     "y": 8,
+     "w": 1,
+     "h": 1
+    },
+    {
+     "t": "bush",
+     "x": 11,
+     "y": 1,
+     "w": 3,
+     "h": 2
+    },
+    {
+     "t": "tree",
+     "x": 1,
+     "y": 1,
+     "w": 1,
+     "h": 1
+    },
+    {
+     "t": "tree",
+     "x": 2,
+     "y": 8,
+     "w": 1,
+     "h": 1
+    },
+    {
+     "t": "tree",
+     "x": 13,
+     "y": 7,
+     "w": 1,
+     "h": 1
+    }
+   ],
+   "foes": [
+    {
+     "preset": "goblin-minion",
+     "name": "Zoll-Goblin 1",
+     "x": 9,
+     "y": 4,
+     "note": "Überlebt einer 2 Runden, rennt er zur Höhle: Abend 2 in Alarmbereitschaft."
+    },
+    {
+     "preset": "goblin-minion",
+     "name": "Zoll-Goblin 2",
+     "x": 9,
+     "y": 5,
+     "note": "Überlebt einer 2 Runden, rennt er zur Höhle: Abend 2 in Alarmbereitschaft."
+    }
+   ],
+   "figs": [
+    {
+     "name": "Zollfass",
+     "emoji": "📦",
+     "att": "neutral",
+     "x": 10,
+     "y": 3
+    },
+    {
+     "name": "Zollschild",
+     "emoji": "🪧",
+     "att": "neutral",
+     "x": 10,
+     "y": 6
+    }
+   ]
+  },
+  {
+   "name": "A2 · Das Dornenmaul",
+   "size": "s",
+   "place": "Das Hakenzahnloch",
+   "terrain": [
+    {
+     "t": "wall",
+     "x": 13,
+     "y": 0,
+     "w": 3,
+     "h": 4
+    },
+    {
+     "t": "wall",
+     "x": 13,
+     "y": 7,
+     "w": 3,
+     "h": 3
+    },
+    {
+     "t": "water",
+     "x": 0,
+     "y": 5,
+     "w": 16,
+     "h": 1
+    },
+    {
+     "t": "bush",
+     "x": 10,
+     "y": 2,
+     "w": 3,
+     "h": 2
+    },
+    {
+     "t": "bush",
+     "x": 10,
+     "y": 7,
+     "w": 3,
+     "h": 2
+    },
+    {
+     "t": "rock",
+     "x": 11,
+     "y": 0,
+     "w": 2,
+     "h": 1
+    }
+   ],
+   "foes": [
+    {
+     "preset": "goblin-warrior",
+     "name": "Wachposten",
+     "x": 11,
+     "y": 1,
+     "note": "Schläft im Ast-Versteck, 10 ft den Hang hinauf. Hinaufklettern: Athletics DC 10, Angriffe mit Advantage. Wacht er auf: schreit, rennt rein → Alarm."
+    }
+   ],
+   "figs": []
+  },
+  {
+   "name": "A2 · Der Zwinger",
+   "size": "s",
+   "place": "Der Zwinger",
+   "terrain": [
+    {
+     "t": "wall",
+     "x": 0,
+     "y": 0,
+     "w": 16,
+     "h": 1
+    },
+    {
+     "t": "wall",
+     "x": 0,
+     "y": 9,
+     "w": 16,
+     "h": 1
+    },
+    {
+     "t": "wall",
+     "x": 0,
+     "y": 0,
+     "w": 1,
+     "h": 10
+    },
+    {
+     "t": "wall",
+     "x": 15,
+     "y": 0,
+     "w": 1,
+     "h": 10
+    },
+    {
+     "t": "rock",
+     "x": 13,
+     "y": 1,
+     "w": 2,
+     "h": 2
+    }
+   ],
+   "foes": [
+    {
+     "preset": "wolf",
+     "name": "Schnüff",
+     "x": 7,
+     "y": 4,
+     "note": "Angekettet: reicht nur 10 ft (2 Felder) vom Pfahl. Futter + Animal Handling DC 10 = friedlich. Hört bei 3 HP auf."
+    },
+    {
+     "preset": "wolf",
+     "name": "Schnaff",
+     "x": 9,
+     "y": 6,
+     "note": "Angekettet: reicht nur 10 ft (2 Felder) vom Pfahl. Futter + Animal Handling DC 10 = friedlich. Hört bei 3 HP auf."
+    }
+   ],
+   "figs": [
+    {
+     "name": "Pfahl",
+     "emoji": "🪵",
+     "att": "neutral",
+     "x": 8,
+     "y": 5
+    },
+    {
+     "name": "Kamin (30 ft hoch)",
+     "emoji": "🕳️",
+     "att": "neutral",
+     "x": 12,
+     "y": 1
+    }
+   ]
+  },
+  {
+   "name": "A2 · Bachgang & Damm",
+   "size": "m",
+   "place": "Der Bachgang",
+   "terrain": [
+    {
+     "t": "wall",
+     "x": 0,
+     "y": 0,
+     "w": 10,
+     "h": 6
+    },
+    {
+     "t": "wall",
+     "x": 15,
+     "y": 0,
+     "w": 5,
+     "h": 6
+    },
+    {
+     "t": "wall",
+     "x": 10,
+     "y": 0,
+     "w": 5,
+     "h": 2
+    },
+    {
+     "t": "rock",
+     "x": 10,
+     "y": 5,
+     "w": 5,
+     "h": 1
+    },
+    {
+     "t": "water",
+     "x": 11,
+     "y": 2,
+     "w": 3,
+     "h": 2
+    },
+    {
+     "t": "water",
+     "x": 0,
+     "y": 7,
+     "w": 20,
+     "h": 1
+    },
+    {
+     "t": "wall",
+     "x": 0,
+     "y": 9,
+     "w": 20,
+     "h": 5
+    }
+   ],
+   "foes": [
+    {
+     "preset": "goblin-minion",
+     "name": "Damm-Goblin 1",
+     "x": 10,
+     "y": 3,
+     "note": "Oben auf dem Vorsprung (20 ft). Sehen sie Eindringlinge: Hebel! Alle im Gang STR Save DC 10, sonst 1d6, Prone, 20 ft zurück. Danach Dolche werfen."
+    },
+    {
+     "preset": "goblin-minion",
+     "name": "Damm-Goblin 2",
+     "x": 14,
+     "y": 3,
+     "note": "Oben auf dem Vorsprung (20 ft). Der Damm funktioniert nur einmal."
+    }
+   ],
+   "figs": [
+    {
+     "name": "Hebel",
+     "emoji": "🎚️",
+     "att": "neutral",
+     "x": 14,
+     "y": 2
+    }
+   ]
+  },
+  {
+   "name": "A2 · Nibs Ecke",
+   "size": "s",
+   "place": "Nibs Ecke",
+   "terrain": [
+    {
+     "t": "wall",
+     "x": 0,
+     "y": 0,
+     "w": 16,
+     "h": 1
+    },
+    {
+     "t": "wall",
+     "x": 0,
+     "y": 9,
+     "w": 16,
+     "h": 1
+    },
+    {
+     "t": "wall",
+     "x": 0,
+     "y": 0,
+     "w": 1,
+     "h": 10
+    },
+    {
+     "t": "wall",
+     "x": 15,
+     "y": 0,
+     "w": 1,
+     "h": 10
+    },
+    {
+     "t": "clear",
+     "x": 0,
+     "y": 4,
+     "w": 1,
+     "h": 2
+    },
+    {
+     "t": "rock",
+     "x": 13,
+     "y": 7,
+     "w": 2,
+     "h": 2
+    }
+   ],
+   "foes": [
+    {
+     "preset": "goblin-warrior",
+     "name": "Nib",
+     "x": 8,
+     "y": 4,
+     "note": "Kämpft nicht, verhandelt! Lade die Szene mit „Nur Karte“. Insight DC 12: wechselt zum Gewinner. Gehen 2 Helden zu Boden, hilft er Hruk."
+    },
+    {
+     "preset": "goblin-minion",
+     "name": "Nibs Bande 1",
+     "x": 7,
+     "y": 6
+    },
+    {
+     "preset": "goblin-minion",
+     "name": "Nibs Bande 2",
+     "x": 9,
+     "y": 6
+    }
+   ],
+   "figs": [
+    {
+     "name": "Fass",
+     "emoji": "📦",
+     "att": "neutral",
+     "x": 8,
+     "y": 5
+    }
+   ]
+  },
+  {
+   "name": "A2 · Hruks Halle",
+   "size": "m",
+   "place": "Hruks Halle",
+   "terrain": [
+    {
+     "t": "wall",
+     "x": 0,
+     "y": 0,
+     "w": 20,
+     "h": 1
+    },
+    {
+     "t": "wall",
+     "x": 0,
+     "y": 13,
+     "w": 20,
+     "h": 1
+    },
+    {
+     "t": "wall",
+     "x": 0,
+     "y": 0,
+     "w": 1,
+     "h": 14
+    },
+    {
+     "t": "wall",
+     "x": 19,
+     "y": 0,
+     "w": 1,
+     "h": 14
+    },
+    {
+     "t": "clear",
+     "x": 9,
+     "y": 13,
+     "w": 3,
+     "h": 1
+    },
+    {
+     "t": "fire",
+     "x": 9,
+     "y": 6,
+     "w": 2,
+     "h": 2
+    },
+    {
+     "t": "rock",
+     "x": 1,
+     "y": 1,
+     "w": 2,
+     "h": 2
+    },
+    {
+     "t": "rock",
+     "x": 17,
+     "y": 10,
+     "w": 2,
+     "h": 2
+    }
+   ],
+   "foes": [
+    {
+     "preset": "bugbear-warrior",
+     "name": "Hruk Zweisack",
+     "hp": 27,
+     "x": 10,
+     "y": 2,
+     "note": "Angepasst: 27 HP. Runde 1: Light Hammer auf den Gefährlichsten. Danach Grab auf den Kleinsten + Hammer mit Advantage, schleift ihn zum Sack. 0 HP durch Hruk = im Sack, bewusstlos, stabil. Bei 10 HP oder weniger bettelt er. Shove ins Feuer: 1d6 Fire. Wer den Beutesack angreift, ist sein einziges Ziel."
+    },
+    {
+     "preset": "goblin-warrior",
+     "name": "Grub",
+     "x": 10,
+     "y": 11,
+     "note": "Leibwächter am Eingang."
+    }
+   ],
+   "figs": [
+    {
+     "name": "Thron",
+     "emoji": "🪑",
+     "att": "neutral",
+     "x": 9,
+     "y": 1
+    },
+    {
+     "name": "Beutesack (AC 10, 5 HP)",
+     "emoji": "💰",
+     "att": "neutral",
+     "x": 11,
+     "y": 1
+    },
+    {
+     "name": "Odda im Sack",
+     "emoji": "🎒",
+     "att": "friendly",
+     "x": 11,
+     "y": 6
+    },
+    {
+     "name": "Kamin",
+     "emoji": "🕳️",
+     "att": "neutral",
+     "x": 8,
+     "y": 1
+    }
+   ]
+  }
+ ]
+}

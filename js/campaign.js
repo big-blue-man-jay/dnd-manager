@@ -4,6 +4,7 @@ import { store, newId, union } from './data.js';
 import { THEMES, CONDITIONS, levelForXp } from './rules5e.js';
 import { STATUS, CharCard, clsName, AcValue } from './cards.js';
 import { exportCampaign } from './backup.js';
+import { importPrep } from './prep.js';
 import { TurnHelpButton } from './help.js';
 import { leaveCampaign, newJoinCode, createDummyCharacter, setActiveCampaign } from './ops.js';
 
@@ -11,7 +12,7 @@ const TABS = [['uebersicht', 'Übersicht', '🏠'], ['gruppe', 'Gruppe', '👥']
 const QSTATUS = { active: 'Läuft', done: 'Erledigt', failed: 'Gescheitert' };
 const ATT = { friendly: 'Freundlich', neutral: 'Neutral', hostile: 'Feindlich' };
 const NSTAT = { alive: 'Lebt', missing: 'Vermisst', dead: 'Tot', unknown: 'Unbekannt' };
-export const KINDS = { secret: 'Geheimnis', identity: 'Wahre Identität', item: 'Gegenstand', letter: 'Brief', place: 'Ort', vision: 'Vision', quest: 'Neue Quest' };
+export const KINDS = { secret: 'Geheimnis', identity: 'Wahre Identität', item: 'Gegenstand', letter: 'Brief', place: 'Ort', vision: 'Vision', quest: 'Neue Quest', npc: 'Neue Bekanntschaft' };
 // Hidden quests live in the DM-only secrets collection (kind 'quest') until the DM unlocks them.
 const SECRET_KINDS = Object.entries(KINDS).filter(([k]) => k !== 'quest');
 // The condition behind a reveal or unlock, so players can later see why something came to light.
@@ -291,7 +292,9 @@ function QuestModal({ q, hq, isDM, cid, onClose }) {
 }
 
 /* ---------- npcs ---------- */
-function Npcs({ npcs, isDM, cid, sessions }) {
+function Npcs({ npcs, isDM, cid, sessions, secrets = [], members = [] }) {
+  const [meet, setMeet] = useState(null);
+  const hidden = isDM ? secrets.filter(s => s.kind === 'npc' && !s.revealedAt) : [];
   const [open, setOpen] = useState(null); const [q, setQ] = useState(''); const [att, setAtt] = useState('all');
   const list = npcs.filter(n => (att === 'all' || (n.attitude || 'neutral') === att) && (!q || [n.name, n.role, n.location, n.notes].join(' ').toLowerCase().includes(q.toLowerCase())));
   return html`<section><div class="bar"><h2><span class="ico" aria-hidden="true">🎭</span>NPCs</h2>${isDM && html`<button class="btn primary" onClick=${() => setOpen('new')}>Neuer NPC</button>`}</div>
@@ -302,6 +305,9 @@ function Npcs({ npcs, isDM, cid, sessions }) {
       <div class="head"><span class=${'ava ' + (n.attitude || 'neutral') + (n.status === 'dead' ? ' dead' : '')}>${initials(n.name)}</span><div class="who"><h3>${n.name}</h3><div class="sub">${[n.role, n.location].filter(Boolean).join(' · ')}</div></div></div>
       ${n.notes && html`<p class="notes">${n.notes}</p>`}
       <div class="foot2"><div class="chips"><${Pill} tone=${n.attitude || 'neutral'}>${ATT[n.attitude || 'neutral']}</${Pill}>${(n.status || 'alive') !== 'alive' && html`<${Pill} tone=${n.status}>${NSTAT[n.status]}</${Pill}>`}</div>${n.firstMet && html`<span>Seit Sitzung ${n.firstMet}</span>`}</div></article>`)}</div>` : html`<p class="muted">Niemand passt zur Suche.</p>`}`}
+    ${hidden.length > 0 && html`<div class="panel box"><div class="box-head"><h2>🤫 Noch nicht getroffen · ${hidden.length}</h2><span class="sub">Nur du siehst sie</span></div>
+      <ul class="seal-list">${hidden.map(s => html`<li><span><b>${s.title}</b><small>${[s.npc?.role, s.condition && 'wenn: ' + s.condition].filter(Boolean).join(' · ')}</small></span><button class="btn small" onClick=${() => setMeet(s)}>Vorstellen</button></li>`)}</ul></div>`}
+    ${meet && html`<${MeetModal} s=${meet} cid=${cid} onClose=${() => setMeet(null)}/>`}
     ${open && html`<${NpcModal} n=${open === 'new' ? null : npcs.find(x => x.id === open)} isDM=${isDM} cid=${cid} next=${sessions[0]?.num || ''} onClose=${() => setOpen(null)}/>`}
   </section>`;
 }
@@ -329,7 +335,7 @@ function Reveals({ revelations, secrets, isDM, cid, members }) {
       ...(r.questId ? [{ type: 'delete', path: `campaigns/${cid}/quests/${r.questId}` }] : []),
       ...(r.secretId && secrets.some(s => s.id === r.secretId) ? [{ type: 'update', path: `campaigns/${cid}/secrets/${r.secretId}`, data: { revealedAt: 0, questId: null } }] : [])]);
     toast(r.questId ? 'Zurückgenommen. Die Quest ist wieder versteckt.' : 'Enthüllung zurückgenommen.'); } catch (x) { failed(x); } };
-  const sealed = secrets.filter(s => !s.revealedAt && s.kind !== 'quest'); // hidden quests are managed in the quest log
+  const sealed = secrets.filter(s => !s.revealedAt && s.kind !== 'quest' && s.kind !== 'npc'); // hidden quests are managed in the quest log
   return html`<section>
     ${isDM && html`<div class="bar"><h2><span class="ico" aria-hidden="true">🤫</span>Vorbereitete Geheimnisse</h2><button class="btn primary" onClick=${() => setOpen('new')}>Geheimnis vorbereiten</button></div>
       <p class="ro-note">Nur du siehst diese Karten. Mit „Enthüllen“ erscheinen sie auf den Bildschirmen der Spieler, für alle oder nur für ausgewählte. Versteckte Quests findest du im Quest-Log.</p>
@@ -361,6 +367,7 @@ function SecretModal({ s, cid, onClose }) {
   </form></${Modal}>`;
 }
 export function RevealModal({ s, cid, members, onClose }) {
+  if (s.kind === 'npc') return html`<${MeetModal} s=${s} cid=${cid} onClose=${onClose}/>`;
   const isQ = s.kind === 'quest'; // a hidden quest goes to everyone's quest log, so it is always for all players
   const [who, setWho] = useState('all'); const [sel, setSel] = useState([]); const [busy, setBusy] = useState(false); const [reason, setReason] = useState(s.condition || '');
   const go2 = async () => { if (!isQ && who === 'some' && !sel.length) return toast('Wähle mindestens einen Spieler.'); setBusy(true);
@@ -388,6 +395,21 @@ export function RevealPopup({ cid, items }) {
     <span class="label">${fresh.kind === 'quest' ? 'Neue Quest' : `${KINDS[fresh.kind] || 'Geheimnis'} enthüllt`}</span><h2>${fresh.title}</h2><p class="pre">${fresh.body}</p>
     <${Reason} label=${fresh.kind === 'quest' ? 'Freigeschaltet, weil' : 'Aufgedeckt, weil'} text=${fresh.reason}/>
     <button class="btn primary" onClick=${done}>Weiter</button></div>`;
+}
+
+// a hidden NPC: meeting them puts them into the NPC list everyone sees
+function MeetModal({ s, cid, onClose }) {
+  const [busy, setBusy] = useState(false); const n = s.npc || {};
+  const meet = async () => { setBusy(true);
+    try { const now = Date.now(), last = await store.getCol(`campaigns/${cid}/sessions`).catch(() => []);
+      const num = String(Math.max(0, ...last.map(x => int(x.num, 0))) + 1);
+      await store.batch([{ type: 'set', path: `campaigns/${cid}/npcs/${newId()}`, data: { name: s.title, role: n.role || '', location: n.location || '', attitude: n.attitude || 'neutral', status: 'alive', firstMet: num, notes: n.notes || s.body || '', createdAt: now } },
+        { type: 'update', path: `campaigns/${cid}/secrets/${s.id}`, data: { revealedAt: now } }]);
+      toast(`${s.title} steht jetzt in der NPC-Liste.`); onClose(); } catch (x) { failed(x); } finally { setBusy(false); } };
+  return html`<${Modal} title=${s.title} eyebrow="NPC vorstellen" onClose=${onClose}><div class="form">
+    <p>${[n.role, n.location].filter(Boolean).join(' · ')}</p>${(n.notes || s.body) && html`<p class="muted pre">${n.notes || s.body}</p>`}
+    <p class="ro-note">Die Gruppe trifft diese Figur gerade. Sie erscheint mit diesem Text in der NPC-Liste aller Spieler.</p>
+    <div class="foot"><button class="btn primary" disabled=${busy} onClick=${meet}>Jetzt vorstellen</button><button class="btn" onClick=${onClose}>Abbrechen</button></div></div></${Modal}>`;
 }
 
 /* ---------- notes ---------- */
@@ -442,6 +464,10 @@ function Settings(p) {
     <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">💾</span>Sicherung</h2></div>
       <p class="ro-note">Lädt die ganze Kampagne als Datei herunter: Charaktere mit Bögen, Sitzungen, Tagebuch, Quests, NPCs, Geheimnisse, Enthüllungen und deine DM-Notizen. Mach das alle paar Sitzungen. Wiederherstellen geht auf der Startseite unter „Neue Kampagne“.</p>
       <div><button class="btn" disabled=${busyExp} onClick=${async () => { setBusyExp(true); try { const n = await exportCampaign(cid, user); toast('Gespeichert: ' + n); } catch (x) { failed(x); } finally { setBusyExp(false); } }}>${busyExp ? 'Wird gespeichert …' : 'Sicherung herunterladen'}</button></div></div>
+    <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">📦</span>Vorbereitung importieren</h2></div>
+      <p class="ro-note">Lädt vorbereitetes Material aus einer Datei in diese Kampagne: Karten-Szenen, Orte fürs Tablet, Beute, Enthüllungen, versteckte Quests und NPCs, DM-Notizen. Alles bleibt versteckt, bis du es am Spieltisch zeigst. Doppelt importieren schadet nicht.</p>
+      <div><label class="btn">📦 Datei auswählen<input type="file" accept=".json,application/json" hidden onChange=${async e => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
+        try { const n = await importPrep(user, cid, f); toast(`Importiert: ${n.scenes} Szenen, ${n.places} Orte, ${n.loot} Beute, ${n.secrets} Geheimnisse, Quests und NPCs.`); } catch (x) { x.friendly ? toast(x.message) : failed(x); } }}/></label></div></div>
     <div class="panel box danger-zone"><div class="box-head"><h2><span class="ico" aria-hidden="true">🗑️</span>Kampagne löschen</h2></div><p class="muted">Löscht die Kampagne mit allen Charakteren, Sitzungen, Quests, NPCs und Enthüllungen. Das lässt sich nicht rückgängig machen.</p>
       <div><${DeleteButton} label="Kampagne löschen" question=${`${camp.name} endgültig löschen?`} onConfirm=${deleteAll}/></div></div>
   </section>`;
