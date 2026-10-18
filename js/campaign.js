@@ -11,7 +11,11 @@ const TABS = [['uebersicht', 'Übersicht', '🏠'], ['gruppe', 'Gruppe', '👥']
 const QSTATUS = { active: 'Läuft', done: 'Erledigt', failed: 'Gescheitert' };
 const ATT = { friendly: 'Freundlich', neutral: 'Neutral', hostile: 'Feindlich' };
 const NSTAT = { alive: 'Lebt', missing: 'Vermisst', dead: 'Tot', unknown: 'Unbekannt' };
-const KINDS = { secret: 'Geheimnis', identity: 'Wahre Identität', item: 'Gegenstand', letter: 'Brief', place: 'Ort', vision: 'Vision' };
+const KINDS = { secret: 'Geheimnis', identity: 'Wahre Identität', item: 'Gegenstand', letter: 'Brief', place: 'Ort', vision: 'Vision', quest: 'Neue Quest' };
+// Hidden quests live in the DM-only secrets collection (kind 'quest') until the DM unlocks them.
+const SECRET_KINDS = Object.entries(KINDS).filter(([k]) => k !== 'quest');
+// The condition behind a reveal or unlock, so players can later see why something came to light.
+const Reason = ({ label, text }) => text ? html`<p class="reason"><span class="label">${label}</span><span>${text}</span></p>` : null;
 
 /* ---------- campaign form (create + settings) ---------- */
 export function CampaignForm({ user, campaign = {}, onSave, onCancel }) {
@@ -234,32 +238,54 @@ function Journal({ entries, sid, cid, user, chars, isDM }) {
 }
 
 /* ---------- quests ---------- */
-function Quests({ quests, isDM, cid }) {
-  const [open, setOpen] = useState(null);
+function Quests({ quests, secrets, isDM, cid, members }) {
+  const [open, setOpen] = useState(null); const [unlock, setUnlock] = useState(null);
+  const hidden = isDM ? secrets.filter(s => s.kind === 'quest' && !s.revealedAt) : [];
   const toggle = async q => { try { await store.update(`campaigns/${cid}/quests/${q.id}`, { status: (q.status || 'active') === 'active' ? 'done' : 'active' }); } catch (x) { failed(x); } };
   return html`<section><div class="bar"><h2><span class="ico" aria-hidden="true">🗺️</span>Quest-Log</h2>${isDM && html`<button class="btn primary" onClick=${() => setOpen('new')}>Neue Quest</button>`}</div>
-    ${!quests.length ? html`<${Empty} title="Noch keine Quests">${isDM ? 'Halte fest, welche Aufträge und Rätsel die Gruppe verfolgt: wer sie vergeben hat, wohin sie führen, was sie einbringen.' : 'Der DM hat noch keine Quests eingetragen.'}</${Empty}>`
-    : Object.entries(QSTATUS).map(([k, l]) => { const g = quests.filter(q => (q.status || 'active') === k); return g.length ? html`<div class="label group-label">${l} · ${g.length}</div><div class="panel quests">${g.map(q => html`
+    ${!quests.length && !hidden.length ? html`<${Empty} title="Noch keine Quests">${isDM ? 'Halte fest, welche Aufträge und Rätsel die Gruppe verfolgt: wer sie vergeben hat, wohin sie führen, was sie einbringen. Quests, die erst später auftauchen sollen, kannst du versteckt vorbereiten.' : 'Der DM hat noch keine Quests eingetragen.'}</${Empty}>` : ''}
+    ${hidden.length ? html`<div class="label group-label"><span class="ico" aria-hidden="true">🔒</span>Versteckt vorbereitet · ${hidden.length}</div>
+      <p class="ro-note">Nur du siehst diese Quests. Mit „Freischalten“ landen sie bei allen im Quest-Log, mit einem Pop-up und dem Grund, warum sie jetzt auftauchen.</p>
+      <div class="grid reveals">${hidden.map(s => html`<article class="rcard panel sealed"><span class="label">Versteckte Quest</span><h3>${s.title}</h3>${s.quest?.description && html`<p class="muted clamp">${s.quest.description}</p>`}
+        <${Reason} label="Bedingung" text=${s.condition}/>
+        <div class="actions"><button class="btn primary small" onClick=${() => setUnlock(s)}>Freischalten</button><button class="btn small" onClick=${() => setOpen('h:' + s.id)}>Bearbeiten</button></div></article>`)}</div>` : ''}
+    ${Object.entries(QSTATUS).map(([k, l]) => { const g = quests.filter(q => (q.status || 'active') === k); return g.length ? html`<div class="label group-label">${l} · ${g.length}</div><div class="panel quests">${g.map(q => html`
       <div class=${'qrow' + (k === 'active' ? '' : ' done')} onClick=${() => setOpen(q.id)}>
         <button class=${'qmark ' + k} disabled=${!isDM} aria-label=${k === 'active' ? 'Als erledigt markieren' : 'Wieder öffnen'} onClick=${e => { e.stopPropagation(); toggle(q); }}>${k === 'done' ? '✓' : k === 'failed' ? '✕' : ''}</button>
-        <div class="body"><h3>${q.title}</h3>${q.description && html`<p class="d">${q.description}</p>`}<div class="meta">${q.giver && html`<span>Von ${q.giver}</span>`}${q.location && html`<span>${q.location}</span>`}</div></div>
+        <div class="body"><h3>${q.title}</h3>${q.description && html`<p class="d">${q.description}</p>`}<div class="meta">${q.giver && html`<span>Von ${q.giver}</span>`}${q.location && html`<span>${q.location}</span>`}${q.unlockedBecause && html`<span class="unlocked">🔓 ${q.unlockedBecause}</span>`}</div></div>
         ${q.reward ? html`<span class="reward">${q.reward}</span>` : html`<span></span>`}</div>`)}</div>` : null; })}
-    ${open && html`<${QuestModal} q=${open === 'new' ? null : quests.find(x => x.id === open)} isDM=${isDM} cid=${cid} onClose=${() => setOpen(null)}/>`}
+    ${open && html`<${QuestModal} q=${open === 'new' || open.startsWith('h:') ? null : quests.find(x => x.id === open)} hq=${open.startsWith('h:') ? secrets.find(x => 'h:' + x.id === open) : null} isDM=${isDM} cid=${cid} onClose=${() => setOpen(null)}/>`}
+    ${unlock && html`<${RevealModal} s=${unlock} cid=${cid} members=${members} onClose=${() => setUnlock(null)}/>`}
   </section>`;
 }
-function QuestModal({ q, isDM, cid, onClose }) {
-  const [f, setF] = useState({ title: '', status: 'active', giver: '', location: '', reward: '', description: '', notes: '', ...(q || {}) });
+// q: a quest the players can see; hq: a hidden quest, stored as a DM-only secret until unlocked.
+function QuestModal({ q, hq, isDM, cid, onClose }) {
+  const start = hq ? { ...(hq.quest || {}), title: hq.title, condition: hq.condition || '', hidden: true } : { ...(q || {}), hidden: false };
+  const [f, setF] = useState({ title: '', status: 'active', giver: '', location: '', reward: '', description: '', notes: '', condition: '', ...start });
   const set = k => e => setF(f => ({ ...f, [k]: e.target.value }));
   const save = async e => { e.preventDefault(); if (!f.title.trim()) return toast('Gib der Quest einen Namen.');
-    try { await store.set(`campaigns/${cid}/quests/${q?.id || newId()}`, { title: f.title.trim(), status: f.status, giver: f.giver.trim(), location: f.location.trim(), reward: f.reward.trim(), description: f.description, notes: f.notes, createdAt: q?.createdAt || Date.now() }); toast(q ? 'Gespeichert.' : 'Quest hinzugefügt.'); onClose(); } catch (x) { failed(x); } };
-  return html`<${Modal} title=${f.title || 'Neue Quest'} eyebrow="Quest" onClose=${onClose}><form class="form" onSubmit=${save}><fieldset disabled=${!isDM}>
+    const d = { title: f.title.trim(), giver: f.giver.trim(), location: f.location.trim(), reward: f.reward.trim(), description: f.description, notes: f.notes };
+    try {
+      if (f.hidden) {
+        const ops = [{ type: 'set', path: `campaigns/${cid}/secrets/${hq?.id || newId()}`, data: { kind: 'quest', title: d.title, body: d.description, condition: f.condition.trim(), quest: d, revealedAt: 0, createdAt: hq?.createdAt || Date.now() } }];
+        if (q) ops.push({ type: 'delete', path: `campaigns/${cid}/quests/${q.id}` }); // a visible quest is hidden again
+        await store.batch(ops); toast(q ? 'Quest versteckt. Die Spieler sehen sie nicht mehr.' : hq ? 'Gespeichert.' : 'Quest versteckt vorbereitet.');
+      } else await store.set(`campaigns/${cid}/quests/${q?.id || newId()}`, { ...d, status: f.status, unlockedBecause: q?.unlockedBecause || '', unlockedAt: q?.unlockedAt || 0, createdAt: q?.createdAt || Date.now() }), toast(q ? 'Gespeichert.' : 'Quest hinzugefügt.');
+      onClose(); } catch (x) { failed(x); } };
+  return html`<${Modal} title=${f.title || 'Neue Quest'} eyebrow=${f.hidden ? 'Versteckte Quest' : 'Quest'} onClose=${onClose}><form class="form" onSubmit=${save}>
+    ${isDM && html`<label class="checkline"><input type="checkbox" checked=${f.hidden} disabled=${!!hq} onChange=${e => setF(f => ({ ...f, hidden: e.target.checked }))}/>
+      <span><b>Versteckt vorbereiten</b><span class="sub">${hq ? 'Schalte die Quest über „Freischalten“ im Quest-Log frei, sobald die Bedingung eintritt.' : 'Die Spieler sehen die Quest erst, wenn du sie freischaltest.'}</span></span></label>`}
+    <fieldset disabled=${!isDM}>
     <div class="g g3"><${Field} label="Quest"><input id="q-title" value=${f.title} onInput=${set('title')} placeholder="Finde Gundren Rockseeker"/></${Field}>
-      <${Field} label="Status"><select id="q-status" value=${f.status} onChange=${set('status')}>${Object.entries(QSTATUS).map(([k, v]) => html`<option value=${k}>${v}</option>`)}</select></${Field}>
+      ${!f.hidden && html`<${Field} label="Status"><select id="q-status" value=${f.status} onChange=${set('status')}>${Object.entries(QSTATUS).map(([k, v]) => html`<option value=${k}>${v}</option>`)}</select></${Field}>`}
       <${Field} label="Vergeben von"><input id="q-giver" value=${f.giver} onInput=${set('giver')}/></${Field}><${Field} label="Führt nach"><input id="q-loc" value=${f.location} onInput=${set('location')}/></${Field}>
       <${Field} label="Belohnung"><input id="q-reward" value=${f.reward} onInput=${set('reward')} placeholder="50 gp pro Person"/></${Field}></div>
+    ${f.hidden && html`<${Field} label="Bedingung zum Freischalten"><input id="q-cond" value=${f.condition} onInput=${set('condition')} placeholder="Wenn die Gruppe den Goblin-Überfall überlebt"/></${Field}>
+      <p class="ro-note">Beim Freischalten sehen die Spieler die Bedingung als Grund, warum die Quest auftaucht. Du kannst sie dann noch anpassen.</p>`}
+    ${!f.hidden && q?.unlockedBecause && html`<${Reason} label="Freigeschaltet, weil" text=${q.unlockedBecause}/>`}
     <${Field} label="Was die Gruppe weiß"><textarea id="q-desc" value=${f.description} onInput=${set('description')}></textarea></${Field}>
     <${Field} label="Fortschritt"><textarea id="q-notes" value=${f.notes} onInput=${set('notes')}></textarea></${Field}></fieldset>
-    ${isDM ? html`<div class="foot"><button class="btn primary">Speichern</button><button type="button" class="btn" onClick=${onClose}>Abbrechen</button><span class="spacer"></span>${q && html`<${DeleteButton} question="Quest löschen?" onConfirm=${async () => { await store.remove(`campaigns/${cid}/quests/${q.id}`); onClose(); }}/>`}</div>` : html`<p class="ro-note">Nur der DM kann Quests ändern.</p>`}
+    ${isDM ? html`<div class="foot"><button class="btn primary">Speichern</button><button type="button" class="btn" onClick=${onClose}>Abbrechen</button><span class="spacer"></span>${(q || hq) && html`<${DeleteButton} question="Quest löschen?" onConfirm=${async () => { await store.remove(hq ? `campaigns/${cid}/secrets/${hq.id}` : `campaigns/${cid}/quests/${q.id}`); onClose(); }}/>`}</div>` : html`<p class="ro-note">Nur der DM kann Quests ändern.</p>`}
   </form></${Modal}>`;
 }
 
@@ -297,15 +323,22 @@ function NpcModal({ n, isDM, cid, next, onClose }) {
 /* ---------- reveals ---------- */
 function Reveals({ revelations, secrets, isDM, cid, members }) {
   const [open, setOpen] = useState(null); const [reveal, setReveal] = useState(null);
-  const delRev = async r => { try { await store.batch([{ type: 'delete', path: `campaigns/${cid}/revelations/${r.id}` }, ...(r.secretId && secrets.some(s => s.id === r.secretId) ? [{ type: 'update', path: `campaigns/${cid}/secrets/${r.secretId}`, data: { revealedAt: 0 } }] : [])]); toast('Enthüllung zurückgenommen.'); } catch (x) { failed(x); } };
+  // Taking back an unlocked quest removes it from the quest log and hides it again.
+  const delRev = async r => { try { await store.batch([{ type: 'delete', path: `campaigns/${cid}/revelations/${r.id}` },
+      ...(r.questId ? [{ type: 'delete', path: `campaigns/${cid}/quests/${r.questId}` }] : []),
+      ...(r.secretId && secrets.some(s => s.id === r.secretId) ? [{ type: 'update', path: `campaigns/${cid}/secrets/${r.secretId}`, data: { revealedAt: 0, questId: null } }] : [])]);
+    toast(r.questId ? 'Zurückgenommen. Die Quest ist wieder versteckt.' : 'Enthüllung zurückgenommen.'); } catch (x) { failed(x); } };
+  const sealed = secrets.filter(s => !s.revealedAt && s.kind !== 'quest'); // hidden quests are managed in the quest log
   return html`<section>
     ${isDM && html`<div class="bar"><h2><span class="ico" aria-hidden="true">🤫</span>Vorbereitete Geheimnisse</h2><button class="btn primary" onClick=${() => setOpen('new')}>Geheimnis vorbereiten</button></div>
-      <p class="ro-note">Nur du siehst diese Karten. Mit „Enthüllen“ erscheinen sie auf den Bildschirmen der Spieler, für alle oder nur für ausgewählte.</p>
-      ${secrets.filter(s => !s.revealedAt).length ? html`<div class="grid reveals">${secrets.filter(s => !s.revealedAt).map(s => html`<article class="rcard panel sealed"><span class="label">${KINDS[s.kind] || 'Geheimnis'}</span><h3>${s.title}</h3><p class="muted clamp">${s.body}</p>
+      <p class="ro-note">Nur du siehst diese Karten. Mit „Enthüllen“ erscheinen sie auf den Bildschirmen der Spieler, für alle oder nur für ausgewählte. Versteckte Quests findest du im Quest-Log.</p>
+      ${sealed.length ? html`<div class="grid reveals">${sealed.map(s => html`<article class="rcard panel sealed"><span class="label">${KINDS[s.kind] || 'Geheimnis'}</span><h3>${s.title}</h3><p class="muted clamp">${s.body}</p>
+        <${Reason} label="Bedingung" text=${s.condition}/>
         <div class="actions"><button class="btn primary small" onClick=${() => setReveal(s)}>Enthüllen</button><button class="btn small" onClick=${() => setOpen(s.id)}>Bearbeiten</button></div></article>`)}</div>`
       : html`<${Empty}>Noch nichts vorbereitet. Schreib vor der Sitzung auf, was die Spieler später entdecken sollen: die wahre Identität eines NPCs, einen verfluchten Gegenstand, einen Brief.</${Empty}>`}`}
     <div class="bar"><h2>${isDM ? 'Bereits enthüllt' : 'Enthüllungen'}</h2></div>
     ${revelations.length ? html`<div class="grid reveals">${revelations.map(r => html`<article class="rcard panel"><span class="label">${KINDS[r.kind] || 'Geheimnis'} · ${new Date(r.createdAt).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })}</span><h3>${r.title}</h3><p class="pre">${r.body}</p>
+      <${Reason} label=${r.kind === 'quest' ? 'Freigeschaltet, weil' : 'Aufgedeckt, weil'} text=${r.reason}/>
       ${isDM && html`<div class="foot2"><span class="sub">${r.audience === 'all' ? 'Für alle' : 'Für ' + (r.audienceUids || []).map(u => members.find(m => m.uid === u)?.name || '?').join(', ')}</span><button class="link quiet small" onClick=${() => delRev(r)}>Zurücknehmen</button></div>`}</article>`)}</div>`
       : html`<p class="muted">${isDM ? 'Noch nichts enthüllt.' : 'Noch nichts enthüllt. Wenn der DM ein Geheimnis lüftet, erscheint es hier.'}</p>`}
     ${open && html`<${SecretModal} s=${open === 'new' ? null : secrets.find(x => x.id === open)} cid=${cid} onClose=${() => setOpen(null)}/>`}
@@ -313,27 +346,35 @@ function Reveals({ revelations, secrets, isDM, cid, members }) {
   </section>`;
 }
 function SecretModal({ s, cid, onClose }) {
-  const [f, setF] = useState({ title: '', kind: 'secret', body: '', ...(s || {}) });
+  const [f, setF] = useState({ title: '', kind: 'secret', body: '', condition: '', ...(s || {}) });
   const set = k => e => setF(f => ({ ...f, [k]: e.target.value }));
   const save = async e => { e.preventDefault(); if (!f.title.trim()) return toast('Gib dem Geheimnis einen Titel.');
-    try { await store.set(`campaigns/${cid}/secrets/${s?.id || newId()}`, { title: f.title.trim(), kind: f.kind, body: f.body, revealedAt: s?.revealedAt || 0, createdAt: s?.createdAt || Date.now() }); onClose(); toast('Geheimnis gespeichert.'); } catch (x) { failed(x); } };
+    try { await store.set(`campaigns/${cid}/secrets/${s?.id || newId()}`, { title: f.title.trim(), kind: f.kind, body: f.body, condition: f.condition.trim(), revealedAt: s?.revealedAt || 0, createdAt: s?.createdAt || Date.now() }); onClose(); toast('Geheimnis gespeichert.'); } catch (x) { failed(x); } };
   return html`<${Modal} title=${f.title || 'Neues Geheimnis'} eyebrow="Nur für dich, bis du es enthüllst" onClose=${onClose}><form class="form" onSubmit=${save}>
     <div class="g g3"><${Field} label="Titel (sehen die Spieler)"><input id="sec-title" value=${f.title} onInput=${set('title')} placeholder="Der Wirt ist ein Doppelgänger"/></${Field}>
-      <${Field} label="Art"><select id="sec-kind" value=${f.kind} onChange=${set('kind')}>${Object.entries(KINDS).map(([k, v]) => html`<option value=${k}>${v}</option>`)}</select></${Field}></div>
+      <${Field} label="Art"><select id="sec-kind" value=${f.kind} onChange=${set('kind')}>${SECRET_KINDS.map(([k, v]) => html`<option value=${k}>${v}</option>`)}</select></${Field}></div>
     <${Field} label="Text der Enthüllung"><textarea id="sec-body" class="tall" value=${f.body} onInput=${set('body')} placeholder="Was die Spieler lesen, wenn du es enthüllst."></textarea></${Field}>
+    <${Field} label="Bedingung zum Aufdecken"><input id="sec-cond" value=${f.condition} onInput=${set('condition')} placeholder="Wenn die Gruppe die Goblins durchsucht"/></${Field}>
+    <p class="ro-note">Beim Enthüllen sehen die Spieler die Bedingung als Grund, warum das jetzt herauskommt. Du kannst sie dann noch anpassen.</p>
     <div class="foot"><button class="btn primary">Speichern</button><button type="button" class="btn" onClick=${onClose}>Abbrechen</button><span class="spacer"></span>${s && html`<${DeleteButton} question="Geheimnis löschen?" onConfirm=${async () => { await store.remove(`campaigns/${cid}/secrets/${s.id}`); onClose(); }}/>`}</div>
   </form></${Modal}>`;
 }
 function RevealModal({ s, cid, members, onClose }) {
-  const [who, setWho] = useState('all'); const [sel, setSel] = useState([]); const [busy, setBusy] = useState(false);
-  const go2 = async () => { if (who === 'some' && !sel.length) return toast('Wähle mindestens einen Spieler.'); setBusy(true);
-    try { const now = Date.now(); await store.batch([{ type: 'set', path: `campaigns/${cid}/revelations/${newId()}`, data: { title: s.title, kind: s.kind, body: s.body, audience: who, audienceUids: who === 'some' ? sel : [], secretId: s.id, createdAt: now } }, { type: 'update', path: `campaigns/${cid}/secrets/${s.id}`, data: { revealedAt: now } }]);
-      toast('Enthüllt!'); onClose(); } catch (x) { failed(x); } finally { setBusy(false); } };
-  return html`<${Modal} title=${s.title} eyebrow="Enthüllen" onClose=${onClose}><div class="form">
-    <div class="seg big"><button aria-pressed=${who === 'all'} onClick=${() => setWho('all')}>Für alle</button><button aria-pressed=${who === 'some'} onClick=${() => setWho('some')}>Nur für bestimmte Spieler</button></div>
-    ${who === 'some' && html`<div class="whoset">${members.map(m => html`<label><input type="checkbox" checked=${sel.includes(m.uid)} onChange=${e => setSel(e.target.checked ? [...sel, m.uid] : sel.filter(x => x !== m.uid))}/> ${m.name}</label>`)}${!members.length && html`<p class="muted">Noch keine Spieler beigetreten.</p>`}</div>`}
-    <p class="ro-note">Die Karte erscheint sofort als Pop-up auf den Bildschirmen und bleibt danach unter „Enthüllungen“.</p>
-    <div class="foot"><button class="btn primary" disabled=${busy} onClick=${go2}>Jetzt enthüllen</button><button class="btn" onClick=${onClose}>Abbrechen</button></div></div></${Modal}>`;
+  const isQ = s.kind === 'quest'; // a hidden quest goes to everyone's quest log, so it is always for all players
+  const [who, setWho] = useState('all'); const [sel, setSel] = useState([]); const [busy, setBusy] = useState(false); const [reason, setReason] = useState(s.condition || '');
+  const go2 = async () => { if (!isQ && who === 'some' && !sel.length) return toast('Wähle mindestens einen Spieler.'); setBusy(true);
+    try { const now = Date.now(), r = reason.trim(), aud = isQ ? 'all' : who, questId = isQ ? newId() : null;
+      await store.batch([
+        ...(isQ ? [{ type: 'set', path: `campaigns/${cid}/quests/${questId}`, data: { giver: '', location: '', reward: '', description: '', notes: '', ...(s.quest || {}), title: s.title, status: 'active', unlockedBecause: r, unlockedAt: now, createdAt: now } }] : []),
+        { type: 'set', path: `campaigns/${cid}/revelations/${newId()}`, data: { title: s.title, kind: s.kind, body: isQ ? (s.quest?.description || '') : s.body, reason: r, audience: aud, audienceUids: aud === 'some' ? sel : [], secretId: s.id, questId, createdAt: now } },
+        { type: 'update', path: `campaigns/${cid}/secrets/${s.id}`, data: { revealedAt: now, questId } }]);
+      toast(isQ ? 'Quest freigeschaltet!' : 'Enthüllt!'); onClose(); } catch (x) { failed(x); } finally { setBusy(false); } };
+  return html`<${Modal} title=${s.title} eyebrow=${isQ ? 'Quest freischalten' : 'Enthüllen'} onClose=${onClose}><div class="form">
+    ${!isQ && html`<div class="seg big"><button aria-pressed=${who === 'all'} onClick=${() => setWho('all')}>Für alle</button><button aria-pressed=${who === 'some'} onClick=${() => setWho('some')}>Nur für bestimmte Spieler</button></div>
+    ${who === 'some' && html`<div class="whoset">${members.map(m => html`<label><input type="checkbox" checked=${sel.includes(m.uid)} onChange=${e => setSel(e.target.checked ? [...sel, m.uid] : sel.filter(x => x !== m.uid))}/> ${m.name}</label>`)}${!members.length && html`<p class="muted">Noch keine Spieler beigetreten.</p>`}</div>`}`}
+    <${Field} label=${isQ ? 'Warum taucht die Quest jetzt auf? (sehen die Spieler)' : 'Warum kommt das jetzt heraus? (sehen die Spieler)'}><input id="rev-reason" value=${reason} onInput=${e => setReason(e.target.value)} placeholder="Ihr habt den Brief beim Goblin gefunden"/></${Field}>
+    <p class="ro-note">${isQ ? 'Die Quest erscheint sofort bei allen im Quest-Log, dazu ein Pop-up mit dem Grund.' : 'Die Karte erscheint sofort als Pop-up auf den Bildschirmen und bleibt danach unter „Enthüllungen“, zusammen mit dem Grund.'}</p>
+    <div class="foot"><button class="btn primary" disabled=${busy} onClick=${go2}>${isQ ? 'Jetzt freischalten' : 'Jetzt enthüllen'}</button><button class="btn" onClick=${onClose}>Abbrechen</button></div></div></${Modal}>`;
 }
 function RevealPopup({ cid, items }) {
   const KEY = 'dndm-seen-' + cid;
@@ -343,7 +384,9 @@ function RevealPopup({ cid, items }) {
   if (!fresh) return null;
   const done = () => { setSeen(fresh.createdAt); try { localStorage.setItem(KEY, fresh.createdAt); } catch (e) {} };
   return html`<div class="scrim reveal-scrim" onClick=${done}></div><div class="reveal-pop" role="dialog" aria-modal="true" aria-label="Enthüllung">
-    <span class="label">${KINDS[fresh.kind] || 'Geheimnis'} enthüllt</span><h2>${fresh.title}</h2><p class="pre">${fresh.body}</p><button class="btn primary" onClick=${done}>Weiter</button></div>`;
+    <span class="label">${fresh.kind === 'quest' ? 'Neue Quest' : `${KINDS[fresh.kind] || 'Geheimnis'} enthüllt`}</span><h2>${fresh.title}</h2><p class="pre">${fresh.body}</p>
+    <${Reason} label=${fresh.kind === 'quest' ? 'Freigeschaltet, weil' : 'Aufgedeckt, weil'} text=${fresh.reason}/>
+    <button class="btn primary" onClick=${done}>Weiter</button></div>`;
 }
 
 /* ---------- notes ---------- */

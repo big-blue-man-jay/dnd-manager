@@ -8,7 +8,7 @@ Web-App für unsere D&D-Runde (Regeln 2024): Charakterbögen, Würfel, Sitzungen
 - **Charakterbogen 2024:** Abilities, Saves, Skills mit Expertise, Angriffe, Spellcasting mit Slots, Ressourcen mit Short/Long Rest, Conditions (offiziell + eigene des DMs), Exhaustion, Death Saves, Inventar, Münzen, Attunement.
 - **Entwurf → Freigabe:** Spieler bauen ihren Charakter selbst. Gibt der DM den Bogen frei, ändern Spieler nur noch Live-Werte (HP, Slots, Inventar …). Stufenaufstieg geht per XP.
 - **Würfel:** antippen auf dem Bogen würfelt mit dem richtigen Bonus, mit Vorteil/Nachteil. Echte 3D-Würfel (d4–d20, d100) fliegen über den Bildschirm, mit Geräusch und Extra-Show bei natürlicher 20 oder 1. Jeder Charakter hat seine eigene Würfelfarbe. 3D und Ton lassen sich im Würfelfenster abschalten.
-- **Kampagne:** Übersicht, Gruppe, Sitzungen mit Tagebuch der Spieler, Quest-Log, NPCs, Enthüllungen („OHH“-Momente), private Notizen, Themes pro Gebiet.
+- **Kampagne:** Übersicht, Gruppe, Sitzungen mit Tagebuch der Spieler, Quest-Log (auch versteckt vorbereitete Quests, die du später freischaltest), NPCs, Enthüllungen („OHH“-Momente) mit Bedingung, damit die Spieler sehen, warum etwas aufgedeckt wurde, private Notizen, Themes pro Gebiet.
 - **Spieler-Vorschau:** Als DM „Als Spieler ansehen“ in der Kampagne, auf jedem Bogen „Als Mitspieler ansehen“. „Test-Mitspieler anlegen“ in der Gruppe legt einen Beispielcharakter eines erfundenen Spielers an.
 - **Sicherheit:** `firestore.rules` sorgt dafür, dass Spieler nur Namenskarten anderer sehen, DM-Geheimnisse wirklich geheim bleiben und Notizen privat sind.
 

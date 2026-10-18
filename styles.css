@@ -311,6 +311,12 @@ a.mini:hover .t { color: var(--accent); }
   background: var(--surface); border-radius: 14px; padding: 28px; display: flex; flex-direction: column; gap: 14px; align-items: start; border: 2px solid var(--gild); box-shadow: 0 20px 60px rgb(0 0 0 / .4); }
 .reveal-pop h2 { font-size: clamp(26px, 5vw, 34px); }
 .reveal-pop .label { color: var(--gild); }
+.reason { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0; font-size: 14px; color: var(--muted); border-left: 2px solid var(--gild); padding-left: 10px; }
+.reason .label { color: var(--gild); }
+.qrow .meta .unlocked { color: var(--gild); }
+.checkline { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--raised); cursor: pointer; }
+.checkline input { margin-top: 4px; }
+.checkline .sub { display: block; font-size: 13.5px; }
 @media (prefers-reduced-motion: no-preference) { .reveal-pop { animation: reveal .7s cubic-bezier(.2, .9, .3, 1.2); } @keyframes reveal { from { opacity: 0; transform: translate(-50%, -46%) scale(.9); filter: blur(6px); } } }
 
 /* notes */
