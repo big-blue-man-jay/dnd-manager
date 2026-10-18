@@ -5,12 +5,15 @@ import { html, useState, useEffect, Medal, Spinner, HpBar, Empty, applyTheme, go
 import { useCampaign, KINDS } from './campaign.js';
 import { BattleMap } from './map.js';
 import { TurnStrip } from './session.js';
+import { useLoot, LootCard } from './loot.js';
 
 export function TableScreen({ user, cid }) {
   const { camp, chars, revelations, isDM } = useCampaign(cid, user);
   const [full, setFull] = useState(!!document.fullscreenElement);
   const [now, setNow] = useState(Date.now());
   const [seen, setSeen] = useState(0);
+  const loot = useLoot(cid, false);
+  const [lootSeen, setLootSeen] = useState({});
   useEffect(() => { if (camp) applyTheme(camp.theme); }, [camp?.theme]);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 5000); return () => clearInterval(t); }, []);
   // keep the tablet awake while this screen is open
@@ -26,6 +29,8 @@ export function TableScreen({ user, cid }) {
   const t = camp.table || {}, cb = camp.combat || null;
   const showMap = !!cb || t.show === 'map';
   // a reveal for everyone from the last 90 seconds is shown big until someone taps it away
+  // loot on the table: while the DM decides, and 20 seconds after it was handed out
+  const drop = loot.find(x => !lootSeen[x.id + x.status] && (x.status === 'shown' || (x.status === 'given' && (x.givenAt || 0) > now - 20000)));
   const fresh = revelations.filter(r => r.audience === 'all' && r.createdAt > now - 90000 && r.createdAt > seen).sort((a, b) => b.createdAt - a.createdAt)[0];
 
   return html`<div class=${'tablescreen' + (showMap ? ' map' : ' story')}>
@@ -42,7 +47,8 @@ export function TableScreen({ user, cid }) {
             <${Medal} cls=${c.cls} species=${c.species} size="lg"/>
             <div class="tsc-pc-body"><b>${c.name}</b><span class="num">${c.hp ?? 0} / ${c.hpMax ?? 0} HP${c.tempHp ? ` +${c.tempHp}` : ''}</span><${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/>
               ${(c.conc || (c.conditions || []).length || c.exhaustion) ? html`<div class="chips">${c.conc && html`<span class="chip conc">🧠 ${c.conc}</span>`}${(c.conditions || []).map(x => html`<span class="chip cond">${x}</span>`)}${c.exhaustion ? html`<span class="chip cond">Exhaustion ${c.exhaustion}</span>` : ''}</div>` : ''}</div></div>`)}</div>`}
-    ${fresh && html`<div class="tsc-reveal" role="dialog" aria-label="Enthüllung" onClick=${() => setSeen(fresh.createdAt)}>
+    ${drop && html`<div class="tsc-reveal loot" onClick=${() => setLootSeen({ ...lootSeen, [drop.id + drop.status]: true })}><${LootCard} it=${drop} chars=${chars} big/></div>`}
+    ${!drop && fresh && html`<div class="tsc-reveal" role="dialog" aria-label="Enthüllung" onClick=${() => setSeen(fresh.createdAt)}>
       <div class="tsc-rcard"><span class="label">${fresh.kind === 'quest' ? 'Neue Quest' : `${KINDS[fresh.kind] || 'Geheimnis'} enthüllt`}</span><h2>${fresh.title}</h2><p class="pre">${fresh.body}</p>
         ${fresh.reason && html`<p class="muted">${fresh.kind === 'quest' ? 'Freigeschaltet, weil' : 'Aufgedeckt, weil'}: ${fresh.reason}</p>`}</div></div>`}
   </div>`;

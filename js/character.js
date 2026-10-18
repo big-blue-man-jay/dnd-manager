@@ -12,6 +12,7 @@ import { throwDice, loadThree, canThrow, diceSettings } from './dice3d.js';
 const accentHex = () => { try { return getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#2B4790'; } catch (e) { return '#2B4790'; } };
 import { clsName } from './cards.js';
 import { setActor, setFallbackActor, takeActor, logRoll, logAct, charActor } from './log.js';
+import { RARITY } from './loot.js';
 
 /* shared advantage/disadvantage state: set in the tray or the turn panel, used by the next d20 roll, then back to normal */
 let diceMode = 'normal'; const modeSubs = new Set();
@@ -549,7 +550,7 @@ function Inventory(ctx) {
   return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🎒</span>Inventar</h2><span class="sub">Attunement ${attunedN} / 3</span></div>
     ${inv.length ? html`<div class="inv">${inv.map(x => html`<div class="inv-row">
       <div class="counter"><button class="btn small" onClick=${() => upd(x.id, { qty: Math.max(0, (x.qty || 0) - 1) })}>−</button><b class="num">${x.qty ?? 1}</b><button class="btn small" onClick=${() => upd(x.id, { qty: (x.qty || 0) + 1 })}>+</button></div>
-      <div class="inv-name"><b>${x.name}</b><input class="note-in" value=${x.note || ''} placeholder="Notiz" onChange=${e => upd(x.id, { note: e.target.value })} aria-label="Notiz"/></div>
+      <div class="inv-name"><b class=${x.rarity && x.rarity !== 'common' ? 'rar' : ''} style=${x.rarity ? `--rc:${RARITY[x.rarity]?.hex}` : ''}>${x.name}${x.rarity && html` <small class="rar-tag">${RARITY[x.rarity]?.en}${x.attune ? ' · Attunement' : ''}</small>`}</b><input class="note-in" value=${x.note || ''} placeholder="Notiz" onChange=${e => upd(x.id, { note: e.target.value })} aria-label="Notiz"/></div>
       <label class="att" title="Attuned"><input type="checkbox" checked=${!!x.attuned} disabled=${!x.attuned && attunedN >= 3} onChange=${e => upd(x.id, { attuned: e.target.checked })}/> Attuned</label>
       <button class="rm" aria-label="Entfernen" onClick=${() => patch(ctx, null, { inventory: inv.filter(y => y.id !== x.id) })}>×</button></div>`)}</div>` : html`<p class="muted">Noch nichts im Rucksack.</p>`}
     <form class="inline-add" onSubmit=${add}><input id="inv-add" value=${name} onInput=${e => setName(e.target.value)} placeholder="Gegenstand hinzufügen, z. B. Rope (50 ft)"/><button class="btn small">Hinzufügen</button></form>

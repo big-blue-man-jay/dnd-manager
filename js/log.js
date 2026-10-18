@@ -63,10 +63,10 @@ export function ActionLog({ cid, camp, chars, user, compact }) {
         ? html`<li class=${'log-mark ' + x.kind}><span>${x.kind === 'scene' ? '📍' : x.kind === 'combat' ? '⚔️' : '🔁'} ${x.label}</span><small>${time(x.ts)}</small></li>`
         : html`<li class=${'log-row ' + x.kind + (x.foe ? ' foe' : '') + (x.outcome ? ' ' + x.outcome : '')} style=${color(x.charId) ? `--lc:${color(x.charId)}` : ''}>
             <span class="lg-time">${time(x.ts)}</span>
-            <span class="lg-what"><b>${x.who}</b> <span>${x.kind === 'act' ? '· ' : x.kind === 'note' ? '· ' : ''}${x.label}</span>
+            <span class="lg-what"><b>${x.who}</b> <span>${x.kind === 'loot' ? '🎁 ' : x.kind === 'act' || x.kind === 'note' ? '· ' : ''}${x.label}</span>
               ${x.kind === 'roll' && html`<small>${x.detail}${x.mode && x.mode !== 'normal' ? ` · ${MODE[x.mode]} (${x.nat} statt ${x.dropped})` : ''}</small>`}</span>
             ${x.total != null ? html`<b class=${'lg-total num' + (x.crit ? ' crit' : x.fumble ? ' fumble' : '')} title=${x.crit ? 'Natürliche 20' : x.fumble ? 'Natürliche 1' : ''}>${x.total}</b>` : html`<span></span>`}
-            <span class="lg-ctl">${x.kind !== 'act' && html`<button class=${'lg-ok' + (x.outcome === 'ok' ? ' on' : '')} title="Geschafft / getroffen" onClick=${() => mark(x, 'ok')}>✓</button><button class=${'lg-fail' + (x.outcome === 'fail' ? ' on' : '')} title="Nicht geschafft / daneben" onClick=${() => mark(x, 'fail')}>✗</button>`}
+            <span class="lg-ctl">${x.kind !== 'act' && x.kind !== 'loot' && html`<button class=${'lg-ok' + (x.outcome === 'ok' ? ' on' : '')} title="Geschafft / getroffen" onClick=${() => mark(x, 'ok')}>✓</button><button class=${'lg-fail' + (x.outcome === 'fail' ? ' on' : '')} title="Nicht geschafft / daneben" onClick=${() => mark(x, 'fail')}>✗</button>`}
               <button class="lg-del" title="Eintrag löschen" aria-label="Eintrag löschen" onClick=${() => del(x)}>🗑</button></span></li>`))}</ol>
 `}
     <form class="log-add" onSubmit=${add}>

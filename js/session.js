@@ -10,6 +10,7 @@ import { CharQuick } from './character.js';
 import { useCampaign, RevealPopup, RevealModal, KINDS } from './campaign.js';
 import { TurnHelpButton } from './help.js';
 import { searchWiki } from './wiki.js';
+import { useLoot, LootButton, LootStage, LootPopup } from './loot.js';
 import { FoeForm, FoeSheet } from './foes.js';
 import { BattleMap } from './map.js';
 import { ActionLog, logEntry } from './log.js';
@@ -212,6 +213,7 @@ export function SessionPage({ user, cid }) {
 
 function DMView({ camp, chars, sessions, quests, npcs, secrets, notes, members, cid, user, num }) {
   const c = useCombat({ camp, cid, chars });
+  const loot = useLoot(cid, true);
   const fight = !!c.cb, showMap = fight || camp.table?.show === 'map';
   const last = sessions[0];
   return html`<main class="page spieltisch dm">
@@ -219,6 +221,7 @@ function DMView({ camp, chars, sessions, quests, npcs, secrets, notes, members, 
       <div class="st-id"><span class="label">🎲 Spieltisch · Sitzung ${num}${camp.table?.place ? ` · 📍 ${camp.table.place}` : ''}</span><h1>${camp.name}</h1></div>
       <div class="st-act">
         <button class="btn" onClick=${() => go('tisch')} title="Auf dem Tablet öffnen: zeigt Szene oder Karte für alle">📺 Tischbildschirm</button>
+        <${LootButton} cid=${cid} loot=${loot}/>
         ${fight ? html`<button class="btn danger-soft" onClick=${c.end}>Kampf beenden</button>` : html`<button class="btn primary" onClick=${c.start}>⚔️ Kampf starten</button>`}
         <details class="st-menu"><summary class="btn" aria-label="Mehr">⋯</summary><div class="st-menu-pop">
           <a href=${href('c', cid)}>🏰 Kampagne</a><a href=${href('c', cid, 'enthuellungen')}>🤯 Enthüllungen</a><a href=${href('c', cid, 'notizen')}>📝 DM-Notizen</a>
@@ -226,6 +229,7 @@ function DMView({ camp, chars, sessions, quests, npcs, secrets, notes, members, 
       </div>
     </header>
     <${SceneBar} camp=${camp} cid=${cid} user=${user}/>
+    <${LootStage} cid=${cid} loot=${loot} chars=${chars} session=${camp.table?.session || 0}/>
     ${fight && html`<div class="st-turn"><button class="btn" onClick=${c.prev} aria-label="Zurück">◀</button><${TurnStrip} cb=${c.cb} chars=${chars} user=${user} dm/><button class="btn primary" onClick=${c.next}>Nächster Zug ▶</button></div>`}
     ${fight ? html`<div class="dm-grid fight">
         <div class="col"><${BattleMap} cid=${cid} camp=${camp} chars=${chars} isDM user=${user} npcs=${npcs}/><${PartyBoard} cid=${cid} chars=${chars} camp=${camp}/></div>
@@ -242,6 +246,7 @@ function DMView({ camp, chars, sessions, quests, npcs, secrets, notes, members, 
 
 function PlayerView({ camp, chars, sessions, quests, npcs, revelations, cid, user, num }) {
   const mine = chars.filter(c => c.ownerUid === user.uid);
+  const loot = useLoot(cid, false);
   const last = sessions[0], fight = !!camp.combat;
   return html`<main class="page spieltisch player">
     <header class="st-head small">
@@ -255,5 +260,6 @@ function PlayerView({ camp, chars, sessions, quests, npcs, revelations, cid, use
       <div class="ov-col"><${Lookup} quests=${quests} npcs=${npcs} cid=${cid}/></div>
     </div>
     <${RevealPopup} cid=${cid} items=${revelations}/>
+    <${LootPopup} cid=${cid} loot=${loot} chars=${chars} user=${user}/>
   </main>`;
 }

@@ -123,6 +123,12 @@ service cloud.firestore {
         allow update, delete: if isDM(cid);
       }
 
+      // Loot: the DM prepares it in secret; once shown (public == true) everyone in the campaign sees it.
+      match /loot/{id} {
+        allow read: if isDM(cid) || (isMember(cid) && resource.data.public == true);
+        allow write: if isDM(cid);
+      }
+
       // Prepared secrets: DM only, until revealed.
       match /secrets/{id} { allow read, write: if isDM(cid); }
 
