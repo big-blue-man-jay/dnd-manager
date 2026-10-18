@@ -2,7 +2,8 @@ import { html, useState, useEffect, useMemo, useDoc, useCol, usePreview, Preview
   applyTheme, go, href, fmtDate, fmtDay, isoToday, daysUntil, relDays, plural, int, initials, ts } from './ui.js';
 import { store, newId, union } from './data.js';
 import { THEMES, CONDITIONS, levelForXp } from './rules5e.js';
-import { STATUS, CharCard, clsName } from './cards.js';
+import { STATUS, CharCard, clsName, AcValue } from './cards.js';
+import { exportCampaign } from './backup.js';
 import { leaveCampaign, newJoinCode, createDummyCharacter } from './ops.js';
 
 const TABS = [['uebersicht', 'Übersicht'], ['gruppe', 'Gruppe'], ['sitzungen', 'Sitzungen'], ['quests', 'Quests'], ['npcs', 'NPCs'], ['enthuellungen', 'Enthüllungen'], ['notizen', 'Notizen'], ['einstellungen', 'Einstellungen']];
@@ -68,6 +69,11 @@ export function CampaignPage({ user, cid, tab }) {
   const d = pv ? { ...d0, isDM: false, secrets: [], revelations: d0.revelations.filter(r => r.audience === 'all') } : d0;
   const { camp, isDM } = d;
   useEffect(() => { if (camp) applyTheme(camp.theme); }, [camp?.theme]);
+  // older characters kept Armor Class on the public card: move it onto the private sheet
+  const oldAc = realDM ? (d0.chars || []).filter(c => c.ac != null) : [];
+  useEffect(() => { if (!oldAc.length) return;
+    store.batch(oldAc.flatMap(c => [{ type: 'merge', path: `campaigns/${cid}/characters/${c.id}/sheet/main`, data: { ac: c.ac } }, { type: 'update', path: `campaigns/${cid}/characters/${c.id}`, data: { ac: null } }])).catch(() => {});
+  }, [oldAc.map(c => c.id).join()]);
   if (camp === undefined) return html`<${Spinner}/>`;
   if (!camp) return html`<main class="page"><${Empty} title="Kampagne nicht gefunden" action=${html`<a class="btn" href="#/">Zur Startseite</a>`}>Entweder gibt es sie nicht mehr, oder du bist (noch) kein Mitglied. Tritt mit dem Code deines DMs bei.</${Empty}></main>`;
   const tabs = TABS.filter(([k]) => k !== 'einstellungen' || isDM);
@@ -120,7 +126,7 @@ function Overview(p) {
           <td><div class="who"><${Medal} cls=${c.cls} species=${c.species} size="md"/><div><b>${c.name}</b><div class="sub">${c.ownerName || ''}</div></div></div></td>
           <td>${clsName(c)} ${c.level || 1}<div class="sub">${c.species || ''}</div></td>
           <td class="hpcell"><span class="num">${c.hp ?? 0} / ${c.hpMax ?? 0}</span><${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/></td>
-          <td class="r num">${isDM || c.ownerUid === p.user.uid ? c.ac || '–' : html`<span class="muted" title="Nur für den Spieler und den DM sichtbar">–</span>`}</td>
+          <td class="r num">${isDM || c.ownerUid === p.user.uid ? html`<${AcValue} c=${c} cid=${cid}/>` : html`<span class="muted" title="Nur für den Spieler und den DM sichtbar">–</span>`}</td>
           <td>${[...(c.conditions || []), c.exhaustion ? `Exhaustion ${c.exhaustion}` : ''].filter(Boolean).join(', ') || html`<span class="muted">–</span>`}</td></tr>`)}
       </tbody></table></div>` : html`<p class="muted">Noch keine Charaktere.</p>`}</div></div>
     <div class="ov-col">
@@ -361,6 +367,7 @@ function Notes({ notes, isDM, cid, user, preview }) {
 function Settings(p) {
   const { camp, cid, user, members, chars } = p;
   const [cond, setCond] = useState({ name: '', desc: '' });
+  const [busyExp, setBusyExp] = useState(false);
   const custom = camp.customConditions || [];
   const saveCamp = async data => { await store.update(`campaigns/${cid}`, data); if (data.name !== camp.name && camp.joinCode) await store.update(`joinCodes/${camp.joinCode}`, { campaignName: data.name }).catch(() => {}); toast('Gespeichert.'); };
   const addCond = async e => { e.preventDefault(); if (!cond.name.trim()) return; try { await store.update(`campaigns/${cid}`, { customConditions: [...custom, { name: cond.name.trim(), desc: cond.desc.trim() }] }); setCond({ name: '', desc: '' }); } catch (x) { failed(x); } };
@@ -385,6 +392,9 @@ function Settings(p) {
       ${custom.map((c, i) => html`<div class="mini static"><div><div class="t">${c.name}</div><div class="d">${c.desc}</div></div><button class="link quiet small" onClick=${() => delCond(i)}>Entfernen</button></div>`)}
       <form class="form inline-form cond-form" onSubmit=${addCond}><${Field} label="Name"><input id="cc-name" value=${cond.name} onInput=${e => setCond({ ...cond, name: e.target.value })} placeholder="Verflucht"/></${Field}><${Field} label="Wirkung"><input id="cc-desc" value=${cond.desc} onInput=${e => setCond({ ...cond, desc: e.target.value })} placeholder="−1 auf alle Saving Throws bis zum Long Rest"/></${Field}><button class="btn">Hinzufügen</button></form></div>
     <div class="panel box"><div class="box-head"><h2>Kampagne bearbeiten</h2></div><${CampaignForm} user=${user} campaign=${camp} onSave=${saveCamp}/></div>
+    <div class="panel box"><div class="box-head"><h2>Sicherung</h2></div>
+      <p class="ro-note">Lädt die ganze Kampagne als Datei herunter: Charaktere mit Bögen, Sitzungen, Tagebuch, Quests, NPCs, Geheimnisse, Enthüllungen und deine DM-Notizen. Mach das alle paar Sitzungen. Wiederherstellen geht auf der Startseite unter „Neue Kampagne“.</p>
+      <div><button class="btn" disabled=${busyExp} onClick=${async () => { setBusyExp(true); try { const n = await exportCampaign(cid, user); toast('Gespeichert: ' + n); } catch (x) { failed(x); } finally { setBusyExp(false); } }}>${busyExp ? 'Wird gespeichert …' : 'Sicherung herunterladen'}</button></div></div>
     <div class="panel box danger-zone"><div class="box-head"><h2>Kampagne löschen</h2></div><p class="muted">Löscht die Kampagne mit allen Charakteren, Sitzungen, Quests, NPCs und Enthüllungen. Das lässt sich nicht rückgängig machen.</p>
       <div><${DeleteButton} label="Kampagne löschen" question=${`${camp.name} endgültig löschen?`} onConfirm=${deleteAll}/></div></div>
   </section>`;

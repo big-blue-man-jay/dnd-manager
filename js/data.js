@@ -21,6 +21,8 @@ export const store = {
   get: path => impl.get(path),
   watchDoc: (path, cb, err) => impl.watchDoc(path, cb, err),
   watchCol: (path, filters, cb, err) => impl.watchCol(path, filters || [], cb, err),
+  // one-time read of a whole collection
+  getCol: path => new Promise((res, rej) => { let off = null, done = false; off = impl.watchCol(path, [], list => { done = true; res(list); setTimeout(() => off?.()); }, rej); if (done) setTimeout(() => off?.()); }),
   set: (path, data) => impl.batch([{ type: 'set', path, data }]),
   merge: (path, data) => impl.batch([{ type: 'merge', path, data }]),
   update: (path, data) => impl.batch([{ type: 'update', path, data }]),

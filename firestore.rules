@@ -2,7 +2,7 @@ rules_version = '2';
 
 // DnD Manager security rules.
 // - Whoever creates a campaign is its DM (dmUid). Players join with a code.
-// - Players see everyone's namecard (level, HP), but only their own full sheet.
+// - Players see everyone's namecard (level, HP), but only their own full sheet (incl. Armor Class).
 // - Once the DM "locks" (freigibt) a sheet, players can only change live values (HP, slots, inventory, …).
 // - DM secrets and private notes are readable only by their owner.
 service cloud.firestore {
@@ -59,13 +59,14 @@ service cloud.firestore {
         allow create: if isDM(cid) || (isMember(cid)
           && request.resource.data.ownerUid == uid()
           && request.resource.data.locked == false
-          && request.resource.data.xp == 0);
+          && request.resource.data.xp == 0
+          && request.resource.data.get('ac', null) == null);
         allow update: if isDM(cid) || (signedIn()
           && resource.data.ownerUid == uid()
           && request.resource.data.ownerUid == resource.data.ownerUid
           && (
             // draft: everything except lock and XP
-            (resource.data.locked == false && !changed().hasAny(['locked', 'xp', 'ownerUid']))
+            (resource.data.locked == false && !changed().hasAny(['locked', 'xp', 'ownerUid']) && request.resource.data.get('ac', null) == null)
             // live values during play
             || changed().hasOnly(['hp', 'tempHp', 'conditions', 'exhaustion', 'updatedAt'])
             // level up: one level, only when the XP threshold is reached
@@ -80,7 +81,9 @@ service cloud.firestore {
         match /sheet/{sheetId} {
           function card() { return get(/databases/$(database)/documents/campaigns/$(cid)/characters/$(chId)).data; }
           allow read: if isDM(cid) || (signedIn() && resource.data.ownerUid == uid());
-          allow create: if isDM(cid) || (isMember(cid) && request.resource.data.ownerUid == uid());
+          // only under your own character (getAfter: card and sheet are created together)
+          allow create: if isDM(cid) || (isMember(cid) && request.resource.data.ownerUid == uid()
+            && getAfter(/databases/$(database)/documents/campaigns/$(cid)/characters/$(chId)).data.ownerUid == uid());
           allow update: if isDM(cid) || (signedIn()
             && resource.data.ownerUid == uid()
             && request.resource.data.ownerUid == resource.data.ownerUid
@@ -98,7 +101,7 @@ service cloud.firestore {
       // Player journal entries per session.
       match /journal/{id} {
         allow read: if inCampaign(cid);
-        allow create: if inCampaign(cid) && request.resource.data.authorUid == uid();
+        allow create: if isDM(cid) || (inCampaign(cid) && request.resource.data.authorUid == uid()); // DM: restoring a backup
         allow update: if signedIn() && resource.data.authorUid == uid() && request.resource.data.authorUid == uid();
         allow delete: if signedIn() && (resource.data.authorUid == uid() || isDM(cid));
       }

@@ -152,7 +152,7 @@ function Vitals(ctx) {
     patch(ctx, { hp: Math.min(max, hp + Math.max(0, r.total)) }, { hitDiceUsed: (s.hitDiceUsed || 0) + 1 }); };
   return html`<section class="panel box vitals">
     <div class="statline five">
-      <div class="stat ac"><span class="label">AC</span><b class="num">${c.ac || '–'}</b></div>
+      <div class="stat ac"><span class="label">AC</span><b class="num">${(s.ac ?? c.ac) || '–'}</b></div>
       <button class="stat roll" onClick=${() => requestRoll({ label: 'Initiative', expr: withBonus('1d20', dex) })}><span class="label">Initiative</span><b class="num">${sgn(dex)}</b></button>
       <div class="stat"><span class="label">Speed</span><b class="num">${c.speed || 30}</b></div>
       <div class="stat"><span class="label">Proficiency</span><b class="num">${sgn(pb)}</b></div>
@@ -340,7 +340,7 @@ function CharForm({ user, cid, camp, card, sheet, others, isDM, onDone }) {
   const usedColors = others.map(o => o.diceColor).filter(Boolean);
   const [f, setF] = useState({ name: '', species: 'Human', speciesCustom: '', cls: 'Fighter', clsCustom: '', hitDie: 8, subclass: '', level: 1, xp: 0, ac: 10, speed: 30, hpMax: '',
     diceColor: DICE_COLORS.find(d => !usedColors.includes(d.key))?.key || '', ...(card || {}),
-    abilities: { ...s0.abilities }, saveProf: card ? [...s0.saveProf] : [...(CLASSES[(card || {}).cls || 'Fighter']?.saves || [])], skills: { ...s0.skills }, background: s0.background, alignment: s0.alignment, languages: s0.languages, features: s0.features, spellAbility: s0.spellAbility });
+    ac: s0.ac ?? card?.ac ?? 10, abilities: { ...s0.abilities }, saveProf: card ? [...s0.saveProf] : [...(CLASSES[(card || {}).cls || 'Fighter']?.saves || [])], skills: { ...s0.skills }, background: s0.background, alignment: s0.alignment, languages: s0.languages, features: s0.features, spellAbility: s0.spellAbility });
   const [busy, setBusy] = useState(false);
   const set = k => e => setF(f => ({ ...f, [k]: e.target.value }));
   const setAb = k => e => setF(f => ({ ...f, abilities: { ...f.abilities, [k]: int(e.target.value, 10) } }));
@@ -355,8 +355,8 @@ function CharForm({ user, cid, camp, card, sheet, others, isDM, onDone }) {
     setBusy(true);
     const hpMax = int(f.hpMax, 0) || Math.max(1, hpSuggest);
     const cardData = { name: f.name.trim(), species: f.species === 'Andere' ? f.speciesCustom.trim() || 'Andere' : f.species, cls, clsCustom: f.clsCustom.trim(), hitDie: die, subclass: f.subclass.trim(),
-      level: Math.min(20, Math.max(1, int(f.level, 1))), ac: int(f.ac, 10), speed: int(f.speed, 30), hpMax, diceColor: f.diceColor, updatedAt: Date.now() };
-    const sheetData = { abilities: f.abilities, saveProf: f.saveProf, skills: f.skills, background: f.background.trim(), alignment: f.alignment, languages: f.languages, features: f.features, spellAbility: f.spellAbility, updatedAt: Date.now() };
+      level: Math.min(20, Math.max(1, int(f.level, 1))), ac: null, speed: int(f.speed, 30), hpMax, diceColor: f.diceColor, updatedAt: Date.now() };
+    const sheetData = { ac: int(f.ac, 10), abilities: f.abilities, saveProf: f.saveProf, skills: f.skills, background: f.background.trim(), alignment: f.alignment, languages: f.languages, features: f.features, spellAbility: f.spellAbility, updatedAt: Date.now() };
     try {
       if (isNew) {
         const id = newId();

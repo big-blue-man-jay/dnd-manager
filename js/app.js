@@ -4,7 +4,8 @@ import { store } from './data.js';
 import { THEMES } from './rules5e.js';
 import { ensureUser, createCampaign, joinCampaign, createExampleCampaign } from './ops.js';
 import { CampaignPage, CampaignForm } from './campaign.js';
-import { STATUS, CharCard, clsName } from './cards.js';
+import { STATUS, CharCard, clsName, AcValue } from './cards.js';
+import { importCampaign } from './backup.js';
 import { CharacterPage, NewCharacter, DiceTray } from './character.js';
 
 
@@ -91,7 +92,10 @@ function Home({ user }) {
     </section>
     ${modal === 'join' && html`<${JoinModal} user=${user} onClose=${() => setModal(null)}/>`}
     ${modal === 'create' && html`<${Modal} title="Neue Kampagne" eyebrow="Du wirst Dungeon Master" onClose=${() => setModal(null)}>
-      <${CampaignForm} user=${user} onSave=${async data => { const cid = await createCampaign(user, data); setModal(null); toast(`${data.name} beginnt.`); go('c', cid); }} onCancel=${() => setModal(null)}/></${Modal}>`}
+      <${CampaignForm} user=${user} onSave=${async data => { const cid = await createCampaign(user, data); setModal(null); toast(`${data.name} beginnt.`); go('c', cid); }} onCancel=${() => setModal(null)}/>
+      <div class="restore"><span class="muted">Oder eine gespeicherte Kampagne wiederherstellen:</span>
+        <label class="btn small">Sicherung laden<input type="file" accept=".json,application/json" hidden onChange=${async e => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
+          try { const cid = await importCampaign(user, f); setModal(null); toast('Kampagne wiederhergestellt. Schick deinen Spielern den neuen Code.'); go('c', cid); } catch (x) { x.friendly ? toast(x.message) : failed(x); } }}/></label></div></${Modal}>`}
   </main>`;
 }
 
@@ -101,7 +105,7 @@ function FeatureCard({ c, camp }) {
     <div class="feat-main">
       <div class="flag"><span class="most">Zuletzt gespielt</span><span class="label">${camp?.name || ''}</span>${!c.locked && html`<${Pill} tone="warn">Entwurf</${Pill}>`}</div>
       <div class="feat-name"><${Medal} cls=${c.cls} species=${c.species} size="lg"/><div class="nc-id"><h3>${c.name}</h3><div class="sub">Stufe ${c.level || 1} · ${[c.species, clsName(c), c.subclass && `(${c.subclass})`].filter(Boolean).join(' ')}</div></div></div>
-      <div class="statline"><div class="stat ac"><span class="label">AC</span><b class="num">${c.ac || '–'}</b></div><div class="stat"><span class="label">Stufe</span><b class="num">${c.level || 1}</b></div><div class="stat"><span class="label">Speed</span><b class="num">${c.speed || 30}</b></div><div class="stat"><span class="label">XP</span><b class="num">${(c.xp || 0).toLocaleString('de-DE')}</b></div></div>
+      <div class="statline"><div class="stat ac"><span class="label">AC</span><b class="num"><${AcValue} c=${c}/></b></div><div class="stat"><span class="label">Stufe</span><b class="num">${c.level || 1}</b></div><div class="stat"><span class="label">Speed</span><b class="num">${c.speed || 30}</b></div><div class="stat"><span class="label">XP</span><b class="num">${(c.xp || 0).toLocaleString('de-DE')}</b></div></div>
       <div><div class="hprow"><span class="label">Hit Points</span><span class="num"><b>${c.hp ?? 0}</b> / ${c.hpMax ?? 0}</span></div><${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/></div>
       <div class="actions"><a class="btn primary" href=${href('c', c.campaignId, 'char', c.id)}>Charakterbogen öffnen</a><a class="btn" href=${href('c', c.campaignId)}>Zur Kampagne</a></div>
     </div>

@@ -1,9 +1,15 @@
-import { html, Medal, HpBar, go } from './ui.js';
+import { html, Medal, HpBar, go, useDoc } from './ui.js';
 import { DICE_COLORS } from './rules5e.js';
 
 export const STATUS = { active: 'Aktiv', paused: 'Pausiert', finished: 'Beendet' };
 export const clsName = c => (c.cls === 'Homebrew' ? c.clsCustom || 'Homebrew' : c.cls);
 export const diceOf = c => (DICE_COLORS.find(d => d.key === c.diceColor) || {}).hex;
+
+// Armor Class lives on the private sheet, so only the owner and the DM can load it.
+export function AcValue({ c, cid }) {
+  const s = useDoc(`campaigns/${cid || c.campaignId}/characters/${c.id}/sheet/main`);
+  return html`${(s?.ac ?? c.ac) || '–'}`;
+}
 
 export function CharCard({ c, camp, showCamp, onOpen }) {
   const open = onOpen || (() => go('c', c.campaignId, 'char', c.id));

@@ -540,3 +540,4 @@ fieldset:disabled input, fieldset:disabled select, fieldset:disabled textarea { 
 .dice-stage.fumble .dice-total .flag { color: #ff8a80; }
 @keyframes thud { 0%, 100% { transform: none; } 20% { transform: translate(-6px, 3px); } 40% { transform: translate(5px, -2px); } 60% { transform: translate(-3px, 1px); } 80% { transform: translate(2px, 0); } }
 .dice-fab:active { transform: scale(.94); }
+.restore { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 14.5px; }

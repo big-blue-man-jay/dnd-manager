@@ -64,8 +64,8 @@ export async function createExampleCampaign(user) {
   const base = `campaigns/${cid}`, now = Date.now(), ch = newId(), s1 = newId(), sec = newId();
   await store.batch([
     { type: 'set', path: `${base}/characters/${ch}`, data: { ownerUid: user.uid, ownerName: user.name, name: 'Thorn Ashvale', species: 'Elf', cls: 'Ranger', clsCustom: '', hitDie: 10, subclass: '', level: 2, xp: 450,
-      ac: 14, speed: 35, hpMax: 20, hp: 13, tempHp: 0, conditions: [], exhaustion: 0, diceColor: 'moss', locked: true, createdAt: now - 6e5, updatedAt: now - 6e5 } },
-    { type: 'set', path: `${base}/characters/${ch}/sheet/main`, data: { ownerUid: user.uid, abilities: { str: 12, dex: 16, con: 14, int: 10, wis: 14, cha: 8 }, saveProf: ['str', 'dex'],
+      speed: 35, hpMax: 20, hp: 13, tempHp: 0, conditions: [], exhaustion: 0, diceColor: 'moss', locked: true, createdAt: now - 6e5, updatedAt: now - 6e5 } },
+    { type: 'set', path: `${base}/characters/${ch}/sheet/main`, data: { ownerUid: user.uid, ac: 14, abilities: { str: 12, dex: 16, con: 14, int: 10, wis: 14, cha: 8 }, saveProf: ['str', 'dex'],
       skills: { perception: 1, stealth: 2, survival: 1, nature: 1 }, background: 'Outlander', alignment: 'Chaotic Good', languages: 'Common, Elvish · Light/Medium Armor, Shields, Martial Weapons',
       features: 'Favored Enemy (Hunter\'s Mark), Weapon Mastery, Fighting Style: Archery, Deft Explorer', notes: 'Jagt die Goblins, die den Hof der Familie niedergebrannt haben.',
       attacks: [{ id: newId(), name: 'Longbow', bonus: 7, damage: '1d8+3', note: 'piercing, 150/600 ft' }, { id: newId(), name: 'Shortsword', bonus: 5, damage: '1d6+3', note: 'piercing, finesse, light' }],
@@ -96,8 +96,8 @@ export function dummyCharacterOps(cid, existing = []) {
   const id = newId(), now = Date.now(), base = `campaigns/${cid}/characters/${id}`;
   return [
     { type: 'set', path: base, data: { ownerUid: 'testspieler', ownerName: 'Lea (Test-Mitspielerin)', name: 'Mira Sternfeuer', species: 'Tiefling', cls: 'Warlock', clsCustom: '', hitDie: 8, subclass: 'Fiend Patron',
-      level: 2, xp: 380, ac: 13, speed: 30, hpMax: 17, hp: 9, tempHp: 3, conditions: ['Frightened'], exhaustion: 0, diceColor: color, locked: true, createdAt: now - 7e5, updatedAt: now - 2e5 } },
-    { type: 'set', path: `${base}/sheet/main`, data: { ownerUid: 'testspieler', abilities: { str: 8, dex: 14, con: 14, int: 12, wis: 10, cha: 16 }, saveProf: ['wis', 'cha'],
+      level: 2, xp: 380, speed: 30, hpMax: 17, hp: 9, tempHp: 3, conditions: ['Frightened'], exhaustion: 0, diceColor: color, locked: true, createdAt: now - 7e5, updatedAt: now - 2e5 } },
+    { type: 'set', path: `${base}/sheet/main`, data: { ownerUid: 'testspieler', ac: 13, abilities: { str: 8, dex: 14, con: 14, int: 12, wis: 10, cha: 16 }, saveProf: ['wis', 'cha'],
       skills: { arcana: 1, deception: 1, intimidation: 1 }, background: 'Charlatan', alignment: 'Chaotic Neutral', languages: 'Common, Infernal', features: 'Pact Magic, Eldritch Invocations: Agonizing Blast',
       notes: 'Hat einen Pakt mit einem Wesen geschlossen, dessen Namen sie nicht kennt.', attacks: [{ id: newId(), name: 'Eldritch Blast', bonus: 5, damage: '1d10+3', note: 'force, 120 ft' }],
       spells: [{ id: newId(), name: 'Eldritch Blast', level: 0, prepared: true, note: '' }, { id: newId(), name: 'Hex', level: 1, prepared: true, note: 'Concentration' }],
