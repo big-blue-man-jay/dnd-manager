@@ -218,7 +218,7 @@ function DMView({ camp, chars, sessions, quests, npcs, secrets, notes, members, 
         ${fight ? html`<button class="btn danger-soft" onClick=${c.end}>Kampf beenden</button>` : html`<button class="btn primary" onClick=${c.start}>⚔️ Kampf starten</button>`}
         <details class="st-menu"><summary class="btn" aria-label="Mehr">⋯</summary><div class="st-menu-pop">
           <a href=${href('c', cid)}>🏰 Kampagne</a><a href=${href('c', cid, 'enthuellungen')}>🤯 Enthüllungen</a><a href=${href('c', cid, 'notizen')}>📝 DM-Notizen</a>
-          <a href=${href('c', cid, 'npcs')}>🎭 NPCs</a><a href=${href('c', cid, 'sitzungen')}>📖 Sitzung eintragen</a></div></details>
+          <a href=${href('c', cid, 'npcs')}>🎭 NPCs</a><a href=${href('c', cid, 'sitzungen')}>📖 Sitzung eintragen</a><a href="#/wiki">📚 Wiki: Begriffe & Regeln</a></div></details>
       </div>
     </header>
     <${SceneBar} camp=${camp} cid=${cid} user=${user}/>
@@ -242,7 +242,7 @@ function PlayerView({ camp, chars, sessions, quests, npcs, revelations, cid, use
   return html`<main class="page spieltisch player">
     <header class="st-head small">
       <div class="st-id"><span class="label">🎲 Spieltisch · Sitzung ${num}</span><h1>${camp.name}</h1>${camp.table?.place && html`<span class="st-place">📍 ${camp.table.place}</span>`}</div>
-      <${TurnHelpButton} cls="btn small"/></header>
+      <span class="st-act"><${TurnHelpButton} cls="btn small"/><a class="btn small" href="#/wiki">📖 Wiki</a></span></header>
     ${fight ? html`<${TurnStrip} cb=${camp.combat} chars=${chars} user=${user}/>` : last?.stop && html`<details class="fold st-stop"><summary>📍 Wo wir aufgehört haben</summary><p class="pre">${last.stop}</p></details>`}
     ${mine.map(c => html`<${CharQuick} key=${c.id} user=${user} cid=${cid} chId=${c.id} camp=${camp}/>`)}
     ${!mine.length && html`<${Empty} title="Noch kein Charakter in dieser Kampagne" action=${html`<a class="btn primary" href=${href('c', cid, 'neu')}>Charakter erstellen</a>`}>Ohne Charakter kannst du zuschauen, aber nicht würfeln.</${Empty}>`}
