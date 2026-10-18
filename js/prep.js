@@ -3,6 +3,7 @@
 // and places (DM's private notes), plus DM notes. Each entry carries a prepId, so importing twice adds nothing twice.
 import { store, newId } from './data.js';
 import { PRESETS } from './foes.js';
+import { cleanWorld, worldPath } from './world.js';
 
 const fail = msg => Object.assign(new Error(msg), { friendly: true });
 
@@ -26,7 +27,7 @@ export async function importPrep(user, cid, file) {
   let pack;
   try { pack = JSON.parse(await file.text()); } catch (e) { pack = null; }
   if (!pack || pack.type !== 'dndm-prep') throw fail('Das ist keine Vorbereitungs-Datei für den DnD Manager.');
-  const base = `campaigns/${cid}`, now = Date.now(), ops = [], n = { secrets: 0, loot: 0, scenes: 0, places: 0 };
+  const base = `campaigns/${cid}`, now = Date.now(), ops = [], n = { secrets: 0, loot: 0, scenes: 0, places: 0, world: '' };
   const [secrets, loot, notes, scDoc] = await Promise.all([store.getCol(`${base}/secrets`), store.getCol(`${base}/loot`),
     store.get(`users/${user.uid}/notes/${cid}`), store.get(`users/${user.uid}/notes/${cid}__scenes`)]);
   const has = (list, id) => list.some(x => x.prepId === id);
@@ -53,6 +54,11 @@ export async function importPrep(user, cid, file) {
       party: {}, place: s.place || '', updatedAt: now - i }); });
   (pack.places || []).forEach(p => { if (sc.places.some(x => x.place === p.place)) return; n.places++; sc.places.push({ id: newId(), place: p.place, mood: p.mood || '' }); });
   if (n.scenes || n.places) ops.push({ type: 'set', path: `users/${user.uid}/notes/${cid}__scenes`, data: { ...sc, updatedAt: now } });
+
+  // a world translation stays in the DM's private notes until it is revealed in the settings
+  if (pack.world) { const world = cleanWorld(pack.world), cur = await store.get(worldPath(user.uid, cid)); n.world = world.name;
+    ops.push({ type: 'set', path: worldPath(user.uid, cid), data: { world, chars: cur?.chars || {}, updatedAt: now } });
+    if (cur?.world) { const camp = await store.get(base); if (camp?.worldRevealed) ops.push({ type: 'update', path: base, data: { world: { ...world, chars: camp.world?.chars || cur.chars || {} } } }); } }
 
   for (let i = 0; i < ops.length; i += 400) await store.batch(ops.slice(i, i + 400));
   return n;

@@ -38,13 +38,15 @@ export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 export const int = (v, d = 0) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : d; };
 
 /* ---------- small components ---------- */
-export function Medal({ cls, species, size = '' }) {
+export function Medal({ cls, species, size = '', look }) {
   // Big emoji = species, small badge = class. Small sizes show the species only.
-  const sp = SPECIES_EMOJI[species]; const cl = CLASS_EMOJI[cls] || '🎲';
+  // look: the character's names in a revealed campaign world (see world.js), with its own emoji.
+  const sp = look?.emoji || SPECIES_EMOJI[species]; const cl = look?.clsEmoji || CLASS_EMOJI[cls] || '🎲';
   const badge = sp && (size === '' || size === 'lg');
-  return html`<span class=${'med ' + size} style=${`--h:${HUE[cls] ?? 220}`} role="img" aria-label=${[species, cls].filter(Boolean).join(' ') || 'Charakter'}>
+  const spName = look?.species || species, clName = look?.cls || cls;
+  return html`<span class=${'med ' + size} style=${`--h:${HUE[cls] ?? 220}`} role="img" aria-label=${[spName, clName].filter(Boolean).join(' ') || 'Charakter'}>
     <span class="emo" aria-hidden="true">${sp || cl}</span>
-    ${badge && html`<span class="med-badge" title=${cls}><span class="emo" aria-hidden="true">${cl}</span></span>`}</span>`;
+    ${badge && html`<span class="med-badge" title=${clName}><span class="emo" aria-hidden="true">${cl}</span></span>`}</span>`;
 }
 export const Logo = () => html`<svg class="logo" viewBox="0 0 24 24" aria-hidden="true" dangerouslySetInnerHTML=${{ __html: D20 }}></svg>`;
 export const Pill = ({ tone = '', children }) => html`<span class=${'pill ' + tone}>${children}</span>`;

@@ -38,7 +38,7 @@ export function BattleMap({ cid, camp, chars, isDM, user, npcs = [], display = f
   const cur = list[cb?.turn ?? -1];
   const curId = cur ? (cur.kind === 'pc' ? cur.charId : cur.id) : null;
   const tokens = [
-    ...chars.map(c => ({ id: c.id, kind: 'pc', name: c.name, short: initials(c.name), emoji: SPECIES_EMOJI[c.species], color: c.diceColor ? diceHex(c.diceColor) : null, mine: c.ownerUid === user.uid, hp: c.hp ?? 0, hpMax: c.hpMax ?? 0, speed: int(c.speed, 30) })),
+    ...chars.map(c => ({ id: c.id, kind: 'pc', name: c.name, short: initials(c.name), emoji: c.look?.emoji || SPECIES_EMOJI[c.species], color: c.diceColor ? diceHex(c.diceColor) : null, mine: c.ownerUid === user.uid, hp: c.hp ?? 0, hpMax: c.hpMax ?? 0, speed: int(c.speed, 30) })),
     ...list.filter(r => r.kind === 'npc').map(r => ({ id: r.id, kind: 'npc', name: r.name, short: (r.name.match(/(\d+)\s*$/) || [])[1] || initials(r.name), hp: r.hp ?? r.hpMax ?? 0, hpMax: r.hpMax || 0, speed: 30 })),
     ...(docs || []).filter(isFig).map(d => ({ id: d.id, kind: 'fig', att: d.fig.att || 'neutral', name: d.fig.name, short: initials(d.fig.name), emoji: d.fig.emoji, hp: 0, hpMax: 0, speed: 30 })),
   ];

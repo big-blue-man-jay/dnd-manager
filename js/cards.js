@@ -1,5 +1,6 @@
 import { html, Medal, HpBar, go, useDoc } from './ui.js';
 import { DICE_COLORS } from './rules5e.js';
+import { lookOf, kindLine } from './world.js';
 
 export const STATUS = { active: 'Aktiv', paused: 'Pausiert', finished: 'Beendet' };
 export const clsName = c => (c.cls === 'Homebrew' ? c.clsCustom || 'Homebrew' : c.cls);
@@ -13,9 +14,10 @@ export function AcValue({ c, cid }) {
 
 export function CharCard({ c, camp, showCamp, onOpen }) {
   const open = onOpen || (() => go('c', c.campaignId, 'char', c.id));
+  const look = lookOf(c, camp);
   return html`<article class="card panel" role="button" tabindex="0" onClick=${open} onKeyDown=${e => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), open())}>
-    <div class="nc-head"><${Medal} cls=${c.cls} species=${c.species}/><div class="nc-id"><h3>${c.name || 'Unbenannt'}</h3>
-      <div class="sub">Stufe ${c.level || 1} · ${[c.species, clsName(c)].filter(Boolean).join(' ')}</div>
+    <div class="nc-head"><${Medal} cls=${c.cls} species=${c.species} look=${look}/><div class="nc-id"><h3>${c.name || 'Unbenannt'}</h3>
+      <div class="sub">Stufe ${c.level || 1} · ${kindLine(c, look, false)}</div>
       <div class="sub">${showCamp ? camp?.name || '' : c.ownerName ? 'Gespielt von ' + c.ownerName : ''}</div></div>
       ${diceOf(c) && html`<span class="dice-dot" style=${`--dc:${diceOf(c)}`} title="Würfelfarbe"></span>`}</div>
     <div class="hprow"><span class="label"><span class="ico" aria-hidden="true">❤️</span>Hit Points</span><span class="num"><b>${c.hp ?? 0}</b> / ${c.hpMax ?? 0}${c.tempHp ? html` <span class="xp">+${c.tempHp}</span>` : ''}</span></div>

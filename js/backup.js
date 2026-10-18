@@ -3,6 +3,7 @@
 // Players rejoin the restored campaign with its new code and find their characters waiting.
 import { store } from './data.js';
 import { createCampaign } from './ops.js';
+import { worldPath } from './world.js';
 
 const COLS = ['characters', 'sessions', 'quests', 'npcs', 'journal', 'secrets', 'revelations', 'members', 'map', 'log', 'loot'];
 const strip = d => { if (!d) return d; const { id, ...rest } = d; return rest; };
@@ -14,6 +15,7 @@ export async function exportCampaign(cid, user) {
   for (const ch of out.collections.characters) ch.sheet = strip(await store.get(`campaigns/${cid}/characters/${ch.id}/sheet/main`));
   out.notes = strip(await store.get(`users/${user.uid}/notes/${cid}`));
   out.scenes = strip(await store.get(`users/${user.uid}/notes/${cid}__scenes`));
+  out.world = strip(await store.get(worldPath(user.uid, cid)));
   const day = new Date().toISOString().slice(0, 10);
   const name = `DnD-Manager_${(camp.name || 'Kampagne').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '')}_${day}.json`;
   const url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }));
@@ -39,6 +41,7 @@ export async function importCampaign(user, file) {
     for (const d of C[k] || []) ops.push({ type: 'set', path: `${base}/${k}/${d.id}`, data: strip(d) });
   if (data.notes) ops.push({ type: 'set', path: `users/${user.uid}/notes/${cid}`, data: data.notes });
   if (data.scenes) ops.push({ type: 'set', path: `users/${user.uid}/notes/${cid}__scenes`, data: data.scenes });
+  if (data.world) ops.push({ type: 'set', path: worldPath(user.uid, cid), data: data.world });
   for (let i = 0; i < ops.length; i += 400) await store.batch(ops.slice(i, i + 400));
   return cid;
 }

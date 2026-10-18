@@ -7,14 +7,15 @@ import { exportCampaign } from './backup.js';
 import { importPrep } from './prep.js';
 import { TurnHelpButton } from './help.js';
 import { leaveCampaign, newJoinCode, createDummyCharacter, setActiveCampaign } from './ops.js';
+import { withLook, WorldBox, worldPath } from './world.js';
 
 const TABS = [['uebersicht', 'Übersicht', '🏠'], ['gruppe', 'Gruppe', '👥'], ['sitzungen', 'Sitzungen', '📖'], ['quests', 'Quests', '🗺️'], ['npcs', 'NPCs', '🎭'], ['enthuellungen', 'Enthüllungen', '🤯'], ['notizen', 'Notizen', '📝'], ['einstellungen', 'Einstellungen', '⚙️']];
 const QSTATUS = { active: 'Läuft', done: 'Erledigt', failed: 'Gescheitert' };
 const ATT = { friendly: 'Freundlich', neutral: 'Neutral', hostile: 'Feindlich' };
 const NSTAT = { alive: 'Lebt', missing: 'Vermisst', dead: 'Tot', unknown: 'Unbekannt' };
-export const KINDS = { secret: 'Geheimnis', identity: 'Wahre Identität', item: 'Gegenstand', letter: 'Brief', place: 'Ort', vision: 'Vision', quest: 'Neue Quest', npc: 'Neue Bekanntschaft' };
+export const KINDS = { secret: 'Geheimnis', identity: 'Wahre Identität', item: 'Gegenstand', letter: 'Brief', place: 'Ort', vision: 'Vision', quest: 'Neue Quest', npc: 'Neue Bekanntschaft', world: 'Neue Welt' };
 // Hidden quests live in the DM-only secrets collection (kind 'quest') until the DM unlocks them.
-const SECRET_KINDS = Object.entries(KINDS).filter(([k]) => k !== 'quest');
+const SECRET_KINDS = Object.entries(KINDS).filter(([k]) => k !== 'quest' && k !== 'world'); // a world reveal comes from the world box in the settings
 // The condition behind a reveal or unlock, so players can later see why something came to light.
 const Reason = ({ label, text }) => text ? html`<p class="reason"><span class="label">${label}</span><span>${text}</span></p>` : null;
 
@@ -61,7 +62,7 @@ export function useCampaign(cid, user) {
   const secrets = useCol(base && isDM ? `${base}/secrets` : null);
   const notes = useDoc(ok ? `users/${user.uid}/notes/${cid}` : null);
   const revelations = useMemo(() => { const m = new Map(); [...(revAll || []), ...(revMine || [])].forEach(r => m.set(r.id, r)); return [...m.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)); }, [revAll, revMine]);
-  return { camp, isDM, members: members || [], chars: (chars || []).map(c => ({ ...c, campaignId: cid })), sessions: (sessions || []).sort((a, b) => int(b.num) - int(a.num)),
+  return { camp, isDM, members: members || [], chars: (chars || []).map(c => withLook({ ...c, campaignId: cid }, camp)), sessions: (sessions || []).sort((a, b) => int(b.num) - int(a.num)),
     quests: (quests || []).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)), npcs: (npcs || []).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
     journal: journal || [], revelations, secrets: (secrets || []).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)), notes };
 }
@@ -131,8 +132,8 @@ function Overview(p) {
     <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">👥</span>Die Gruppe</h2><a class="link" href=${href('c', cid, 'gruppe')}>Alle Karten</a></div>
       ${chars.length ? html`<div class="tablewrap"><table class="roster"><thead><tr><th>Charakter</th><th>Klasse</th><th>Hit Points</th><th class="r">AC</th><th>Zustände</th></tr></thead><tbody>
         ${chars.sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(c => html`<tr onClick=${() => go('c', cid, 'char', c.id)}>
-          <td><div class="who"><${Medal} cls=${c.cls} species=${c.species} size="md"/><div><b>${c.name}</b><div class="sub">${c.ownerName || ''}</div></div></div></td>
-          <td>${clsName(c)} ${c.level || 1}<div class="sub">${c.species || ''}</div></td>
+          <td><div class="who"><${Medal} cls=${c.cls} species=${c.species} look=${c.look} size="md"/><div><b>${c.name}</b><div class="sub">${c.ownerName || ''}</div></div></div></td>
+          <td>${c.look ? c.look.cls : clsName(c)} ${c.level || 1}<div class="sub">${c.look ? c.look.species : c.species || ''}</div></td>
           <td class="hpcell"><span class="num">${c.hp ?? 0} / ${c.hpMax ?? 0}</span><${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/></td>
           <td class="r num">${isDM || c.ownerUid === p.user.uid ? html`<${AcValue} c=${c} cid=${cid}/>` : html`<span class="muted" title="Nur für den Spieler und den DM sichtbar">–</span>`}</td>
           <td>${[...(c.conditions || []), c.exhaustion ? `Exhaustion ${c.exhaustion}` : ''].filter(Boolean).join(', ') || html`<span class="muted">–</span>`}</td></tr>`)}
@@ -182,7 +183,7 @@ function Sessions(p) {
     ${sessions.length ? html`<div class="sessions">${sessions.map(s => { const j = p.journal.filter(e => e.sessionId === s.id).length; const who = (s.present || []).map(id => p.chars.find(c => c.id === id)).filter(Boolean);
       return html`<article class="srow panel" role="button" tabindex="0" onClick=${() => setOpen(s.id)}>
         <div class="n num"><small>Sitzung</small>${s.num}</div>
-        <div class="body"><h3>${s.title || 'Ohne Titel'}</h3><p>${s.recap || s.stop || ''}</p>${who.length ? html`<div class="chips">${who.map(c => html`<span class="chip ic"><${Medal} cls=${c.cls} species=${c.species} size="sm"/>${c.name}</span>`)}</div>` : ''}</div>
+        <div class="body"><h3>${s.title || 'Ohne Titel'}</h3><p>${s.recap || s.stop || ''}</p>${who.length ? html`<div class="chips">${who.map(c => html`<span class="chip ic"><${Medal} cls=${c.cls} species=${c.species} look=${c.look} size="sm"/>${c.name}</span>`)}</div>` : ''}</div>
         <div class="meta"><span>${fmtDate(s.date)}</span>${s.xp ? html`<span class="xp num">${int(s.xp).toLocaleString('de-DE')} XP</span>` : ''}${j ? html`<span>${plural(j, 'Tagebucheintrag', 'Tagebucheinträge')}</span>` : ''}</div></article>`; })}</div>`
     : html`<${Empty} title="Noch keine Sitzung">${isDM ? 'Trag nach jedem Spieleabend eine kurze Zusammenfassung ein, wo ihr aufgehört habt, Beute und XP.' : 'Nach dem ersten Spieleabend steht hier die Zusammenfassung. Du kannst dann dein eigenes Tagebuch dazu schreiben.'}</${Empty}>`}
     ${open && html`<${SessionModal} ...${p} sid=${open === 'new' ? null : open} onClose=${() => setOpen(null)}/>`}
@@ -448,7 +449,7 @@ function Settings(p) {
     for (const c of chars) { ops.push({ type: 'delete', path: `${base}/characters/${c.id}/sheet/main` }, { type: 'delete', path: `${base}/characters/${c.id}` }); }
     for (const [k, list] of [['sessions', p.sessions], ['quests', p.quests], ['npcs', p.npcs], ['journal', p.journal], ['secrets', p.secrets], ['revelations', p.revelations], ['members', members.map(m => ({ id: m.uid }))]]) for (const x of list) ops.push({ type: 'delete', path: `${base}/${k}/${x.id}` });
     try { for (let i = 0; i < ops.length; i += 400) await store.batch(ops.slice(i, i + 400));
-      await store.batch([{ type: 'delete', path: `joinCodes/${camp.joinCode}` }, { type: 'delete', path: base }, { type: 'delete', path: `users/${user.uid}/notes/${cid}` }, { type: 'delete', path: `users/${user.uid}/notes/${cid}__scenes` }]);
+      await store.batch([{ type: 'delete', path: `joinCodes/${camp.joinCode}` }, { type: 'delete', path: base }, { type: 'delete', path: `users/${user.uid}/notes/${cid}` }, { type: 'delete', path: `users/${user.uid}/notes/${cid}__scenes` }, { type: 'delete', path: worldPath(user.uid, cid) }]);
       go(); toast('Kampagne gelöscht.'); } catch (x) { failed(x); } };
   return html`<section class="settings">
     <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🔑</span>Beitrittscode</h2></div>
@@ -460,6 +461,7 @@ function Settings(p) {
       <p class="ro-note">Zusätzlich zu den offiziellen Conditions. Du kannst sie Charakteren im Bogen zuweisen.</p>
       ${custom.map((c, i) => html`<div class="mini static"><div><div class="t">${c.name}</div><div class="d">${c.desc}</div></div><button class="link quiet small" onClick=${() => delCond(i)}>Entfernen</button></div>`)}
       <form class="form inline-form cond-form" onSubmit=${addCond}><${Field} label="Name"><input id="cc-name" value=${cond.name} onInput=${e => setCond({ ...cond, name: e.target.value })} placeholder="Verflucht"/></${Field}><${Field} label="Wirkung"><input id="cc-desc" value=${cond.desc} onInput=${e => setCond({ ...cond, desc: e.target.value })} placeholder="−1 auf alle Saving Throws bis zum Long Rest"/></${Field}><button class="btn">Hinzufügen</button></form></div>
+    <${WorldBox} camp=${camp} cid=${cid} user=${user} chars=${chars}/>
     <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">✏️</span>Kampagne bearbeiten</h2></div><${CampaignForm} user=${user} campaign=${camp} onSave=${saveCamp}/></div>
     <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">💾</span>Sicherung</h2></div>
       <p class="ro-note">Lädt die ganze Kampagne als Datei herunter: Charaktere mit Bögen, Sitzungen, Tagebuch, Quests, NPCs, Geheimnisse, Enthüllungen und deine DM-Notizen. Mach das alle paar Sitzungen. Wiederherstellen geht auf der Startseite unter „Neue Kampagne“.</p>
@@ -467,7 +469,7 @@ function Settings(p) {
     <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">📦</span>Vorbereitung importieren</h2></div>
       <p class="ro-note">Lädt vorbereitetes Material aus einer Datei in diese Kampagne: Karten-Szenen, Orte fürs Tablet, Beute, Enthüllungen, versteckte Quests und NPCs, DM-Notizen. Alles bleibt versteckt, bis du es am Spieltisch zeigst. Doppelt importieren schadet nicht.</p>
       <div><label class="btn">📦 Datei auswählen<input type="file" accept=".json,application/json" hidden onChange=${async e => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
-        try { const n = await importPrep(user, cid, f); toast(`Importiert: ${n.scenes} Szenen, ${n.places} Orte, ${n.loot} Beute, ${n.secrets} Geheimnisse, Quests und NPCs.`); } catch (x) { x.friendly ? toast(x.message) : failed(x); } }}/></label></div></div>
+        try { const n = await importPrep(user, cid, f); toast(`Importiert: ${n.scenes} Szenen, ${n.places} Orte, ${n.loot} Beute, ${n.secrets} Geheimnisse, Quests und NPCs${n.world ? `, Welt „${n.world}“` : ''}.`); } catch (x) { x.friendly ? toast(x.message) : failed(x); } }}/></label></div></div>
     <div class="panel box danger-zone"><div class="box-head"><h2><span class="ico" aria-hidden="true">🗑️</span>Kampagne löschen</h2></div><p class="muted">Löscht die Kampagne mit allen Charakteren, Sitzungen, Quests, NPCs und Enthüllungen. Das lässt sich nicht rückgängig machen.</p>
       <div><${DeleteButton} label="Kampagne löschen" question=${`${camp.name} endgültig löschen?`} onConfirm=${deleteAll}/></div></div>
   </section>`;

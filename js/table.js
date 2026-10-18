@@ -44,7 +44,7 @@ export function TableScreen({ user, cid }) {
           ${t.mood ? html`<p class="tsc-mood">${t.mood}</p>` : !t.place && html`<p class="tsc-mood muted">Der DM setzt hier gleich die erste Szene.</p>`}
         </div>
         <div class="tsc-party">${chars.map(c => html`<div class=${'tsc-pc' + ((c.hp ?? 0) <= 0 ? ' down' : '')}>
-            <${Medal} cls=${c.cls} species=${c.species} size="lg"/>
+            <${Medal} cls=${c.cls} species=${c.species} look=${c.look} size="lg"/>
             <div class="tsc-pc-body"><b>${c.name}</b><span class="num">${c.hp ?? 0} / ${c.hpMax ?? 0} HP${c.tempHp ? ` +${c.tempHp}` : ''}</span><${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/>
               ${(c.conc || (c.conditions || []).length || c.exhaustion) ? html`<div class="chips">${c.conc && html`<span class="chip conc">🧠 ${c.conc}</span>`}${(c.conditions || []).map(x => html`<span class="chip cond">${x}</span>`)}${c.exhaustion ? html`<span class="chip cond">Exhaustion ${c.exhaustion}</span>` : ''}</div>` : ''}</div></div>`)}</div>`}
     ${drop && html`<div class="tsc-reveal loot" onClick=${() => setLootSeen({ ...lootSeen, [drop.id + drop.status]: true })}><${LootCard} it=${drop} chars=${chars} big/></div>`}

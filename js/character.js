@@ -11,6 +11,7 @@ import { throwDice, loadThree, canThrow, diceSettings } from './dice3d.js';
 
 const accentHex = () => { try { return getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#2B4790'; } catch (e) { return '#2B4790'; } };
 import { clsName } from './cards.js';
+import { lookOf, kindLine } from './world.js';
 import { setActor, setFallbackActor, takeActor, logRoll, logAct, charActor } from './log.js';
 import { RARITY } from './loot.js';
 
@@ -47,7 +48,7 @@ export function CharacterPage({ user, cid, chId }) {
   const back = lib ? html`<a class="link crumb" href="#/charaktere">← Alle Charaktere</a>` : html`<a class="link crumb" href=${href('c', cid, 'gruppe')}>← ${camp.name}</a>`;
   if (!isDM && !isOwner) return html`<main class="page narrow">
     ${asOther ? html`<${PreviewBar} text="So sehen andere Spieler diesen Charakter." onExit=${() => setAsOther(false)}/>` : realDM && preview ? html`<${PreviewBar} text="So sehen Spieler diesen Charakter." onExit=${() => setPreview(false)}/>` : ''}
-    ${back}<${PublicCard} c=${card}/></main>`;
+    ${back}<${PublicCard} c=${card} camp=${camp}/></main>`;
   if (sheet === undefined) return html`<${Spinner}/>`;
   const s = { ...blankSheet(), ...(sheet || {}) };
   const coreOk = isDM || (isOwner && !card.locked);
@@ -70,7 +71,7 @@ export function CharacterPage({ user, cid, chId }) {
         <${TextBlocks} ...${ctx}/>
       </div>
     </div>
-    ${edit && html`<${Modal} wide title=${'Bogen bearbeiten: ' + card.name} eyebrow=${card.locked && !isDM ? 'Freigegeben' : 'Charakterbogen'} onClose=${() => setEdit(false)} lead=${html`<${Medal} cls=${card.cls} species=${card.species} size="lg"/>`}>
+    ${edit && html`<${Modal} wide title=${'Bogen bearbeiten: ' + card.name} eyebrow=${card.locked && !isDM ? 'Freigegeben' : 'Charakterbogen'} onClose=${() => setEdit(false)} lead=${html`<${Medal} cls=${card.cls} species=${card.species} look=${lookOf(card, camp)} size="lg"/>`}>
       <${CharForm} user=${user} cid=${cid} camp=${camp} card=${card} sheet=${s} others=${lib ? [] : (all || []).filter(x => x.id !== chId)} isDM=${isDM} onDone=${() => setEdit(false)}/></${Modal}>`}
   </main>`;
 }
@@ -90,7 +91,7 @@ export function CharQuick({ user, cid, chId, camp }) {
   const conds = (card.conditions || []).length || card.exhaustion;
   // in a fight the actions come first; otherwise HP, skills and saves (for "make a Perception check")
   return html`<div class=${'quick-char' + (fight ? ' fight' : ' calm')} onClickCapture=${() => setActor(actor)}>
-    <div class="qc-head"><${Medal} cls=${card.cls} species=${card.species}/><div class="nc-id"><h3>${card.name}</h3><div class="sub">Stufe ${card.level || 1} · ${[card.species, clsName(card)].filter(Boolean).join(' ')}</div></div>
+    <div class="qc-head"><${Medal} cls=${card.cls} species=${card.species} look=${lookOf(card, camp)}/><div class="nc-id"><h3>${card.name}</h3><div class="sub">Stufe ${card.level || 1} · ${kindLine(card, lookOf(card, camp), false)}</div></div>
       <a class="btn small" href=${href('c', cid, 'char', chId)}>📜 Ganzer Bogen</a></div>
     <${LevelUpBanner} ...${ctx}/>
     ${fight ? html`<div class="qc-grid">
@@ -109,11 +110,11 @@ export function CharQuick({ user, cid, chId, camp }) {
     </div>`;
 }
 
-function PublicCard({ c }) {
-  const dc = DICE_COLORS.find(d => d.key === c.diceColor);
+function PublicCard({ c, camp }) {
+  const dc = DICE_COLORS.find(d => d.key === c.diceColor), look = lookOf(c, camp);
   return html`<article class="panel public-card">
-    <div class="pc-head"><${Medal} cls=${c.cls} species=${c.species} size="lg"/>
-      <div class="nc-id"><h1 class="h-name">${c.name}</h1><div class="sub">Stufe ${c.level || 1} · ${[c.species, clsName(c), c.subclass && `(${c.subclass})`].filter(Boolean).join(' ')}</div>
+    <div class="pc-head"><${Medal} cls=${c.cls} species=${c.species} look=${look} size="lg"/>
+      <div class="nc-id"><h1 class="h-name">${c.name}</h1><div class="sub">Stufe ${c.level || 1} · ${kindLine(c, look)}</div>
         <div class="sub">Gespielt von ${c.ownerName || '–'}${dc ? html` · Würfelfarbe <span class="dice-dot inline" style=${`--dc:${dc.hex}`}></span>${dc.name}` : ''}</div></div></div>
     <div class="pc-body">
       <div class="statline two"><div class="stat"><span class="label"><span class="ico" aria-hidden="true">⭐</span>Stufe</span><b class="num">${c.level || 1}</b></div>
@@ -135,16 +136,18 @@ async function patch({ cid, chId }, cardData, sheetData) {
 }
 
 /* ---------- header ---------- */
-function CharHeader({ c, s, isDM, isOwner, coreOk, cid, chId, onEdit, onAsOther }) {
+function CharHeader({ c, s, isDM, isOwner, coreOk, cid, chId, camp, onEdit, onAsOther }) {
+  const look = lookOf(c, camp, s.background || '');
   const [exp, setExp] = useState(false);
   const lvl = c.level || 1, next = lvl < 20 ? XP_FOR[lvl + 1] : null, prev = XP_FOR[lvl] || 0;
   const pct = next ? Math.max(0, Math.min(100, ((c.xp || 0) - prev) / (next - prev) * 100)) : 100;
   const toggleLock = async () => { try { await store.update(cardPath(cid, chId), { locked: !c.locked, updatedAt: Date.now() }); toast(c.locked ? 'Bogen wieder zum Bearbeiten geöffnet.' : 'Bogen freigegeben.'); } catch (e) { failed(e); } };
   return html`<section class="char-head panel">
-    <div class="feat-name"><${Medal} cls=${c.cls} species=${c.species} size="lg"/><div class="nc-id">
+    <div class="feat-name"><${Medal} cls=${c.cls} species=${c.species} look=${look} size="lg"/><div class="nc-id">
       <div class="flag">${c.locked ? html`<${Pill} tone="active">Freigegeben</${Pill}>` : html`<${Pill} tone="warn">Entwurf</${Pill}>`}${s.inspiration && html`<${Pill} tone="gild">Heroic Inspiration</${Pill}>`}</div>
       <h1 class="h-name">${c.name}</h1>
-      <div class="sub">Stufe ${lvl} · ${[c.species, clsName(c), c.subclass && `(${c.subclass})`].filter(Boolean).join(' ')}${s.background ? ' · ' + s.background : ''}${s.alignment ? ' · ' + s.alignment : ''}</div>
+      <div class="sub">Stufe ${lvl} · ${kindLine(c, look)}${(look ? look.bg : s.background) ? ' · ' + (look ? look.bg : s.background) : ''}${s.alignment ? ' · ' + s.alignment : ''}</div>
+      ${look && html`<div class="sub world-was">Regeln: ${kindLine(c, null)}${s.background ? ' · ' + s.background : ''}</div>`}
       <div class="sub">Gespielt von ${c.ownerName}${c.diceColor ? html` · <span class="dice-dot inline" style=${`--dc:${diceHex(c.diceColor)}`}></span> ${DICE_COLORS.find(d => d.key === c.diceColor)?.name}` : ''}</div></div></div>
     <div class="xpwrap"><div class="xprow"><span class="label"><span class="ico" aria-hidden="true">✨</span>Experience</span><span class="num">${(c.xp || 0).toLocaleString('de-DE')}${next ? ' / ' + next.toLocaleString('de-DE') + ' XP bis Stufe ' + (lvl + 1) : ' XP'}</span></div><div class="xpbar"><i style=${`width:${pct}%`}></i></div></div>
     <div class="actions">
@@ -155,16 +158,17 @@ function CharHeader({ c, s, isDM, isOwner, coreOk, cid, chId, onEdit, onAsOther 
       ${isDM && html`<button class="btn" onClick=${toggleLock}>${c.locked ? 'Zum Bearbeiten öffnen' : 'Bogen freigeben'}</button>`}
       ${isOwner && !c.locked && !isDM && html`<span class="ro-note">Entwurf: Du kannst alles ändern, bis dein DM den Bogen freigibt.</span>`}
       ${isOwner && c.locked && !isDM && html`<span class="ro-note">Freigegeben: HP, Slots, Inventar & Co. änderst du selbst. Werte und Stufe ändert der DM.</span>`}
-    </div>${exp && html`<${ExportModal} c=${c} s=${s} onClose=${() => setExp(false)}/>`}</section>`;
+    </div>${exp && html`<${ExportModal} c=${c} s=${s} look=${look} onClose=${() => setExp(false)}/>`}</section>`;
 }
 
 
 /* ---------- plain-text export (to paste into a chat, a message or an AI) ---------- */
-export function sheetText(c, s) {
+export function sheetText(c, s, look = null) {
   const lvl = c.level || 1, pb = profBonus(lvl), m = k => mod(s.abilities[k]);
   const sa = spellAb(c, s), slots = Array.isArray(s.slotsOverride) ? s.slotsOverride : autoSlots(c.cls, lvl);
   const L = [];
   L.push(`${c.name}`, `Stufe ${lvl} ${[c.species, clsName(c), c.subclass && `(${c.subclass})`].filter(Boolean).join(' ')}${s.background ? ', Background: ' + s.background : ''}${s.alignment ? ', ' + s.alignment : ''}`);
+  if (look) L.push(`In der Welt der Kampagne: ${[look.species, look.cls, look.bg].filter(Boolean).join(' · ')}`);
   if (c.ownerName) L.push(`Gespielt von ${c.ownerName}`);
   L.push(`XP: ${c.xp || 0}${lvl < 20 ? ` (Stufe ${lvl + 1} bei ${XP_FOR[lvl + 1]})` : ''}`, '');
   L.push(`HP: ${c.hp ?? c.hpMax ?? 0} / ${c.hpMax ?? 0}${c.tempHp ? ` (+${c.tempHp} temporär)` : ''} · AC: ${(s.ac ?? c.ac) ?? '–'} · Speed: ${c.speed || 30} ft · Initiative: ${sgn(m('dex'))} · Proficiency Bonus: ${sgn(pb)}`);
@@ -193,8 +197,8 @@ export function sheetText(c, s) {
   L.push('', '(D&D 2024, exportiert aus dem DnD Manager)');
   return L.join('\n');
 }
-function ExportModal({ c, s, onClose }) {
-  const text = sheetText(c, s);
+function ExportModal({ c, s, look, onClose }) {
+  const text = sheetText(c, s, look);
   const copy = async () => { try { await navigator.clipboard.writeText(text); toast('Kopiert. Jetzt einfach einfügen.'); } catch (e) { toast('Kopieren ging nicht. Markiere den Text und kopiere ihn von Hand.'); } };
   const download = () => { const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
     const a = Object.assign(document.createElement('a'), { href: url, download: `${(c.name || 'Charakter').replace(/[^\p{L}\p{N}]+/gu, '-')}.txt` }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); };
@@ -212,13 +216,13 @@ function LevelUpBanner(ctx) {
   return html`<div class="levelup panel"><div><b>Stufenaufstieg!</b> ${c.name} hat genug XP für Stufe ${lvl + 1}.</div><button class="btn primary" onClick=${() => setOpen(true)}>Auf Stufe ${lvl + 1} aufsteigen</button>
     ${open && html`<${LevelUpModal} ...${ctx} onClose=${() => setOpen(false)}/>`}</div>`;
 }
-function LevelUpModal({ c, s, cid, chId, onClose }) {
+function LevelUpModal({ c, s, cid, chId, camp, onClose }) {
   const die = hitDie(c), con = mod(s.abilities.con), avg = Math.floor(die / 2) + 1, lvl = (c.level || 1) + 1;
   const [rolled, setRolled] = useState(null);
   const apply = async gain => { const g = Math.max(1, gain + con);
     await patch({ cid, chId }, { level: lvl, hpMax: (c.hpMax || 0) + g, hp: (c.hp || 0) + g }); toast(`Stufe ${lvl}! +${g} max HP.`); onClose(); };
   const newRes = suggestedResources(c.cls, lvl, s.abilities);
-  return html`<${Modal} title=${`Stufe ${lvl}`} eyebrow="Stufenaufstieg" onClose=${onClose} lead=${html`<${Medal} cls=${c.cls} species=${c.species} size="lg"/>`}>
+  return html`<${Modal} title=${`Stufe ${lvl}`} eyebrow="Stufenaufstieg" onClose=${onClose} lead=${html`<${Medal} cls=${c.cls} species=${c.species} look=${lookOf(c, camp)} size="lg"/>`}>
     <div class="form"><div class="sec"><h3>1 · Hit Points</h3>
       <p>Du bekommst einen Hit Die (d${die}) dazu. Nimm den Durchschnitt oder würfle. Dein CON-Modifikator (${sgn(con)}) kommt dazu.</p>
       <div class="actions"><button class="btn primary" onClick=${() => apply(avg)}>Durchschnitt nehmen: ${avg} ${sgn(con)} = ${Math.max(1, avg + con)}</button>

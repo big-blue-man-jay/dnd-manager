@@ -77,7 +77,7 @@ function CombatPanel({ camp, cid, chars, user, c }) {
     <ol class="init-list">${cb.list.map((r, i) => { const ch = r.charId && chars.find(x => x.id === r.charId); const now = i === cb.turn; const foe = r.kind === 'npc'; const down = foe && (r.hp ?? 1) <= 0;
       return html`<li class=${(now ? 'now ' : '') + (foe ? 'npc' : 'pc') + (down ? ' down' : '') + (foe ? ' tap' : '') + (sheet && sheet.id === r.id ? ' open' : '')} onClick=${foe ? () => setSel(sel === r.id ? null : r.id) : null}>
         <span class="i-init" onClick=${e => e.stopPropagation()}><input type="number" aria-label="Initiative" value=${r.init} onChange=${e => c.setRow(r.id, { init: e.target.value === '' ? '' : int(e.target.value, 0) })} placeholder="?"/></span>
-        <span class="i-who">${ch ? html`<${Medal} cls=${ch.cls} species=${ch.species} size="md"/>` : html`<span class="foe-ico" aria-hidden="true">${down ? '💀' : '👹'}</span>`}
+        <span class="i-who">${ch ? html`<${Medal} cls=${ch.cls} species=${ch.species} look=${ch.look} size="md"/>` : html`<span class="foe-ico" aria-hidden="true">${down ? '💀' : '👹'}</span>`}
           <span><b>${r.name}</b>${ch ? html`<small>${ch.hp ?? 0} / ${ch.hpMax ?? 0} HP${ch.conc ? ` · 🧠 ${ch.conc}` : ''}${(ch.conditions || []).length ? ' · ' + ch.conditions.join(', ') : ''}</small>`
             : html`<small>${down ? 'Am Boden' : `AC ${r.ac ?? '–'}`}</small>`}</span></span>
         ${foe && r.hpMax ? html`<span class="i-hp"><span class="num"><b>${r.hp ?? r.hpMax}</b><small> / ${r.hpMax}</small></span><${HpBar} hp=${r.hp ?? r.hpMax} max=${r.hpMax}/></span>` : html`<span></span>`}
@@ -113,7 +113,7 @@ function PartyCard({ c, cid, now }) {
   const K = (label, val, title) => html`<span class="kv" title=${title || ''}><small>${label}</small><b class="num">${val}</b></span>`;
   return html`<article class=${'pcard' + (now ? ' now' : '') + (hp <= 0 ? ' down' : '')} style=${c.diceColor ? `--lc:${diceHex(c.diceColor)}` : ''}>
     <div class="pc-top">
-      <a class="pc-who" href=${href('c', cid, 'char', c.id)}><${Medal} cls=${c.cls} species=${c.species} size="md"/><span><b>${c.name}</b><small>${clsName(c)} ${lvl} · ${c.ownerName || ''}</small></span></a>
+      <a class="pc-who" href=${href('c', cid, 'char', c.id)}><${Medal} cls=${c.cls} species=${c.species} look=${c.look} size="md"/><span><b>${c.name}</b><small>${c.look ? c.look.cls : clsName(c)} ${lvl} · ${c.ownerName || ''}</small></span></a>
       <div class="pc-hp"><span class="num"><b>${hp}</b> / ${max}${c.tempHp ? html` <span class="xp">+${c.tempHp}</span>` : ''}</span><${HpBar} hp=${hp} max=${max}/></div>
       <div class="pc-dm"><input type="number" min="0" aria-label=${'Wert für ' + c.name} placeholder="±" value=${amt} onInput=${e => setAmt(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') hit(-1); }}/>
         <button class="btn small danger-soft" onClick=${() => hit(-1)} title="Schaden">💥</button><button class="btn small ok-soft" onClick=${() => hit(1)} title="Heilen">💚</button></div>
@@ -210,7 +210,7 @@ function PartyMini({ chars, mine }) {
   const others = chars.filter(c => !mine.includes(c.id));
   if (!others.length) return null;
   return html`<section class="panel box party-mini"><div class="box-head"><h2><span class="ico" aria-hidden="true">👥</span>Deine Gruppe</h2></div>
-    ${others.map(c => html`<div class="pm-row"><${Medal} cls=${c.cls} species=${c.species} size="md"/><span class="pm-name"><b>${c.name}</b>${(c.conditions || []).length || c.conc ? html`<small>${[c.conc && '🧠 ' + c.conc, ...(c.conditions || [])].filter(Boolean).join(' · ')}</small>` : ''}</span>
+    ${others.map(c => html`<div class="pm-row"><${Medal} cls=${c.cls} species=${c.species} look=${c.look} size="md"/><span class="pm-name"><b>${c.name}</b>${(c.conditions || []).length || c.conc ? html`<small>${[c.conc && '🧠 ' + c.conc, ...(c.conditions || [])].filter(Boolean).join(' · ')}</small>` : ''}</span>
       <span class="pm-hp"><span class="num">${c.hp ?? 0}/${c.hpMax ?? 0}</span><${HpBar} hp=${c.hp || 0} max=${c.hpMax || 0}/></span></div>`)}</section>`;
 }
 
