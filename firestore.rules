@@ -106,6 +106,15 @@ service cloud.firestore {
         allow delete: if signedIn() && (resource.data.authorUid == uid() || isDM(cid));
       }
 
+      // Battle map: everyone in the campaign sees it. The DM moves everything and paints terrain;
+      // a player may move only the token of their own character (token id = character id).
+      match /map/{tokenId} {
+        allow read: if inCampaign(cid);
+        allow write: if isDM(cid) || (isMember(cid)
+          && exists(/databases/$(database)/documents/campaigns/$(cid)/characters/$(tokenId))
+          && get(/databases/$(database)/documents/campaigns/$(cid)/characters/$(tokenId)).data.ownerUid == uid());
+      }
+
       // Prepared secrets: DM only, until revealed.
       match /secrets/{id} { allow read, write: if isDM(cid); }
 

@@ -4,7 +4,7 @@
 import { store } from './data.js';
 import { createCampaign } from './ops.js';
 
-const COLS = ['characters', 'sessions', 'quests', 'npcs', 'journal', 'secrets', 'revelations', 'members'];
+const COLS = ['characters', 'sessions', 'quests', 'npcs', 'journal', 'secrets', 'revelations', 'members', 'map'];
 const strip = d => { if (!d) return d; const { id, ...rest } = d; return rest; };
 
 export async function exportCampaign(cid, user) {
@@ -34,7 +34,7 @@ export async function importCampaign(user, file) {
     ops.push({ type: 'set', path: `${base}/characters/${id}`, data: card });
     if (sheet) ops.push({ type: 'set', path: `${base}/characters/${id}/sheet/main`, data: sheet });
   }
-  for (const k of ['sessions', 'quests', 'npcs', 'journal', 'secrets', 'revelations'])
+  for (const k of ['sessions', 'quests', 'npcs', 'journal', 'secrets', 'revelations', 'map'])
     for (const d of C[k] || []) ops.push({ type: 'set', path: `${base}/${k}/${d.id}`, data: strip(d) });
   if (data.notes) ops.push({ type: 'set', path: `users/${user.uid}/notes/${cid}`, data: data.notes });
   for (let i = 0; i < ops.length; i += 400) await store.batch(ops.slice(i, i + 400));

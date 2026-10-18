@@ -422,6 +422,7 @@ function Settings(p) {
   const kick = async m => { try { await store.remove(`campaigns/${cid}/members/${m.uid}`); toast(`${m.name} entfernt.`); } catch (x) { failed(x); } };
   const deleteAll = async () => {
     const base = `campaigns/${cid}`; const ops = [];
+    for (const m of await store.getCol(`${base}/map`).catch(() => [])) ops.push({ type: 'delete', path: `${base}/map/${m.id}` });
     for (const c of chars) { ops.push({ type: 'delete', path: `${base}/characters/${c.id}/sheet/main` }, { type: 'delete', path: `${base}/characters/${c.id}` }); }
     for (const [k, list] of [['sessions', p.sessions], ['quests', p.quests], ['npcs', p.npcs], ['journal', p.journal], ['secrets', p.secrets], ['revelations', p.revelations], ['members', members.map(m => ({ id: m.uid }))]]) for (const x of list) ops.push({ type: 'delete', path: `${base}/${k}/${x.id}` });
     try { for (let i = 0; i < ops.length; i += 400) await store.batch(ops.slice(i, i + 400));

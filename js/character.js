@@ -6,6 +6,7 @@ import { ABILITIES, SKILLS, CLASSES, CLASS_NAMES, SPECIES, ALIGNMENTS, XP_FOR, l
 import { roll, withBonus } from './dice.js';
 import { TurnHelpButton } from './help.js';
 import { Builder } from './builder.js';
+import { critExpr } from './foes.js';
 import { throwDice, loadThree, canThrow, diceSettings } from './dice3d.js';
 
 const accentHex = () => { try { return getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#2B4790'; } catch (e) { return '#2B4790'; } };
@@ -84,9 +85,14 @@ export function CharQuick({ user, cid, chId, camp }) {
   return html`<div class="quick-char">
     <div class="qc-head panel box"><${Medal} cls=${card.cls} species=${card.species}/><div class="nc-id"><h3>${card.name}</h3><div class="sub">Stufe ${card.level || 1} · ${[card.species, clsName(card)].filter(Boolean).join(' ')}</div></div>
       <a class="btn small" href=${href('c', cid, 'char', chId)}>📜 Ganzer Bogen</a></div>
-    <${LevelUpBanner} ...${ctx}/><${Vitals} ...${ctx}/>
-    ${camp?.combat ? html`<${TurnPanel} ...${ctx}/>` : html`<${Attacks} ...${ctx}/>`}
-    <${Conditions} ...${ctx}/><${Abilities} ...${ctx}/><${Skills} ...${ctx}/><${Spellcasting} ...${ctx}/><${Resources} ...${ctx}/><${Inventory} ...${ctx}/></div>`;
+    <${LevelUpBanner} ...${ctx}/>
+    <div class="qc-grid">
+      <div class="qc-main"><${ActionsPanel} ...${ctx}/></div>
+      <div class="qc-side"><${Vitals} ...${ctx}/><${Conditions} ...${ctx}/>
+        <details class="fold" open><summary>🎯 Skills & Saves</summary><${Abilities} ...${ctx}/><${Skills} ...${ctx}/></details>
+        <details class="fold"><summary>🔋 Ressourcen</summary><${Resources} ...${ctx}/></details>
+        <details class="fold"><summary>🎒 Inventar</summary><${Inventory} ...${ctx}/></details></div>
+    </div></div>`;
 }
 
 function PublicCard({ c }) {
@@ -237,56 +243,121 @@ function useEconomy(cid, chId, round, myTurn) {
   useEffect(() => { if (myTurn && st.round !== round) save({ ...st, round, used: {} }); }, [myTurn, round]);
   return [st, save];
 }
-function TurnPanel(ctx) {
+// What common 2024 spells do, so the action list can show the right flow (attack → damage, save → damage, heal)
+const SPELL_FX = {
+  'eldritch blast': { kind: 'attack', dice: '1d10', type: 'Force' }, 'fire bolt': { kind: 'attack', dice: '1d10', type: 'Fire' }, 'ray of frost': { kind: 'attack', dice: '1d8', type: 'Cold' },
+  'shocking grasp': { kind: 'attack', dice: '1d8', type: 'Lightning' }, 'chill touch': { kind: 'attack', dice: '1d10', type: 'Necrotic' }, 'produce flame': { kind: 'attack', dice: '1d8', type: 'Fire' },
+  'thorn whip': { kind: 'attack', dice: '1d6', type: 'Piercing' }, 'poison spray': { kind: 'attack', dice: '1d12', type: 'Poison' }, 'starry wisp': { kind: 'attack', dice: '1d8', type: 'Radiant' },
+  'sorcerous burst': { kind: 'attack', dice: '1d8', type: 'nach Wahl' }, 'guiding bolt': { kind: 'attack', dice: '4d6', type: 'Radiant' }, 'chromatic orb': { kind: 'attack', dice: '3d8', type: 'nach Wahl' },
+  'witch bolt': { kind: 'attack', dice: '2d12', type: 'Lightning' }, 'ray of sickness': { kind: 'attack', dice: '2d8', type: 'Poison' }, 'ice knife': { kind: 'attack', dice: '1d10', type: 'Piercing', extraNote: 'danach Dex Save für 2d6 Cold rundherum' },
+  'sacred flame': { kind: 'save', save: 'dex', dice: '1d8', type: 'Radiant' }, 'vicious mockery': { kind: 'save', save: 'wis', dice: '1d6', type: 'Psychic' }, 'toll the dead': { kind: 'save', save: 'wis', dice: '1d8', type: 'Necrotic', extraNote: '1d12, wenn das Ziel schon verletzt ist' },
+  'acid splash': { kind: 'save', save: 'dex', dice: '1d6', type: 'Acid' }, 'word of radiance': { kind: 'save', save: 'con', dice: '1d6', type: 'Radiant' }, 'mind sliver': { kind: 'save', save: 'int', dice: '1d6', type: 'Psychic' },
+  'burning hands': { kind: 'save', save: 'dex', dice: '3d6', type: 'Fire', half: true }, 'thunderwave': { kind: 'save', save: 'con', dice: '2d8', type: 'Thunder', half: true }, 'dissonant whispers': { kind: 'save', save: 'wis', dice: '3d6', type: 'Psychic', half: true },
+  'hellish rebuke': { kind: 'save', save: 'dex', dice: '2d10', type: 'Fire', half: true }, 'inflict wounds': { kind: 'save', save: 'con', dice: '2d10', type: 'Necrotic', half: true },
+  'faerie fire': { kind: 'save', save: 'dex' }, 'sleep': { kind: 'save', save: 'wis' }, 'command': { kind: 'save', save: 'wis' }, 'entangle': { kind: 'save', save: 'str' }, "tasha's hideous laughter": { kind: 'save', save: 'wis' }, 'charm person': { kind: 'save', save: 'wis' }, 'hold person': { kind: 'save', save: 'wis' },
+  'magic missile': { kind: 'auto', dice: '3d4+3', type: 'Force' },
+  'cure wounds': { kind: 'heal', dice: '2d8', mod: true }, 'healing word': { kind: 'heal', dice: '2d4', mod: true }, 'mass healing word': { kind: 'heal', dice: '2d4', mod: true }, 'prayer of healing': { kind: 'heal', dice: '2d8', mod: true },
+  'hex': { kind: 'utility', rider: '1d6', riderType: 'Necrotic' }, "hunter's mark": { kind: 'utility', rider: '1d6', riderType: 'Force' }, 'armor of agathys': { kind: 'utility', temp: 5 },
+};
+const KIND_LABEL = { attack: 'Angriff', save: 'Rettungswurf', heal: 'Heilung', auto: 'trifft automatisch', utility: '' };
+const AB_SHORT = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' };
+
+// the actions of a character: weapons and spells merged into one list, each with its flow
+function buildActions(c, s) {
+  const pb = profBonus(c.level || 1), ab = spellAb(c, s), m = ab ? mod(s.abilities[ab]) : 0;
+  const spells = (s.spells || []).filter(x => int(x.level) === 0 || x.prepared !== false);
+  const byName = n => spells.find(x => (x.name || '').trim().toLowerCase() === (n || '').trim().toLowerCase());
+  const used = new Set(), out = [];
+  for (const a of s.attacks || []) { const sp = byName(a.name); if (sp) used.add(sp.id); const fx = SPELL_FX[(sp?.name || '').toLowerCase()] || {};
+    out.push({ key: 'a' + a.id, name: a.name, time: sp ? spellTime(sp) : 'action', level: sp ? int(sp.level) : null, conc: sp && isConc(sp), kind: 'attack', bonus: int(a.bonus), dice: a.damage, note: [a.note, fx.extraNote].filter(Boolean).join(' · '), spell: sp, weapon: !sp }); }
+  for (const sp of spells) { if (used.has(sp.id)) continue; const fx = SPELL_FX[(sp.name || '').trim().toLowerCase()] || {};
+    const kind = sp.kind || fx.kind || 'utility', dice = sp.dice || fx.dice || '';
+    out.push({ key: 's' + sp.id, name: sp.name, time: spellTime(sp), level: int(sp.level), conc: isConc(sp), kind, bonus: pb + m, save: sp.save || fx.save,
+      dice: kind === 'heal' && dice && fx.mod ? withBonus(dice, m) : dice, type: fx.type, half: fx.half, temp: fx.temp, rider: fx.rider && { dice: fx.rider, type: fx.riderType },
+      note: [sp.note, fx.extraNote].filter(Boolean).join(' · '), spell: sp }); }
+  return { list: out, dc: 8 + pb + m, atk: pb + m, ab };
+}
+
+function ActionsPanel(ctx) {
   const { c, s, cid, chId, camp } = ctx; const cb = camp?.combat;
   const cur = cb?.list?.[cb.turn], myTurn = !!cb && cur?.charId === chId;
   const [st, save] = useEconomy(cid, chId, cb?.round, myTurn);
+  const [flow, setFlow] = useState({}); // per action: what has been rolled so far
   const [tip, setTip] = useState(null);
-  if (!cb) return null;
   const used = st.used || {};
-  const mark = (k, v = true) => save({ ...st, used: { ...used, [k]: v } });
-  const use = (k, label) => { if (used[k] && k !== 'move') toast(`${label}: schon verbraucht in diesem Zug.`); mark(k); };
-  const pb = profBonus(c.level || 1), ab = spellAb(c, s), m = ab ? mod(s.abilities[ab]) : 0;
+  const { list, dc, atk, ab } = buildActions(c, s);
   const slotsMax = s.slotsOverride || autoSlots(c.cls, c.level), slotsUsed = s.slotsUsed || Array(9).fill(0);
-  const spells = (s.spells || []).filter(x => int(x.level) === 0 || x.prepared !== false);
-  const atkNames = new Set((s.attacks || []).map(a => (a.name || '').toLowerCase()));
-  const cast = x => { const lv = int(x.level), k = spellTime(x);
-    if (lv > 0) { const i = slotsMax.findIndex((n, j) => j >= lv - 1 && n > (slotsUsed[j] || 0));
-      if (i < 0) return toast('Kein Spell Slot mehr frei. Erst nach einer Rast wieder.');
-      const u = [...slotsUsed]; u[i] = (u[i] || 0) + 1; patch(ctx, null, { slotsUsed: u }); }
-    save({ ...st, used: { ...used, [k]: true }, ...(isConc(x) ? { conc: x.name } : {}) });
-    toast(`${x.name} gewirkt${lv > 0 ? ', 1 Slot verbraucht' : ''}.${isConc(x) ? ' Concentration läuft.' : ''}${atkNames.has(x.name.toLowerCase()) ? ' Jetzt Treffer würfeln.' : ''}`); };
-  const spellRow = x => html`<div class="tp-row"><div class="tp-name"><b>${x.name}</b><small>${int(x.level) ? 'Stufe ' + x.level + ' · Slot' : 'Cantrip'}${isConc(x) ? ' · Concentration' : ''}${x.note ? ' · ' + x.note : ''}</small></div>
-    ${!atkNames.has((x.name || '').toLowerCase()) && html`<button class="btn small" onClick=${() => cast(x)}>✨ Wirken</button>`}</div>`;
-  const group = (k, list) => list.filter(x => spellTime(x) === k);
-  const atkRow = a => html`<div class="tp-row"><div class="tp-name"><b>${a.name}</b>${a.note && html`<small>${a.note}</small>`}</div>
-    <button class="btn small roll" onClick=${() => { const sp = spells.find(x => x.name.toLowerCase() === (a.name || '').toLowerCase()); if (sp && int(sp.level)) cast(sp); else mark('action'); requestRoll({ label: `${a.name}: Treffer`, expr: withBonus('1d20', int(a.bonus)) }); }} title="Angriffswurf gegen die AC">🎯 ${sgn(int(a.bonus))}</button>
-    <button class="btn small roll" onClick=${() => requestRoll({ label: `${a.name}: Schaden`, expr: a.damage })} title="Schaden, nur bei Treffer">💥 ${a.damage}</button></div>`;
-  const econ = ECON.map(([k, e, l]) => html`<button class=${'econ' + (used[k] ? ' used' : '')} aria-pressed=${!!used[k]} onClick=${() => mark(k, !used[k])}>
-      <span aria-hidden="true">${e}</span><b>${l}</b><small>${used[k] ? 'verbraucht' : k === 'move' ? `${c.speed || 30} ft` : 'frei'}</small></button>`);
-  const bonusSpells = group('bonus', spells), reactSpells = group('reaction', spells), actSpells = group('action', spells);
-  return html`<section class=${'panel box turnpanel' + (myTurn ? ' mine' : '')}>
-    <div class="box-head"><h2><span class="ico" aria-hidden="true">${myTurn ? '🎯' : '⏳'}</span>${myTurn ? 'Du bist dran!' : `Kampf · Runde ${cb.round}`}</h2>
-      <button class="link quiet small" onClick=${() => save({ ...st, used: {} })}>Zurücksetzen</button></div>
-    <p class="muted small-note">${myTurn ? 'Tippe an, was du verbraucht hast. Beim nächsten Zug ist alles wieder frei.' : `Gerade dran: ${cur?.name || '–'}. Deine Reaction kannst du auch jetzt nutzen.`}</p>
-    <div class="econ-row">${econ}</div>
-    ${st.conc && html`<div class="conc">🧠 Concentration: <b>${st.conc}</b><small>Nimmst du Schaden: Constitution Save, DC 10 oder halber Schaden.</small>
-      <button class="btn small" onClick=${() => requestRoll({ label: 'Concentration (CON Save)', expr: withBonus('1d20', mod(s.abilities.con) + (s.saveProf.includes('con') ? pb : 0)) })}>CON Save</button><button class="link quiet small" onClick=${() => save({ ...st, conc: null })}>Beenden</button></div>`}
-    <div class="tp-mode"><span class="label">Nächster d20-Wurf</span><${ModeSeg} small/></div>
+  const mark = (k, v = true) => cb && save({ ...st, used: { ...used, [k]: v } });
+  const rider = st.conc && list.find(x => x.name === st.conc)?.rider;
 
-    <div class=${'tp-group' + (used.action ? ' spent' : '')}><div class="tp-head"><span>🎯 Action</span><small>eine pro Zug</small></div>
-      ${(s.attacks || []).map(atkRow)}
-      ${actSpells.filter(x => !atkNames.has(x.name.toLowerCase())).map(spellRow)}
-      <div class="tp-chips">${OTHER_ACTIONS.map(([n, d]) => html`<button class=${'act-chip' + (tip === n ? ' on' : '')} onClick=${() => setTip(tip === n ? null : n)}>${n}</button>`)}</div>
-      ${tip && html`<div class="tp-tip"><b>${tip}:</b> ${OTHER_ACTIONS.find(x => x[0] === tip)[1]} <button class="btn small" onClick=${() => { mark('action'); setTip(null); toast(tip + ' genutzt.'); }}>Als Action nutzen</button></div>`}</div>
+  // spending: a slot for levelled spells, the action/bonus action/reaction it takes, concentration
+  const spend = (x, time = x.time) => {
+    if (x.level > 0) { const i = slotsMax.findIndex((n, j) => j >= x.level - 1 && n > (slotsUsed[j] || 0));
+      if (i < 0) { toast('Kein Spell Slot mehr frei. Erst nach einer Rast wieder.'); return false; }
+      const u = [...slotsUsed]; u[i] = (u[i] || 0) + 1; patch(ctx, x.temp ? { tempHp: Math.max(c.tempHp || 0, x.temp) } : null, { slotsUsed: u }); }
+    else if (x.temp) patch(ctx, { tempHp: Math.max(c.tempHp || 0, x.temp) });
+    if (cb && used[time] && time !== 'move') toast(`${{ action: 'Action', bonus: 'Bonus Action', reaction: 'Reaction' }[time]} war in diesem Zug schon verbraucht.`);
+    save({ ...st, used: cb ? { ...used, [time]: true } : used, ...(x.conc ? { conc: x.name } : {}) });
+    return true; };
+  const d20 = (label, bonus) => { const md = diceMode; const r = roll(withBonus('1d20', bonus), md); requestRoll({ label, result: r }); if (md !== 'normal') setDiceMode('normal'); return r; };
+  const dmg = (label, expr) => requestRoll({ label, expr });
+  const start = (x, time) => { if (!spend(x, time)) return null; return true; };
 
-    <div class=${'tp-group' + (used.bonus ? ' spent' : '')}><div class="tp-head"><span>⚡ Bonus Action</span><small>nur mit Feature oder Zauber</small></div>
-      ${bonusSpells.map(spellRow)}
-      <div class="tp-row"><div class="tp-name"><b>Trank trinken</b><small>Potion of Healing: 2d4 + 2 HP</small></div><button class="btn small" onClick=${() => { use('bonus', 'Bonus Action'); requestRoll({ label: 'Potion of Healing', expr: '2d4+2' }); }}>🧪 Trinken</button></div></div>
+  const Step = ({ n, on, done, children }) => html`<span class=${'fstep' + (on ? ' on' : '') + (done ? ' done' : '')}><i>${n}</i>${children}</span>`;
+  const row = (x, time = x.time, key = x.key + time) => { const f = flow[key] || {}; const set = v => setFlow({ ...flow, [key]: v });
+    const tags = [x.weapon ? 'Waffe' : x.level ? `Stufe ${x.level} · Slot` : x.level === 0 ? 'Cantrip' : '', KIND_LABEL[x.kind], x.conc ? 'Concentration' : ''].filter(Boolean).join(' · ');
+    let body;
+    if (x.kind === 'attack') { const r = f.r;
+      body = html`<div class="flow">
+        <${Step} n="1" on=${!r} done=${!!r}><button class="btn small roll" onClick=${() => { if (!start(x, time)) return; set({ r: d20(`${x.name}: Treffer`, x.bonus) }); }}>🎯 Treffer ${sgn(x.bonus)}</button></${Step}>
+        <span class="farrow">${r ? (r.fumble ? '✕' : '→') : '→'}</span>
+        ${r && r.fumble ? html`<span class="fnote bad">Natürliche 1: daneben.</span>` : html`
+        <${Step} n="2" on=${!!r}><button class=${'btn small roll' + (r ? ' go' : '')} onClick=${() => dmg(`${x.name}: ${r?.crit ? 'Krit-Schaden' : 'Schaden'}`, r?.crit ? critExpr(x.dice) : x.dice)}>💥 ${r?.crit ? 'Krit ' + critExpr(x.dice) : x.dice}</button>
+          ${rider && html`<button class="btn small roll" onClick=${() => dmg(`${st.conc}: Bonus-Schaden`, r?.crit ? critExpr(rider.dice) : rider.dice)} title=${st.conc + ' trifft mit'}>+ ${st.conc} ${rider.dice}</button>`}</${Step}>`}
+        ${r && !r.fumble && html`<span class="fnote">${r.crit ? 'Natürliche 20: trifft immer, Würfel doppelt.' : `${r.total} gegen die AC des Ziels. Nur bei Treffer Schaden würfeln.`}</span>`}</div>`; }
+    else if (x.kind === 'save' || x.kind === 'heal' || x.kind === 'auto') { const castNow = () => { if (!start(x, time)) return; set({ cast: true }); };
+      body = html`<div class="flow">
+        <${Step} n="1" on=${!f.cast} done=${f.cast}><button class="btn small" onClick=${castNow}>✨ Wirken</button></${Step}>
+        ${x.kind === 'save' && html`<span class="farrow">→</span><span class="fnote save">Ziel: <b>${AB_SHORT[x.save] || ''} Save</b> gegen <b>DC ${dc}</b></span>`}
+        ${x.dice && html`<span class="farrow">→</span><${Step} n=${x.kind === 'save' ? 3 : 2} on=${f.cast}><button class=${'btn small roll' + (f.cast ? ' go' : '')} onClick=${() => dmg(`${x.name}: ${x.kind === 'heal' ? 'Heilung' : 'Schaden'}`, x.dice)}>${x.kind === 'heal' ? '💚' : '💥'} ${x.dice}</button></${Step}>`}
+        ${x.kind === 'save' && x.dice && html`<span class="fnote">${x.half ? 'Geschafft: halber Schaden.' : 'Geschafft: kein Schaden.'}</span>`}</div>`; }
+    else body = html`<div class="flow"><button class="btn small" onClick=${() => { if (start(x, time)) toast(`${x.name} gewirkt.${x.temp ? ` ${x.temp} Temp HP.` : ''}${x.conc ? ' Concentration läuft.' : ''}`); }}>✨ Wirken</button>
+        ${x.rider && html`<span class="fnote">Danach: jeder Treffer +${x.rider.dice} ${x.rider.type}.</span>`}${x.temp && html`<span class="fnote">Gibt ${x.temp} Temp HP.</span>`}</div>`;
+    return html`<div class="act-row"><div class="act-name"><b>${x.name}</b>${tags && html`<small class="act-tags">${tags}</small>`}${x.note && html`<small>${x.note}</small>`}</div>${body}</div>`; };
 
-    <div class=${'tp-group' + (used.reaction ? ' spent' : '')}><div class="tp-head"><span>↩️ Reaction</span><small>eine pro Runde, auch im Zug anderer</small></div>
-      <div class="tp-row"><div class="tp-name"><b>Opportunity Attack</b><small>Ein Gegner verlässt deine Reichweite: ein Nahkampfangriff.</small></div><button class="btn small" onClick=${() => use('reaction', 'Reaction')}>Nutzen</button></div>
-      ${reactSpells.map(spellRow)}</div>
+  const grp = k => list.filter(x => x.time === k);
+  const caster = ab || slotsMax.some(Boolean);
+  const econ = ECON.map(([k, e, l]) => html`<button class=${'econ' + (used[k] ? ' used' : '')} aria-pressed=${!!used[k]} onClick=${() => mark(k, !used[k])}><span aria-hidden="true">${e}</span><b>${l}</b><small>${used[k] ? 'verbraucht' : k === 'move' ? `${c.speed || 30} ft` : 'frei'}</small></button>`);
+  const Group = ({ k, icon, title, hint, children }) => html`<div class=${'tp-group g-' + k + (cb && used[k] ? ' spent' : '')}><div class="tp-head"><span>${icon} ${title}</span><small>${hint}</small></div>${children}</div>`;
+  const weapons = list.filter(x => x.weapon);
+
+  return html`<section class=${'panel box actions-panel' + (myTurn ? ' mine' : '')}>
+    <div class="box-head"><h2><span class="ico" aria-hidden="true">${myTurn ? '🎯' : '⚔️'}</span>${myTurn ? 'Du bist dran!' : 'Aktionen'}</h2>
+      ${cb && html`<button class="link quiet small" onClick=${() => { save({ ...st, used: {} }); setFlow({}); }}>Zug zurücksetzen</button>`}</div>
+    ${cb && html`<p class="muted small-note">${myTurn ? 'Pro Zug: Bewegung, eine Action, eventuell eine Bonus Action. Ist alles weg, sag „Ich bin fertig“.' : `Gerade dran: ${cur?.name || '–'}. Deine Reaction kannst du auch jetzt nutzen.`}</p>
+      <div class="econ-row">${econ}</div>`}
+    <div class="ap-bar">
+      ${caster && html`<span class="ap-chip">Spell Save DC <b>${dc}</b></span><span class="ap-chip">Spell Attack <b>${sgn(atk)}</b></span>
+        ${slotsMax.map((n, lv) => n ? html`<span class="ap-chip slots">${isPact(c.cls) ? 'Pact Slot' : 'Slots'} ${lv + 1}: ${Array.from({ length: n }, (_, i) => html`<button class=${'pip' + (i < (slotsUsed[lv] || 0) ? ' on' : '')} aria-label=${`Slot Stufe ${lv + 1}`} onClick=${() => { const u = [...slotsUsed]; u[lv] = i < (u[lv] || 0) ? i : i + 1; patch(ctx, null, { slotsUsed: u }); }}></button>`)}</span>` : null)}`}
+      <span class="ap-mode"><span class="label">Nächster d20</span><${ModeSeg} small/></span></div>
+    ${st.conc && html`<div class="conc">🧠 Concentration: <b>${st.conc}</b>${rider ? html` <span class="sub">(+${rider.dice} auf jeden Treffer)</span>` : ''}<small>Nimmst du Schaden: Constitution Save, DC 10 oder halber Schaden.</small>
+      <button class="btn small" onClick=${() => d20('Concentration (CON Save)', mod(s.abilities.con) + (s.saveProf.includes('con') ? profBonus(c.level || 1) : 0))}>CON Save</button><button class="link quiet small" onClick=${() => save({ ...st, conc: null })}>Beenden</button></div>`}
+
+    <${Group} k="action" icon="🎯" title="Action" hint="eine pro Zug">
+      ${grp('action').map(x => row(x))}
+      ${!list.length && html`<p class="muted small-note">Noch keine Angriffe oder Zauber. Trag sie im ganzen Bogen ein.</p>`}
+      <div class="tp-chips"><span class="label">Oder</span>${OTHER_ACTIONS.map(([n]) => html`<button class=${'act-chip' + (tip === n ? ' on' : '')} onClick=${() => setTip(tip === n ? null : n)}>${n}</button>`)}</div>
+      ${tip && html`<div class="tp-tip"><b>${tip}:</b> ${OTHER_ACTIONS.find(x => x[0] === tip)[1]} ${cb && html`<button class="btn small" onClick=${() => { mark('action'); setTip(null); toast(tip + ' genutzt.'); }}>Als Action nutzen</button>`}</div>`}</${Group}>
+
+    <${Group} k="bonus" icon="⚡" title="Bonus Action" hint="nur mit Zauber oder Feature">
+      ${grp('bonus').map(x => row(x))}
+      <div class="act-row"><div class="act-name"><b>Trank trinken</b><small>Potion of Healing</small></div><div class="flow"><button class="btn small roll" onClick=${() => { mark('bonus'); dmg('Potion of Healing', '2d4+2'); }}>💚 2d4+2</button></div></div></${Group}>
+
+    <${Group} k="reaction" icon="↩️" title="Reaction" hint="eine pro Runde, auch im Zug anderer">
+      ${grp('reaction').map(x => row(x))}
+      ${weapons.length ? html`<div class="act-row"><div class="act-name"><b>Opportunity Attack</b><small>Ein Gegner verlässt deine Reichweite: ein Nahkampfangriff.</small></div>
+        <div class="flow">${weapons.map(w => html`<button class="btn small roll" onClick=${() => { mark('reaction'); setFlow({ ...flow, [w.key + 'reaction']: { r: d20(`${w.name}: Opportunity Attack`, w.bonus) } }); }}>🎯 ${w.name} ${sgn(w.bonus)}</button>`)}</div>
+        ${weapons.filter(w => flow[w.key + 'reaction']?.r).map(w => row(w, 'reaction'))}</div>` : ''}</${Group}>
   </section>`;
 }
 

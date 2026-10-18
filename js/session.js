@@ -6,6 +6,7 @@ import { CharQuick } from './character.js';
 import { useCampaign, RevealPopup } from './campaign.js';
 import { TurnHelpButton } from './help.js';
 import { FoeForm, FoeSheet } from './foes.js';
+import { BattleMap } from './map.js';
 
 const rnd = n => 1 + Math.floor(Math.random() * n);
 
@@ -103,16 +104,15 @@ export function SessionPage({ user, cid }) {
       <div class="actions"><span class="sub">Sitzung ${(last?.num || 0) + 1}</span><${TurnHelpButton} cls="btn small"/><a class="btn small" href=${href('c', cid)}>🏰 Kampagne</a>
         ${isDM && html`<a class="btn small" href=${href('c', cid, 'enthuellungen')}>🤯 Enthüllen</a><a class="btn small" href=${href('c', cid, 'notizen')}>📝 DM-Notizen</a><a class="btn small primary" href=${href('c', cid, 'sitzungen')}>📖 Sitzung eintragen</a>`}</div>
       ${last?.stop && html`<p class="stopbig"><span class="label"><span class="ico" aria-hidden="true">📍</span>Wo wir aufgehört haben</span><br/>${last.stop}</p>`}</section>
+    <div class="play-top">
+      <${BattleMap} cid=${cid} camp=${camp} chars=${chars} isDM=${isDM} user=${user}/>
+      <${Initiative} camp=${camp} cid=${cid} isDM=${isDM} chars=${chars} user=${user}/>
+    </div>
+    ${mine.map(c => html`<${CharQuick} key=${c.id} user=${user} cid=${cid} chId=${c.id} camp=${camp}/>`)}
+    ${!mine.length && !isDM && html`<${Empty} title="Noch kein Charakter in dieser Kampagne" action=${html`<a class="btn primary" href=${href('c', cid, 'neu')}>Charakter erstellen</a>`}>Ohne Charakter kannst du zuschauen, aber nicht würfeln.</${Empty}>`}
     <div class="ov">
-      <div class="ov-col">
-        <${Initiative} camp=${camp} cid=${cid} isDM=${isDM} chars=${chars} user=${user}/>
-        ${mine.map(c => html`<${CharQuick} key=${c.id} user=${user} cid=${cid} chId=${c.id} camp=${camp}/>`)}
-        ${!mine.length && !isDM && html`<${Empty} title="Noch kein Charakter in dieser Kampagne" action=${html`<a class="btn primary" href=${href('c', cid, 'neu')}>Charakter erstellen</a>`}>Ohne Charakter kannst du zuschauen, aber nicht würfeln.</${Empty}>`}
-      </div>
-      <div class="ov-col">
-        <${PartyLive} chars=${chars} isDM=${isDM} cid=${cid}/>
-        <${Lookup} quests=${quests} npcs=${npcs} cid=${cid}/>
-      </div>
+      <div class="ov-col"><${PartyLive} chars=${chars} isDM=${isDM} cid=${cid}/></div>
+      <div class="ov-col"><${Lookup} quests=${quests} npcs=${npcs} cid=${cid}/></div>
     </div>
     ${!isDM && html`<${RevealPopup} cid=${cid} items=${revelations}/>`}
   </main>`;
