@@ -127,3 +127,20 @@ export const SPELLS = {
 export const SPELL_ATTACKS = { 'Fire Bolt': ['1d10', 'fire, 120 ft'], 'Eldritch Blast': ['1d10', 'force, 120 ft'], 'Produce Flame': ['1d8', 'fire, 60 ft'], 'Shocking Grasp': ['1d8', 'lightning, Berührung'] };
 
 export const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
+
+// species traits, each explained in plain words (2024 Player's Handbook)
+const DV = ['Darkvision', 'Du siehst im Dunkeln bis 60 ft wie im Dämmerlicht, aber nur in Graustufen.'];
+const DV120 = ['Darkvision (120 ft)', 'Du siehst im Dunkeln doppelt so weit wie andere: 120 ft wie im Dämmerlicht.'];
+export const TRAITS = {
+  Human: [['Resourceful', 'Nach jeder Long Rest bekommst du Heroic Inspiration: Damit darfst du einmal einen Wurf wiederholen.'], ['Skillful', 'Ein zusätzlicher Skill deiner Wahl.'], ['Versatile', 'Ein zusätzliches Origin Feat. Sucht es gemeinsam mit dem DM aus.']],
+  Elf: [DV, ['Elven Lineage', 'Deine Elfen-Linie (Drow, High Elf oder Wood Elf) gibt dir einen kleinen Zauber oder schnellere Beine.'], ['Fey Ancestry', 'Advantage gegen Charmed: Dich kann man schwer bezaubern.'], ['Keen Senses', 'Ein Skill nach Wahl: Insight, Perception oder Survival.'], ['Trance', 'Du schläfst nicht. 4 Stunden Meditation reichen für eine Long Rest.']],
+  Dwarf: [DV120, ['Dwarven Resilience', 'Gift macht dir nur halben Schaden, und du wirst seltener vergiftet.'], ['Dwarven Toughness', '+1 Hit Point pro Stufe. Zwerge halten mehr aus.'], ['Stonecunning', 'Du kannst kurz Bewegungen durch Stein spüren (Tremorsense).']],
+  Halfling: [['Brave', 'Advantage gegen Frightened: Angst macht dir weniger aus.'], ['Halfling Nimbleness', 'Du kannst durch den Platz von größeren Wesen hindurchlaufen.'], ['Luck', 'Würfelst du eine natürliche 1 auf dem d20, darfst du neu würfeln.'], ['Naturally Stealthy', 'Du kannst dich sogar hinter größeren Wesen verstecken.']],
+  Orc: [['Adrenaline Rush', 'Als Bonus Action rennen (Dash) und dabei Temp HP bekommen.'], DV120, ['Relentless Endurance', 'Einmal pro Long Rest: Statt auf 0 HP zu fallen, bleibst du mit 1 HP stehen.']],
+  Dragonborn: [['Draconic Ancestry', 'Du stammst von einer Drachenart ab. Sie bestimmt dein Element: Feuer, Kälte, Blitz, Säure oder Gift.'], ['Breath Weapon', 'Deine Odemwaffe: ein Kegel oder eine Linie aus deinem Element, die mehrere Gegner trifft.'], ['Damage Resistance', 'Schaden von deinem Element halbiert sich.'], DV],
+  Tiefling: [DV, ['Fiendish Legacy', 'Dein höllisches Erbe gibt dir einen Cantrip, später weitere Zauber, und eine Resistenz.'], ['Otherworldly Presence', 'Du kannst Thaumaturgy wirken: kleine unheimliche Effekte wie eine dröhnende Stimme.']],
+  Gnome: [DV, ['Gnomish Cunning', 'Advantage auf Intelligence-, Wisdom- und Charisma-Saves. Das schützt sehr gut gegen Magie.'], ['Gnomish Lineage', 'Forest Gnome (mit kleinen Tieren sprechen, Illusionen) oder Rock Gnome (kleine Uhrwerk-Spielereien bauen).']],
+  Goliath: [['Giant Ancestry', 'Eine Riesenkraft je nach Abstammung (z. B. Feuer, Frost, Stein), mehrmals pro Long Rest.'], ['Large Form', 'Ab Stufe 5 kannst du kurz riesig werden.'], ['Powerful Build', 'Du trägst mehr als andere und kommst leichter aus Griffen frei.']],
+  Aasimar: [['Celestial Resistance', 'Necrotic- und Radiant-Schaden halbiert sich.'], DV, ['Healing Hands', 'Einmal pro Long Rest heilst du jemanden per Berührung.'], ['Light Bearer', 'Du kannst den Cantrip Light wirken.']],
+};
+export const DIE_NOTE = { 6: 'd6: wenige Hit Points, lieber auf Abstand bleiben', 8: 'd8: durchschnittlich viele Hit Points', 10: 'd10: viele Hit Points', 12: 'd12: die meisten Hit Points' };
