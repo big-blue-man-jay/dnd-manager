@@ -11,7 +11,7 @@ import { throwDice, loadThree, canThrow, diceSettings } from './dice3d.js';
 
 const accentHex = () => { try { return getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#2B4790'; } catch (e) { return '#2B4790'; } };
 import { clsName } from './cards.js';
-import { lookOf, kindLine } from './world.js';
+import { lookOf, kindLine, itemName, term, coinsOf, worldOf } from './world.js';
 import { setActor, setFallbackActor, takeActor, logRoll, logAct, charActor } from './log.js';
 import { RARITY } from './loot.js';
 
@@ -156,11 +156,26 @@ function CharHeader({ c, s, isDM, isOwner, coreOk, cid, chId, camp, onEdit, onAs
       <button class="btn" onClick=${onAsOther}>👀 Als Mitspieler ansehen</button>
       <button class="btn" onClick=${() => setExp(true)}>📋 Als Text exportieren</button>
       ${isDM && html`<button class="btn" onClick=${toggleLock}>${c.locked ? 'Zum Bearbeiten öffnen' : 'Bogen freigeben'}</button>`}
+      ${isDM && html`<${OwnerPick} c=${c} cid=${cid} chId=${chId} camp=${camp}/>`}
       ${isOwner && !c.locked && !isDM && html`<span class="ro-note">Entwurf: Du kannst alles ändern, bis dein DM den Bogen freigibt.</span>`}
       ${isOwner && c.locked && !isDM && html`<span class="ro-note">Freigegeben: HP, Slots, Inventar & Co. änderst du selbst. Werte und Stufe ändert der DM.</span>`}
     </div>${exp && html`<${ExportModal} c=${c} s=${s} look=${look} onClose=${() => setExp(false)}/>`}</section>`;
 }
 
+
+// The DM can build a character for a player (e.g. from a sheet the player sent) and hand it over once they joined.
+function OwnerPick({ c, cid, chId, camp }) {
+  const members = useCol(`campaigns/${cid}/members`) || [];
+  const mineDM = c.ownerUid === camp.dmUid, planned = mineDM && c.ownerName && c.ownerName !== camp.dmName ? c.ownerName : '';
+  const set = async e => { const uid = e.target.value; if (uid === c.ownerUid) return;
+    const name = uid === camp.dmUid ? camp.dmName : members.find(m => m.uid === uid)?.name || '';
+    try { await store.batch([{ type: 'update', path: cardPath(cid, chId), data: { ownerUid: uid, ownerName: name, updatedAt: Date.now() } },
+        { type: 'merge', path: sheetPath(cid, chId), data: { ownerUid: uid, updatedAt: Date.now() } }]);
+      toast(uid === camp.dmUid ? `${c.name} liegt wieder bei dir.` : `${c.name} gehört jetzt ${name}.`); } catch (x) { failed(x); } };
+  return html`<label class="owner-pick"><span class="label">Gehört</span><select id="owner-pick" value=${c.ownerUid} onChange=${set}>
+    <option value=${camp.dmUid}>${planned ? `dir, angelegt für ${planned}` : 'dir (DM)'}</option>
+    ${members.map(m => html`<option value=${m.uid}>${m.name}</option>`)}</select></label>`;
+}
 
 /* ---------- plain-text export (to paste into a chat, a message or an AI) ---------- */
 export function sheetText(c, s, look = null) {
@@ -385,8 +400,9 @@ function ActionsPanel(ctx) {
 
 /* ---------- vitals ---------- */
 function Vitals(ctx) {
-  const { c, s, cid, chId } = ctx;
+  const { c, s, cid, chId, camp } = ctx;
   const [amt, setAmt] = useState('');
+  const HD = term(camp, 'hitDice', 'Hit Dice'), hd1 = term(camp, 'hitDie', 'Hit Die');
   const lvl = c.level || 1, pb = profBonus(lvl), dex = mod(s.abilities.dex), con = mod(s.abilities.con), die = hitDie(c);
   const n = Math.max(0, int(amt, 0));
   const hp = c.hp || 0, max = c.hpMax || 0, temp = c.tempHp || 0;
@@ -398,7 +414,7 @@ function Vitals(ctx) {
     if (r.nat === 20) { patch(ctx, { hp: 1 }, { deathSaves: { ok: 0, fail: 0 } }); toast('Natürliche 20! Wieder bei 1 HP.'); return; }
     const d2 = r.nat === 1 ? { ...ds, fail: Math.min(3, ds.fail + 2) } : r.total >= 10 ? { ...ds, ok: Math.min(3, ds.ok + 1) } : { ...ds, fail: Math.min(3, ds.fail + 1) };
     patch(ctx, null, { deathSaves: d2 }); if (d2.ok >= 3) toast('Stabilisiert.'); if (d2.fail >= 3) toast('Drei Fehlschläge…'); };
-  const spendHD = () => { if (s.hitDiceUsed >= lvl) return; const r = roll(withBonus('1d' + die, con)); requestRoll({ label: 'Hit Die', result: r });
+  const spendHD = () => { if (s.hitDiceUsed >= lvl) return; const r = roll(withBonus('1d' + die, con)); requestRoll({ label: hd1, result: r });
     patch(ctx, { hp: Math.min(max, hp + Math.max(0, r.total)) }, { hitDiceUsed: (s.hitDiceUsed || 0) + 1 }); };
   return html`<section class="panel box vitals">
     <div class="statline five">
@@ -418,14 +434,15 @@ function Vitals(ctx) {
       <div class="pips fail">${[0, 1, 2].map(i => html`<button class=${i < ds.fail ? 'on' : ''} aria-label="Fehlschlag" onClick=${() => patch(ctx, null, { deathSaves: { ...ds, fail: i < ds.fail ? i : i + 1 } })}></button>`)}<span class="sub">Fehlschläge</span></div>
       <button class="btn small" onClick=${deathRoll}>Death Save würfeln</button></div>`}
     <div class="row-split">
-      <div><span class="label"><span class="ico" aria-hidden="true">🎲</span>Hit Dice</span><div class="num">${lvl - (s.hitDiceUsed || 0)} / ${lvl} × d${die}</div><button class="btn small" disabled=${(s.hitDiceUsed || 0) >= lvl || hp >= max} onClick=${spendHD}>Hit Die ausgeben</button></div>
+      <div><span class="label"><span class="ico" aria-hidden="true">🎲</span>${HD}</span><div class="num">${lvl - (s.hitDiceUsed || 0)} / ${lvl} × d${die}</div><button class="btn small" disabled=${(s.hitDiceUsed || 0) >= lvl || hp >= max} onClick=${spendHD}>${hd1} ausgeben</button></div>
       <div><span class="label"><span class="ico" aria-hidden="true">🌟</span>Heroic Inspiration</span><div><button class=${'toggle' + (s.inspiration ? ' on' : '')} onClick=${() => patch(ctx, null, { inspiration: !s.inspiration })}>${s.inspiration ? 'Vorhanden' : 'Keine'}</button></div></div>
     </div>
     <${Rests} ...${ctx}/>
   </section>`;
 }
 function Rests(ctx) {
-  const { c, s } = ctx; const [ask, setAsk] = useState(null);
+  const { c, s, camp } = ctx; const [ask, setAsk] = useState(null);
+  const SR = term(camp, 'shortRest', 'Short Rest'), LR = term(camp, 'longRest', 'Long Rest');
   const slotsMax = s.slotsOverride || autoSlots(c.cls, c.level);
   const shortRest = () => { const res = (s.resources || []).map(r => r.reset === 'short' ? { ...r, used: 0 } : r.reset === 'shortOne' ? { ...r, used: Math.max(0, (r.used || 0) - 1) } : r);
     const sheet = { resources: res }; if (isPact(c.cls)) sheet.slotsUsed = Array(9).fill(0);
@@ -434,7 +451,7 @@ function Rests(ctx) {
     { resources: (s.resources || []).map(r => ({ ...r, used: 0 })), slotsUsed: Array(9).fill(0), hitDiceUsed: 0, deathSaves: { ok: 0, fail: 0 } }); setAsk(null); toast('Long Rest: alles aufgefüllt.'); };
   return html`<div class="rests">${ask ? html`<span class="confirm">${ask === 'short' ? 'Short Rest machen? Füllt Short-Rest-Ressourcen auf.' : 'Long Rest machen? HP, Slots, Ressourcen und Hit Dice voll, Exhaustion −1.'}
       <button class="btn primary small" onClick=${ask === 'short' ? shortRest : longRest}>Ja</button><button class="btn small" onClick=${() => setAsk(null)}>Abbrechen</button></span>`
-    : html`<button class="btn" onClick=${() => setAsk('short')}>☕ Short Rest</button><button class="btn" onClick=${() => setAsk('long')}>🌙 Long Rest</button>`}</div>`;
+    : html`<button class="btn" title="Short Rest" onClick=${() => setAsk('short')}>☕ ${SR}</button><button class="btn" title="Long Rest" onClick=${() => setAsk('long')}>🌙 ${LR}</button>`}</div>`;
 }
 
 /* ---------- abilities + skills ---------- */
@@ -456,15 +473,15 @@ function Skills({ c, s }) {
 
 /* ---------- attacks ---------- */
 function Attacks(ctx) {
-  const { s } = ctx; const list = s.attacks || [];
+  const { s, camp } = ctx; const list = s.attacks || [];
   const [f, setF] = useState(null);
   const save = e => { e.preventDefault(); if (!f.name.trim()) return; const next = f.id ? list.map(a => a.id === f.id ? f : a) : [...list, { ...f, id: newId() }]; patch(ctx, null, { attacks: next }); setF(null); };
   return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">⚔️</span>Angriffe</h2><button class="btn small" onClick=${() => setF({ name: '', bonus: 0, damage: '1d6', note: '' })}>Hinzufügen</button></div>
-    ${list.length ? html`<div class="attacks">${list.map(a => html`<div class="atk">
-      <div class="atk-name"><b>${a.name}</b>${a.note && html`<span class="sub">${a.note}</span>`}</div>
-      <button class="btn small roll" onClick=${() => requestRoll({ label: `${a.name}: Angriff`, expr: withBonus('1d20', int(a.bonus)) })}>${sgn(int(a.bonus))}</button>
-      <button class="btn small roll" onClick=${() => requestRoll({ label: `${a.name}: Schaden`, expr: a.damage })}>${a.damage}</button>
-      <button class="link quiet small" onClick=${() => setF(a)}>Ändern</button></div>`)}</div>` : html`<p class="muted">Waffen und Angriffszauber mit Bonus und Schaden, z. B. Longsword +5, 1d8+3.</p>`}
+    ${list.length ? html`<div class="attacks">${list.map(a => { const wn = itemName(camp, a.name), nm = wn || a.name, sub = [wn && a.name, a.note].filter(Boolean).join(' · '); return html`<div class="atk">
+      <div class="atk-name"><b>${nm}</b>${sub && html`<span class="sub">${sub}</span>`}</div>
+      <button class="btn small roll" onClick=${() => requestRoll({ label: `${nm}: Angriff`, expr: withBonus('1d20', int(a.bonus)) })}>${sgn(int(a.bonus))}</button>
+      <button class="btn small roll" onClick=${() => requestRoll({ label: `${nm}: Schaden`, expr: a.damage })}>${a.damage}</button>
+      <button class="link quiet small" onClick=${() => setF(a)}>Ändern</button></div>`; })}</div>` : html`<p class="muted">Waffen und Angriffszauber mit Bonus und Schaden, z. B. Longsword +5, 1d8+3.</p>`}
     ${f && html`<form class="form inline-form" onSubmit=${save}>
       <${Field} label="Name"><input id="atk-name" value=${f.name} onInput=${e => setF(f => ({ ...f, name: e.target.value }))} placeholder="Longsword"/></${Field}>
       <${Field} label="Angriffsbonus"><input id="atk-bonus" type="number" value=${f.bonus} onInput=${e => setF(f => ({ ...f, bonus: e.target.value }))}/></${Field}>
@@ -476,7 +493,7 @@ function Attacks(ctx) {
 
 /* ---------- spellcasting ---------- */
 function Spellcasting(ctx) {
-  const { c, s } = ctx; const ab = spellAb(c, s);
+  const { c, s, camp } = ctx; const ab = spellAb(c, s);
   const [f, setF] = useState(null);
   const slotsMax = s.slotsOverride || autoSlots(c.cls, c.level);
   const spells = s.spells || [];
@@ -489,7 +506,7 @@ function Spellcasting(ctx) {
   return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">✨</span>Spellcasting</h2><button class="btn small" onClick=${() => setF({ name: '', level: 1, prepared: true, note: '' })}>Zauber hinzufügen</button></div>
     ${ab && html`<div class="statline three"><div class="stat"><span class="label">Ability</span><b>${ab.toUpperCase()}</b></div><div class="stat"><span class="label"><span class="ico" aria-hidden="true">🎯</span>Spell Save DC</span><b class="num">${8 + pb + m}</b></div>
       <button class="stat roll" onClick=${() => requestRoll({ label: 'Spell Attack', expr: withBonus('1d20', pb + m) })}><span class="label"><span class="ico" aria-hidden="true">✨</span>Spell Attack</span><b class="num">${sgn(pb + m)}</b></button></div>`}
-    ${slotsMax.some(Boolean) && html`<div class="slots"><span class="label">${isPact(c.cls) ? 'Pact Magic Slots (Short Rest)' : 'Spell Slots'}</span>
+    ${slotsMax.some(Boolean) && html`<div class="slots"><span class="label">${isPact(c.cls) ? `${term(camp, 'pactSlots', 'Pact Magic Slots')} (${term(camp, 'shortRest', 'Short Rest')})` : term(camp, 'spellSlots', 'Spell Slots')}</span>
       ${slotsMax.map((n, lv) => n ? html`<div class="slotrow"><span class="lv">${lv + 1}</span><div class="pips">${Array.from({ length: n }, (_, i) => html`<button class=${i < (used[lv] || 0) ? 'on' : ''} aria-label=${`Slot Stufe ${lv + 1}`} onClick=${() => tapSlot(lv, i)}></button>`)}</div><span class="sub">${n - Math.min(n, used[lv] || 0)} frei</span></div>` : null)}</div>`}
     ${byLevel.map(([l, list]) => html`<div class="spell-lv"><span class="label">${l === 0 ? 'Cantrips' : 'Stufe ' + l}</span>${list.map(x => html`<div class="spell">
       ${l > 0 && html`<button class=${'prep' + (x.prepared ? ' on' : '')} title="Vorbereitet" onClick=${() => patch(ctx, null, { spells: spells.map(y => y.id === x.id ? { ...y, prepared: !y.prepared } : y) })}>${x.prepared ? '●' : '○'}</button>`}
@@ -505,7 +522,8 @@ function Spellcasting(ctx) {
 
 /* ---------- resources ---------- */
 function Resources(ctx) {
-  const { c, s } = ctx; const list = s.resources || [];
+  const { c, s, camp } = ctx; const list = s.resources || [];
+  const resetLabel = k => (RESET_LABEL[k] || '').replace('Short Rest', term(camp, 'shortRest', 'Short Rest')).replace('Long Rest', term(camp, 'longRest', 'Long Rest'));
   const [f, setF] = useState(null);
   const sugg = suggestedResources(c.cls, c.level, s.abilities);
   const tap = (r, i) => patch(ctx, null, { resources: list.map(x => x.id === r.id ? { ...x, used: i < (x.used || 0) ? i : i + 1 } : x) });
@@ -513,7 +531,7 @@ function Resources(ctx) {
   const takeSugg = () => { const byName = Object.fromEntries(list.map(r => [r.name, r])); const merged = [...list.map(r => { const g = sugg.find(x => x.name === r.name); return g ? { ...r, max: g.max, reset: g.reset } : r; }), ...sugg.filter(g => !byName[g.name]).map(g => ({ ...g, id: newId(), used: 0 }))]; patch(ctx, null, { resources: merged }); toast('Ressourcen übernommen.'); };
   const differs = sugg.some(g => { const r = list.find(x => x.name === g.name); return !r || r.max !== g.max; });
   return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🔋</span>Ressourcen</h2><button class="btn small" onClick=${() => setF({ name: '', max: 1, reset: 'long' })}>Hinzufügen</button></div>
-    ${list.map(r => html`<div class="res"><div class="res-name"><b>${r.name}</b><span class="sub">${RESET_LABEL[r.reset] || ''}</span></div>
+    ${list.map(r => html`<div class="res"><div class="res-name"><b>${r.name}</b><span class="sub">${resetLabel(r.reset)}</span></div>
       ${r.max <= 12 ? html`<div class="pips">${Array.from({ length: r.max }, (_, i) => html`<button class=${i < (r.used || 0) ? 'on' : ''} aria-label=${r.name} onClick=${() => tap(r, i)}></button>`)}</div>`
         : html`<div class="counter"><button class="btn small" onClick=${() => patch(ctx, null, { resources: list.map(x => x.id === r.id ? { ...x, used: Math.min(x.max, (x.used || 0) + 1) } : x) })}>−</button><span class="num">${r.max - (r.used || 0)} / ${r.max}</span><button class="btn small" onClick=${() => patch(ctx, null, { resources: list.map(x => x.id === r.id ? { ...x, used: Math.max(0, (x.used || 0) - 1) } : x) })}>+</button></div>`}
       <button class="link quiet small" onClick=${() => setF(r)}>Ändern</button></div>`)}
@@ -545,7 +563,7 @@ function Conditions(ctx) {
 
 /* ---------- inventory ---------- */
 function Inventory(ctx) {
-  const { s } = ctx; const inv = s.inventory || []; const coins = { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0, ...(s.coins || {}) };
+  const { s, camp } = ctx; const inv = s.inventory || []; const coins = { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0, ...(s.coins || {}) };
   const [name, setName] = useState(''); const [cn, setCn] = useState(null);
   const add = e => { e.preventDefault(); if (!name.trim()) return; patch(ctx, null, { inventory: [...inv, { id: newId(), name: name.trim(), qty: 1, note: '', attuned: false }] }); setName(''); };
   const upd = (id, d) => patch(ctx, null, { inventory: inv.map(x => x.id === id ? { ...x, ...d } : x) });
@@ -554,11 +572,11 @@ function Inventory(ctx) {
   return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🎒</span>Inventar</h2><span class="sub">Attunement ${attunedN} / 3</span></div>
     ${inv.length ? html`<div class="inv">${inv.map(x => html`<div class="inv-row">
       <div class="counter"><button class="btn small" onClick=${() => upd(x.id, { qty: Math.max(0, (x.qty || 0) - 1) })}>−</button><b class="num">${x.qty ?? 1}</b><button class="btn small" onClick=${() => upd(x.id, { qty: (x.qty || 0) + 1 })}>+</button></div>
-      <div class="inv-name"><b class=${x.rarity && x.rarity !== 'common' ? 'rar' : ''} style=${x.rarity ? `--rc:${RARITY[x.rarity]?.hex}` : ''}>${x.name}${x.rarity && html` <small class="rar-tag">${RARITY[x.rarity]?.en}${x.attune ? ' · Attunement' : ''}</small>`}</b><input class="note-in" value=${x.note || ''} placeholder="Notiz" onChange=${e => upd(x.id, { note: e.target.value })} aria-label="Notiz"/></div>
+      <div class="inv-name"><b class=${x.rarity && x.rarity !== 'common' ? 'rar' : ''} style=${x.rarity ? `--rc:${RARITY[x.rarity]?.hex}` : ''}>${itemName(camp, x.name) || x.name}${itemName(camp, x.name) && html` <small class="rar-tag">${x.name}</small>`}${x.rarity && html` <small class="rar-tag">${RARITY[x.rarity]?.en}${x.attune ? ' · Attunement' : ''}</small>`}</b><input class="note-in" value=${x.note || ''} placeholder="Notiz" onChange=${e => upd(x.id, { note: e.target.value })} aria-label="Notiz"/></div>
       <label class="att" title="Attuned"><input type="checkbox" checked=${!!x.attuned} disabled=${!x.attuned && attunedN >= 3} onChange=${e => upd(x.id, { attuned: e.target.checked })}/> Attuned</label>
       <button class="rm" aria-label="Entfernen" onClick=${() => patch(ctx, null, { inventory: inv.filter(y => y.id !== x.id) })}>×</button></div>`)}</div>` : html`<p class="muted">Noch nichts im Rucksack.</p>`}
     <form class="inline-add" onSubmit=${add}><input id="inv-add" value=${name} onInput=${e => setName(e.target.value)} placeholder="Gegenstand hinzufügen, z. B. Rope (50 ft)"/><button class="btn small">Hinzufügen</button></form>
-    <div class="coins">${['pp', 'gp', 'ep', 'sp', 'cp'].map(k => html`<label class="coin"><span>${k.toUpperCase()}</span><input id=${'coin-' + k} type="number" min="0" value=${cur[k]} onInput=${e => setCn({ ...cur, [k]: int(e.target.value, 0) })} onBlur=${() => { if (cn) { patch(ctx, null, { coins: cn }); setCn(null); } }}/></label>`)}</div>
+    <div class="coins">${coinsOf(camp).map(k => html`<label class="coin"><span>${k === 'gp' ? term(camp, 'gp', 'GP') : k.toUpperCase()}</span><input id=${'coin-' + k} type="number" min="0" value=${cur[k]} onInput=${e => setCn({ ...cur, [k]: int(e.target.value, 0) })} onBlur=${() => { if (cn) { patch(ctx, null, { coins: cn }); setCn(null); } }}/></label>`)}</div>
   </section>`;
 }
 
@@ -586,7 +604,7 @@ export function NewCharacter({ user, cid }) {
     const id = newId(), now = Date.now();
     try {
       await store.batch([
-        { type: 'set', path: cardPath(cid, id), data: { ...card, ownerUid: user.uid, ownerName: user.name, xp: 0, hp: card.hpMax, tempHp: 0, conditions: [], exhaustion: 0, locked: false, createdAt: now, updatedAt: now } },
+        { type: 'set', path: cardPath(cid, id), data: { ...card, ownerUid: user.uid, ownerName: card.ownerName || user.name, xp: 0, hp: card.hpMax, tempHp: 0, conditions: [], exhaustion: 0, locked: false, createdAt: now, updatedAt: now } },
         { type: 'set', path: sheetPath(cid, id), data: { ...blankSheet(), ...sheet, ownerUid: user.uid, updatedAt: now } },
       ]);
       toast(`${card.name} ist bereit für das Abenteuer.`); go('c', cid, 'char', id);
@@ -596,7 +614,7 @@ export function NewCharacter({ user, cid }) {
     <div class="greet"><span class="label">Neuer Charakter</span><h1>Erschaffe deinen Helden</h1><p class="muted">${expert ? 'Alle Werte selbst eintragen.' : 'Schritt für Schritt, mit Erklärung bei jeder Entscheidung. Du kannst alles ändern, bis dein DM den Bogen freigibt.'}</p></div>
     <div class="panel box">${expert
       ? html`<${CharForm} user=${user} cid=${cid} camp=${camp} others=${others} isDM=${camp.dmUid === user.uid && !lib} onDone=${id => go('c', cid, 'char', id)}/><p class="muted small-note"><button class="link" onClick=${() => setExpert(false)}>Zurück zur geführten Erstellung</button></p>`
-      : html`<${Builder} user=${user} others=${others} onCreate=${create} onExpert=${() => setExpert(true)}/>`}</div></main>`;
+      : html`<${Builder} user=${user} others=${others} onCreate=${create} onExpert=${() => setExpert(true)} world=${worldOf(camp)} forPlayer=${camp.dmUid === user.uid && !lib}/>`}</div></main>`;
 }
 
 function CharForm({ user, cid, camp, card, sheet, others, isDM, onDone }) {

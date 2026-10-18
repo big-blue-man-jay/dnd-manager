@@ -33,6 +33,21 @@ export function withLook(c, camp) {
   Object.defineProperty(c, 'look', { value: lookIn(worldOf(camp), c), enumerable: false, configurable: true });
   return c;
 }
+// A weapon, armour or item in the world's words ("Chain Mail + Shield" is translated part by part); '' when unknown
+export function itemIn(w, name) {
+  const map = w?.weapons; if (!map || !name) return '';
+  const one = n => { const k = Object.keys(map).find(x => x.toLowerCase() === n.trim().toLowerCase()); return k ? map[k].name : ''; };
+  const direct = one(name); if (direct) return direct;
+  if (!name.includes(' + ')) return '';
+  const parts = name.split(' + '), out = parts.map(p => one(p) || p.trim());
+  return out.some((p, i) => p !== parts[i].trim()) ? out.join(' + ') : '';
+}
+export const itemName = (camp, name) => itemIn(worldOf(camp), name);
+// rules words the world renames, e.g. spellSlots, hitDice, shortRest, gp
+export const term = (camp, key, fallback) => worldOf(camp)?.terms?.[key] || fallback;
+const COINS = ['pp', 'gp', 'ep', 'sp', 'cp'];
+export const coinsOf = camp => worldOf(camp)?.coins || COINS;
+
 // "Human Warlock (Fiend Patron)", or the world's names once revealed
 export const kindLine = (c, look, sub = true) => [look ? look.species : c.species, look ? look.cls : clsOf(c), sub && c.subclass && `(${c.subclass})`].filter(Boolean).join(' ');
 
@@ -47,11 +62,15 @@ function entries(map) {
   }
   return out;
 }
+const TERMS = ['spellSlots', 'spellSlot', 'pactSlots', 'hitDice', 'hitDie', 'shortRest', 'longRest', 'gp'];
 export function cleanWorld(w) {
   const name = str(w?.name);
   if (!name) throw fail('Die Welt-Datei braucht einen Namen.');
+  const terms = Object.fromEntries(TERMS.filter(k => str(w.terms?.[k])).map(k => [k, str(w.terms[k])]));
+  const coins = Array.isArray(w.coins) ? w.coins.filter(c => COINS.includes(c)) : [];
   return { id: str(w.id) || name.toLowerCase(), name, setting: str(w.setting), revealTitle: str(w.revealTitle), intro: str(w.intro),
-    species: entries(w.species), classes: entries(w.classes), backgrounds: entries(w.backgrounds) };
+    species: entries(w.species), classes: entries(w.classes), backgrounds: entries(w.backgrounds), weapons: entries(w.weapons), terms,
+    ...(coins.length ? { coins } : {}) };
 }
 // a world file ({ type: 'dndm-world', … }) or a prep pack with a "world" inside
 export async function readWorldFile(file) {
@@ -64,7 +83,7 @@ export async function readWorldFile(file) {
 /* ---------- DM box in the campaign settings ---------- */
 const names = map => [...new Set(Object.values(map || {}).map(x => x.name))];
 
-export function WorldBox({ camp, cid, user, chars }) {
+export function WorldBox({ camp, cid, user, chars, members = [] }) {
   const priv = useDoc(worldPath(user.uid, cid));
   const [busy, setBusy] = useState(false); const [reveal, setReveal] = useState(false); const [edit, setEdit] = useState(null);
   const on = !!camp.worldRevealed, w0 = priv?.world || null;
@@ -96,12 +115,13 @@ export function WorldBox({ camp, cid, user, chars }) {
           ${list.map(c => html`<${WorldRow} key=${c.id} c=${c} cid=${cid} w=${w} onEdit=${() => setEdit(c)}/>`)}</tbody></table></div>`
         : html`<p class="muted">Noch keine Charaktere. Sobald deine Spieler ihre Helden gebaut haben, siehst du hier, wer sie in ${w.name} sind.</p>`}
       <p class="ro-note">${on ? 'Alle sehen jetzt diese Namen. Änderungen pro Charakter wirken sofort.'
-        : `Tippe auf einen Charakter, um ihm einen anderen Namen zu geben als die Datei vorschlägt. Beim Enthüllen bekommen alle ein Pop-up mit ihrer neuen Identität${w.setting ? `, und das Setting der Kampagne wird zu „${w.setting}“` : ''}.`}</p>
+        : members.length ? `Tippe auf einen Charakter, um ihm einen anderen Namen zu geben als die Datei vorschlägt. Beim Enthüllen bekommen alle ein Pop-up mit ihrer neuen Identität${w.setting ? `, und das Setting der Kampagne wird zu „${w.setting}“` : ''}.`
+        : `Noch ist niemand beigetreten. Schalte die Welt ruhig gleich ein: Dann legst du Charaktere direkt mit den Namen aus ${w.name} an, und deine Spieler sehen sie erst, wenn sie mit dem Code beitreten.`}</p>
       <div class="actions">${on ? html`<button class="btn" disabled=${busy} onClick=${undo}>Enthüllung zurücknehmen</button>`
-          : html`<button class="btn primary" disabled=${busy || !list.length} onClick=${() => setReveal(true)}>🎭 Welt enthüllen</button>`}
+          : html`<button class="btn primary" disabled=${busy} onClick=${() => setReveal(true)}>${members.length ? '🎭 Welt enthüllen' : '🎭 Welt einschalten'}</button>`}
         ${pick('Andere Datei laden')}
         ${!on && html`<span class="spacer"></span><${DeleteButton} label="Entfernen" question="Welt-Datei entfernen?" onConfirm=${remove}/>`}</div>`}
-    ${reveal && html`<${RevealWorld} camp=${camp} cid=${cid} w=${w} chars=${list} onClose=${() => setReveal(false)}/>`}
+    ${reveal && html`<${RevealWorld} camp=${camp} cid=${cid} w=${w} chars=${list} members=${members} onClose=${() => setReveal(false)}/>`}
     ${edit && html`<${CharWorldModal} c=${edit} cid=${cid} user=${user} camp=${camp} w=${w} onClose=${() => setEdit(null)}/>`}
   </div>`;
 }
@@ -145,8 +165,8 @@ function CharWorldModal({ c, cid, user, camp, w, onClose }) {
 }
 
 // the big moment: everyone switches to the world's names and gets a pop-up with their new identity
-function RevealWorld({ camp, cid, w, chars, onClose }) {
-  const [pop, setPop] = useState(true);
+function RevealWorld({ camp, cid, w, chars, members, onClose }) {
+  const [pop, setPop] = useState(members.length > 0);
   const [title, setTitle] = useState(w.revealTitle || `Willkommen in ${w.name}`);
   const [intro, setIntro] = useState(w.intro || '');
   const [busy, setBusy] = useState(false);
@@ -160,13 +180,14 @@ function RevealWorld({ camp, cid, w, chars, onClose }) {
           ...(w.setting && w.setting !== camp.setting ? { setting: w.setting, worldPrevSetting: camp.setting || '' } : {}) } },
         ...(pop ? [{ type: 'set', path: `campaigns/${cid}/revelations/${rid}`, data: { title: title.trim() || w.name, kind: 'world', body: [intro.trim(), lines.join('\n')].filter(Boolean).join('\n\n'),
           reason: '', audience: 'all', audienceUids: [], secretId: null, questId: null, createdAt: now } }] : [])]);
-      toast(`${w.name} ist enthüllt!`); onClose(); } catch (x) { failed(x); } finally { setBusy(false); } };
-  return html`<${Modal} title=${`${w.name} enthüllen`} eyebrow="Welt-Übersetzung" onClose=${onClose}><div class="form">
-    <p>Ab jetzt zeigt die App bei allen die Namen aus ${w.name}: ${chars.length === 1 ? 'dein Spieler sieht' : 'deine Spieler sehen'} ihre neue Species, Klasse und ihren Background auf Karten, Bögen, Spieltisch und Tablet.${w.setting ? ` Das Setting der Kampagne wird zu „${w.setting}“.` : ''}</p>
+      toast(members.length ? `${w.name} ist enthüllt!` : `${w.name} ist eingeschaltet.`); onClose(); } catch (x) { failed(x); } finally { setBusy(false); } };
+  return html`<${Modal} title=${`${w.name} ${members.length ? 'enthüllen' : 'einschalten'}`} eyebrow="Welt-Übersetzung" onClose=${onClose}><div class="form">
+    <p>${members.length ? `Ab jetzt zeigt die App bei allen die Namen aus ${w.name}: ${members.length === 1 ? 'dein Spieler sieht' : 'deine Spieler sehen'} ihre neue Species, Klasse und ihren Background auf Karten, Bögen, Spieltisch und Tablet.`
+      : `Ab jetzt nutzt die Kampagne überall die Namen aus ${w.name}, auch im Builder, wenn du Charaktere anlegst. Noch ist niemand beigetreten, also sieht es außer dir keiner.`}${w.setting ? ` Das Setting der Kampagne wird zu „${w.setting}“.` : ''}</p>
     <label class="checkline"><input type="checkbox" checked=${pop} onChange=${e => setPop(e.target.checked)}/>
       <span><b>Pop-up für alle</b><span class="sub">Erscheint auf jedem Handy und groß auf dem Tablet, mit deinem Text und darunter jedem Charakter mit seiner neuen Identität.</span></span></label>
     ${pop && html`<${Field} label="Überschrift"><input id="wr-title" value=${title} onInput=${e => setTitle(e.target.value)}/></${Field}>
       <${Field} label="Dein Text (optional)"><textarea id="wr-intro" value=${intro} onInput=${e => setIntro(e.target.value)} placeholder="Ein paar Sätze, die du vorliest, während die Musik läuft."></textarea></${Field}>`}
     <p class="ro-note">Lässt sich in den Einstellungen wieder zurücknehmen.</p>
-    <div class="foot"><button class="btn primary" disabled=${busy} onClick=${go2}>${busy ? 'Wird enthüllt …' : 'Jetzt enthüllen'}</button><button class="btn" onClick=${onClose}>Abbrechen</button></div></div></${Modal}>`;
+    <div class="foot"><button class="btn primary" disabled=${busy} onClick=${go2}>${busy ? 'Einen Moment …' : members.length ? 'Jetzt enthüllen' : 'Jetzt einschalten'}</button><button class="btn" onClick=${onClose}>Abbrechen</button></div></div></${Modal}>`;
 }

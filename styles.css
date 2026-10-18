@@ -1150,3 +1150,8 @@ body { padding-bottom: calc(var(--nav-h) + 110px + env(safe-area-inset-bottom, 0
 .btn.disabled { opacity: .5; pointer-events: none; }
 .world-was { font-size: 12.5px; opacity: .75; }
 .world-prev { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border: 1px dashed var(--line-strong); border-radius: 8px; background: var(--raised); margin: 0; }
+/* builder in a campaign world: rulebook name and a line of lore under the world's name */
+.ch-rules { display: block; font-size: 12px; color: var(--muted); letter-spacing: .02em; }
+.ch-lore { display: block; font-style: italic; font-size: 13.5px; margin: 2px 0 4px; }
+.owner-pick { display: inline-flex; align-items: center; gap: 8px; }
+.owner-pick select { min-width: 160px; }

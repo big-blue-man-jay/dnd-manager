@@ -461,7 +461,7 @@ function Settings(p) {
       <p class="ro-note">Zusätzlich zu den offiziellen Conditions. Du kannst sie Charakteren im Bogen zuweisen.</p>
       ${custom.map((c, i) => html`<div class="mini static"><div><div class="t">${c.name}</div><div class="d">${c.desc}</div></div><button class="link quiet small" onClick=${() => delCond(i)}>Entfernen</button></div>`)}
       <form class="form inline-form cond-form" onSubmit=${addCond}><${Field} label="Name"><input id="cc-name" value=${cond.name} onInput=${e => setCond({ ...cond, name: e.target.value })} placeholder="Verflucht"/></${Field}><${Field} label="Wirkung"><input id="cc-desc" value=${cond.desc} onInput=${e => setCond({ ...cond, desc: e.target.value })} placeholder="−1 auf alle Saving Throws bis zum Long Rest"/></${Field}><button class="btn">Hinzufügen</button></form></div>
-    <${WorldBox} camp=${camp} cid=${cid} user=${user} chars=${chars}/>
+    <${WorldBox} camp=${camp} cid=${cid} user=${user} chars=${chars} members=${members}/>
     <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">✏️</span>Kampagne bearbeiten</h2></div><${CampaignForm} user=${user} campaign=${camp} onSave=${saveCamp}/></div>
     <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">💾</span>Sicherung</h2></div>
       <p class="ro-note">Lädt die ganze Kampagne als Datei herunter: Charaktere mit Bögen, Sitzungen, Tagebuch, Quests, NPCs, Geheimnisse, Enthüllungen und deine DM-Notizen. Mach das alle paar Sitzungen. Wiederherstellen geht auf der Startseite unter „Neue Kampagne“.</p>
