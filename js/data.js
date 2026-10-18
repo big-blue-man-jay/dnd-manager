@@ -131,6 +131,8 @@ function demoImpl() {
     return out;
   };
   const notify = () => setTimeout(() => docListeners.forEach(l => l()), 0);
+  // other tabs of this browser (e.g. the table screen) see changes live, like with Firebase
+  addEventListener('storage', e => { if (e.key !== KEY) return; try { docs = JSON.parse(e.newValue || '{}'); } catch (x) { return; } notify(); });
   return {
     mode: 'demo',
     demoUsers: () => USERS,

@@ -2,7 +2,7 @@
 // on a tablet for the players to look at; every change syncs live between the DM's devices.
 // Positions live in campaigns/{cid}/map/{tokenId}: tokenId = character id for heroes, combat row id for enemies,
 // 'f_…' for extra figures (NPCs, animals, objects; the doc carries {fig: {name, emoji, att}}), '_terrain' for terrain.
-import { html, useState, useEffect, useRef, HpBar, toast, failed, int, initials } from './ui.js';
+import { html, useState, useEffect, useRef, HpBar, toast, failed, int, initials, go } from './ui.js';
 import { store, newId } from './data.js';
 import { SPECIES_EMOJI, diceHex } from './rules5e.js';
 
@@ -13,7 +13,7 @@ const dist = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) * 5; /
 const FIG_EMOJI = ['🧑', '👩‍🌾', '🧙', '🛡️', '👑', '🧌', '🐂', '🐴', '🐺', '🛒', '📦', '🔥'];
 const isFig = d => d && d.fig;
 
-export function BattleMap({ cid, camp, chars, isDM, user, npcs = [] }) {
+export function BattleMap({ cid, camp, chars, isDM, user, npcs = [], display = false }) {
   const docs = useCol(`campaigns/${cid}/map`);
   const [cols, rows] = SIZES[camp.mapSize || 'm'];
   const wrapRef = useRef(null), gridRef = useRef(null);
@@ -25,21 +25,13 @@ export function BattleMap({ cid, camp, chars, isDM, user, npcs = [] }) {
   const [open, setOpen] = useState(true);
   const [scenesOpen, setScenesOpen] = useState(false);
   const [figOpen, setFigOpen] = useState(false);
-  const [table, setTable] = useState(false); // full-screen view for the tablet on the table
+  const table = display; // read-mostly view on the table screen (tablet), see table.js
 
   useEffect(() => { const el = wrapRef.current; if (!el) return;
     const fit = () => setCell(table ? Math.max(14, Math.min(140, Math.floor((el.clientWidth - 4) / cols), Math.floor((el.clientHeight - 4) / rows)))
       : Math.max(14, Math.min(46, Math.floor((el.clientWidth - 2) / cols))));
     fit(); const ro = new ResizeObserver(fit); ro.observe(el); return () => ro.disconnect(); }, [cols, rows, open, table]);
 
-  // table view: real full screen where the browser allows it, and keep the screen awake
-  useEffect(() => { if (!table) return; let lock = null;
-    navigator.wakeLock?.request('screen').then(l => { lock = l; }).catch(() => {});
-    const esc = e => { if (e.key === 'Escape') setTable(false); }; addEventListener('keydown', esc);
-    return () => { removeEventListener('keydown', esc); lock?.release?.().catch(() => {}); const d = document;
-      if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen)?.call(d)?.catch?.(() => {}); }; }, [table]);
-  const openTable = () => { setSel(null); setBrush(null); setTable(true); const el = document.documentElement;
-    try { (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el)?.catch?.(() => {}); } catch (e) { /* not supported: the overlay still fills the window */ } };
 
   const cb = camp.combat, list = cb?.list || [];
   const cur = list[cb?.turn ?? -1];
@@ -132,21 +124,14 @@ export function BattleMap({ cid, camp, chars, isDM, user, npcs = [] }) {
       ${selT.kind === 'fig' && isDM && !table && html`<button class="link quiet small" onClick=${() => removeFig(selT.id)}>Von der Karte entfernen</button>`}
       ${pos[selT.id] && html`<div class="bm-dist"><span class="label">Abstand</span>${placed.filter(t => t.id !== selT.id).sort((a, b) => dist(pos[selT.id], pos[a.id]) - dist(pos[selT.id], pos[b.id])).map(t => html`<span class=${'dist-chip ' + t.kind + (t.att ? ' ' + t.att : '')}>${t.name}: <b>${dist(pos[selT.id], pos[t.id])} ft</b></span>`)}</div>`}</div>`;
 
-  if (table) return html`<div class="bm-table" role="dialog" aria-label="Tischansicht der Karte">
-      <div class="bt-head">
-        ${cb ? html`<span class="bt-round">Runde ${cb.round}</span><ol class="bt-order">${list.map((r, i) => html`<li class=${(r.kind === 'npc' ? 'npc' : 'pc') + (i === cb.turn ? ' now' : '') + (r.kind === 'npc' && (r.hp ?? 1) <= 0 ? ' down' : '')}>${r.name}</li>`)}</ol>`
-          : html`<span class="bt-round">${camp.name}</span>`}
-        <button class="bt-close" onClick=${() => setTable(false)} aria-label="Tischansicht schließen">✕</button></div>
-      ${board}
-      ${(benchRow || info) && html`<div class="bt-foot">${info}${benchRow}</div>`}
-    </div>`;
+  if (table) return html`<div class="bm-display">${board}${info && html`<div class="bt-foot">${info}</div>`}</div>`; // no bench: unplaced enemies stay a surprise
 
   return html`<section class="panel box battlemap">
     <div class="box-head"><h2><span class="ico" aria-hidden="true">🗺️</span>Karte</h2>
       <span class="sub">Nur du siehst sie · 1 Feld = 5 ft</span><button class="link quiet small" onClick=${() => setOpen(!open)}>${open ? 'Einklappen' : 'Ausklappen'}</button></div>
     ${open && html`
     <div class="bm-tools">
-      <button class="btn small primary" onClick=${openTable}>📺 Tischansicht</button>
+      <button class="btn small" onClick=${() => go('tisch')} title="Die Karte groß für alle, z. B. auf dem Tablet">📺 Tischbildschirm</button>
       <button class=${'btn small' + (figOpen ? ' primary' : '')} onClick=${() => { setFigOpen(!figOpen); setScenesOpen(false); }}>🎭 NPC</button>
       <button class=${'btn small' + (scenesOpen ? ' primary' : '')} onClick=${() => { setScenesOpen(!scenesOpen); setFigOpen(false); }}>🎬 Szenen</button>
       <div class="seg small">${Object.entries(SIZES).map(([k, [, , l]]) => html`<button aria-pressed=${(camp.mapSize || 'm') === k} onClick=${() => setSize(k)}>${l}</button>`)}</div>
@@ -158,7 +143,7 @@ export function BattleMap({ cid, camp, chars, isDM, user, npcs = [] }) {
     ${scenesOpen && html`<${Scenes} cid=${cid} camp=${camp} chars=${chars} user=${user} docs=${docs || []} tokens=${tokens} pos=${pos} onDone=${() => setScenesOpen(false)}/>`}
     ${brush && html`<p class="muted small-note">Malmodus: Tippe oder ziehe über Felder. Zum Beenden das Symbol noch einmal antippen.</p>`}
     ${board}${benchRow}${info}
-    <p class="muted small-note">Ziehe Figuren auf Felder. Antippen zeigt Abstände. Raus aus der Karte ziehen legt sie zurück in die Ablage. Mit 📺 Tischansicht zeigst du die Karte groß auf dem Tablet; Änderungen von deinem Handy erscheinen dort sofort.</p>`}
+    <p class="muted small-note">Ziehe Figuren auf Felder. Antippen zeigt Abstände. Raus aus der Karte ziehen legt sie zurück in die Ablage. Auf dem 📺 Tischbildschirm (Tablet) erscheint jede Änderung sofort.</p>`}
   </section>`;
 }
 

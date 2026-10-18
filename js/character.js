@@ -11,6 +11,7 @@ import { throwDice, loadThree, canThrow, diceSettings } from './dice3d.js';
 
 const accentHex = () => { try { return getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#2B4790'; } catch (e) { return '#2B4790'; } };
 import { clsName } from './cards.js';
+import { setActor, setFallbackActor, takeActor, logRoll, logAct, charActor } from './log.js';
 
 /* shared advantage/disadvantage state: set in the tray or the turn panel, used by the next d20 roll, then back to normal */
 let diceMode = 'normal'; const modeSubs = new Set();
@@ -37,7 +38,8 @@ export function CharacterPage({ user, cid, chId }) {
   const sheet = useDoc(card && (isDM || isOwner) ? `campaigns/${cid}/characters/${chId}/sheet/main` : null);
   const all = useCol(camp ? `campaigns/${cid}/characters` : null);
   useEffect(() => { if (camp) applyTheme(camp.theme); }, [camp?.theme]);
-  useEffect(() => { if (card?.diceColor) dispatchEvent(new CustomEvent('dndm-dicecolor', { detail: { hex: diceHex(card.diceColor), name: card.name } })); return () => dispatchEvent(new CustomEvent('dndm-dicecolor', { detail: null })); }, [card?.diceColor, card?.name]);
+  const actor = charActor(camp, card, cid, user);
+  useEffect(() => { if (card?.diceColor || actor) dispatchEvent(new CustomEvent('dndm-dicecolor', { detail: { hex: card?.diceColor ? diceHex(card.diceColor) : null, name: card?.name, actor } })); return () => dispatchEvent(new CustomEvent('dndm-dicecolor', { detail: null })); }, [card?.diceColor, card?.name, actor?.session, !!actor]);
   const [edit, setEdit] = useState(false);
   if (camp === undefined || card === undefined) return html`<${Spinner}/>`;
   if (!camp || !card) return html`<main class="page"><${Empty} title="Charakter nicht gefunden" action=${html`<a class="btn" href=${href('c', cid)}>Zur Kampagne</a>`}>Vielleicht wurde er gelöscht.</${Empty}></main>`;
@@ -49,7 +51,7 @@ export function CharacterPage({ user, cid, chId }) {
   const s = { ...blankSheet(), ...(sheet || {}) };
   const coreOk = isDM || (isOwner && !card.locked);
   const ctx = { c: card, s, cid, chId, isDM, isOwner, coreOk, camp, user };
-  return html`<main class="page charpage">${back}
+  return html`<main class="page charpage" onClickCapture=${() => setActor(actor)}>${back}
     <${CharHeader} ...${ctx} onEdit=${() => setEdit(true)} onAsOther=${() => { setAsOther(true); window.scrollTo(0, 0); }}/>
     <${LevelUpBanner} ...${ctx}/>
     <div class="sheet-grid">
@@ -72,27 +74,38 @@ export function CharacterPage({ user, cid, chId }) {
   </main>`;
 }
 
-// Compact live sheet for the "Im Spiel" screen: everything you touch during a fight, nothing you don't.
+// Compact live sheet for the "Spieltisch" screen: everything you touch during a fight, nothing you don't.
 export function CharQuick({ user, cid, chId, camp }) {
   const card = useDoc(cardPath(cid, chId));
   const sheet = useDoc(card ? sheetPath(cid, chId) : null);
-  useEffect(() => { if (card?.diceColor) dispatchEvent(new CustomEvent('dndm-dicecolor', { detail: { hex: diceHex(card.diceColor), name: card.name } })); return () => dispatchEvent(new CustomEvent('dndm-dicecolor', { detail: null })); }, [card?.diceColor, card?.name]);
+  const actor = charActor(camp, card, cid, user);
+  useEffect(() => { if (card) dispatchEvent(new CustomEvent('dndm-dicecolor', { detail: { hex: card.diceColor ? diceHex(card.diceColor) : null, name: card.name, actor } })); return () => dispatchEvent(new CustomEvent('dndm-dicecolor', { detail: null })); }, [card?.diceColor, card?.name, actor?.session, !!card]);
   if (card === undefined || (card && sheet === undefined)) return html`<${Spinner}/>`;
   if (!card) return null;
   const isDM = camp.dmUid === user.uid, isOwner = card.ownerUid === user.uid;
   const s = { ...blankSheet(), ...(sheet || {}) };
   const ctx = { c: card, s, cid, chId, isDM, isOwner, coreOk: isDM || (isOwner && !card.locked), camp, user };
-  return html`<div class="quick-char">
-    <div class="qc-head panel box"><${Medal} cls=${card.cls} species=${card.species}/><div class="nc-id"><h3>${card.name}</h3><div class="sub">Stufe ${card.level || 1} · ${[card.species, clsName(card)].filter(Boolean).join(' ')}</div></div>
+  const fight = !!camp.combat;
+  const conds = (card.conditions || []).length || card.exhaustion;
+  // in a fight the actions come first; otherwise HP, skills and saves (for "make a Perception check")
+  return html`<div class=${'quick-char' + (fight ? ' fight' : ' calm')} onClickCapture=${() => setActor(actor)}>
+    <div class="qc-head"><${Medal} cls=${card.cls} species=${card.species}/><div class="nc-id"><h3>${card.name}</h3><div class="sub">Stufe ${card.level || 1} · ${[card.species, clsName(card)].filter(Boolean).join(' ')}</div></div>
       <a class="btn small" href=${href('c', cid, 'char', chId)}>📜 Ganzer Bogen</a></div>
     <${LevelUpBanner} ...${ctx}/>
-    <div class="qc-grid">
+    ${fight ? html`<div class="qc-grid">
       <div class="qc-main"><${ActionsPanel} ...${ctx}/></div>
-      <div class="qc-side"><${Vitals} ...${ctx}/><${Conditions} ...${ctx}/>
-        <details class="fold" open><summary>🎯 Skills & Saves</summary><${Abilities} ...${ctx}/><${Skills} ...${ctx}/></details>
+      <div class="qc-side"><${Vitals} ...${ctx}/>${conds ? html`<${Conditions} ...${ctx}/>` : html`<details class="fold"><summary>🩹 Zustände</summary><${Conditions} ...${ctx}/></details>`}
+        <details class="fold"><summary>🎯 Skills & Saves</summary><${Abilities} ...${ctx}/><${Skills} ...${ctx}/></details>
         <details class="fold"><summary>🔋 Ressourcen</summary><${Resources} ...${ctx}/></details>
-        <details class="fold"><summary>🎒 Inventar</summary><${Inventory} ...${ctx}/></details></div>
-    </div></div>`;
+        <details class="fold"><summary>🎒 Inventar</summary><${Inventory} ...${ctx}/></details></div></div>`
+    : html`<div class="qc-grid">
+      <div class="qc-main"><${Vitals} ...${ctx}/>${conds ? html`<${Conditions} ...${ctx}/>` : ''}<${Skills} ...${ctx}/></div>
+      <div class="qc-side"><${Abilities} ...${ctx}/>
+        <details class="fold"><summary>⚔️ Aktionen & Zauber</summary><${ActionsPanel} ...${ctx}/></details>
+        ${!conds && html`<details class="fold"><summary>🩹 Zustände</summary><${Conditions} ...${ctx}/></details>`}
+        <details class="fold"><summary>🔋 Ressourcen</summary><${Resources} ...${ctx}/></details>
+        <details class="fold"><summary>🎒 Inventar</summary><${Inventory} ...${ctx}/></details></div></div>`}
+    </div>`;
 }
 
 function PublicCard({ c }) {
@@ -259,6 +272,7 @@ const SPELL_FX = {
   'cure wounds': { kind: 'heal', dice: '2d8', mod: true }, 'healing word': { kind: 'heal', dice: '2d4', mod: true }, 'mass healing word': { kind: 'heal', dice: '2d4', mod: true }, 'prayer of healing': { kind: 'heal', dice: '2d8', mod: true },
   'hex': { kind: 'utility', rider: '1d6', riderType: 'Necrotic' }, "hunter's mark": { kind: 'utility', rider: '1d6', riderType: 'Force' }, 'armor of agathys': { kind: 'utility', temp: 5 },
 };
+const TIME_NAME = { action: 'Action', bonus: 'Bonus Action', reaction: 'Reaction', move: 'Bewegung' };
 const KIND_LABEL = { attack: 'Angriff', save: 'Rettungswurf', heal: 'Heilung', auto: 'trifft automatisch', utility: '' };
 const AB_SHORT = { str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' };
 
@@ -279,7 +293,8 @@ function buildActions(c, s) {
 }
 
 function ActionsPanel(ctx) {
-  const { c, s, cid, chId, camp } = ctx; const cb = camp?.combat;
+  const { c, s, cid, chId, camp, user } = ctx; const cb = camp?.combat;
+  const actor = charActor(camp, c, cid, user);
   const cur = cb?.list?.[cb.turn], myTurn = !!cb && cur?.charId === chId;
   const [st, save] = useEconomy(cid, chId, cb?.round, myTurn);
   const [flow, setFlow] = useState({}); // per action: what has been rolled so far
@@ -298,6 +313,8 @@ function ActionsPanel(ctx) {
     else if (x.temp) patch(ctx, { tempHp: Math.max(c.tempHp || 0, x.temp) });
     if (cb && used[time] && time !== 'move') toast(`${{ action: 'Action', bonus: 'Bonus Action', reaction: 'Reaction' }[time]} war in diesem Zug schon verbraucht.`);
     save({ ...st, used: cb ? { ...used, [time]: true } : used, ...(x.conc ? { conc: x.name } : {}) });
+    if (x.conc) patch(ctx, { conc: x.name }); // the DM and the table screen see who concentrates on what
+    if (x.kind !== 'attack') logAct(actor, `wirkt ${x.name} (${TIME_NAME[time] || time}${x.level ? `, Slot Stufe ${x.level}` : ''})${x.kind === 'save' && x.save ? ` · Ziel: ${AB_SHORT[x.save]} Save gegen DC ${dc}` : ''}${x.conc ? ' · Concentration' : ''}`);
     return true; };
   const d20 = (label, bonus) => { const md = diceMode; const r = roll(withBonus('1d20', bonus), md); requestRoll({ label, result: r }); if (md !== 'normal') setDiceMode('normal'); return r; };
   const dmg = (label, expr) => requestRoll({ label, expr });
@@ -341,13 +358,13 @@ function ActionsPanel(ctx) {
         ${slotsMax.map((n, lv) => n ? html`<span class="ap-chip slots">${isPact(c.cls) ? 'Pact Slot' : 'Slots'} ${lv + 1}: ${Array.from({ length: n }, (_, i) => html`<button class=${'pip' + (i < (slotsUsed[lv] || 0) ? ' on' : '')} aria-label=${`Slot Stufe ${lv + 1}`} onClick=${() => { const u = [...slotsUsed]; u[lv] = i < (u[lv] || 0) ? i : i + 1; patch(ctx, null, { slotsUsed: u }); }}></button>`)}</span>` : null)}`}
       <span class="ap-mode"><span class="label">Nächster d20</span><${ModeSeg} small/></span></div>
     ${st.conc && html`<div class="conc">🧠 Concentration: <b>${st.conc}</b>${rider ? html` <span class="sub">(+${rider.dice} auf jeden Treffer)</span>` : ''}<small>Nimmst du Schaden: Constitution Save, DC 10 oder halber Schaden.</small>
-      <button class="btn small" onClick=${() => d20('Concentration (CON Save)', mod(s.abilities.con) + (s.saveProf.includes('con') ? profBonus(c.level || 1) : 0))}>CON Save</button><button class="link quiet small" onClick=${() => save({ ...st, conc: null })}>Beenden</button></div>`}
+      <button class="btn small" onClick=${() => d20('Concentration (CON Save)', mod(s.abilities.con) + (s.saveProf.includes('con') ? profBonus(c.level || 1) : 0))}>CON Save</button><button class="link quiet small" onClick=${() => { save({ ...st, conc: null }); patch(ctx, { conc: null }); logAct(actor, `beendet Concentration auf ${st.conc}`); }}>Beenden</button></div>`}
 
     <${Group} k="action" icon="🎯" title="Action" hint="eine pro Zug">
       ${grp('action').map(x => row(x))}
       ${!list.length && html`<p class="muted small-note">Noch keine Angriffe oder Zauber. Trag sie im ganzen Bogen ein.</p>`}
       <div class="tp-chips"><span class="label">Oder</span>${OTHER_ACTIONS.map(([n]) => html`<button class=${'act-chip' + (tip === n ? ' on' : '')} onClick=${() => setTip(tip === n ? null : n)}>${n}</button>`)}</div>
-      ${tip && html`<div class="tp-tip"><b>${tip}:</b> ${OTHER_ACTIONS.find(x => x[0] === tip)[1]} ${cb && html`<button class="btn small" onClick=${() => { mark('action'); setTip(null); toast(tip + ' genutzt.'); }}>Als Action nutzen</button>`}</div>`}</${Group}>
+      ${tip && html`<div class="tp-tip"><b>${tip}:</b> ${OTHER_ACTIONS.find(x => x[0] === tip)[1]} ${cb && html`<button class="btn small" onClick=${() => { mark('action'); logAct(actor, `${tip} (Action)`); setTip(null); toast(tip + ' genutzt.'); }}>Als Action nutzen</button>`}</div>`}</${Group}>
 
     <${Group} k="bonus" icon="⚡" title="Bonus Action" hint="nur mit Zauber oder Feature">
       ${grp('bonus').map(x => row(x))}
@@ -675,13 +692,13 @@ export function DiceTray() {
   }, []);
   useEffect(() => {
     // advantage/disadvantage counts for one d20 roll, then the tray goes back to normal
-    const onRoll = e => { const d = e.detail; const m = !d.result && isD20(d.expr) ? modeRef.current : 'normal'; push(d.label, d.result || roll(d.expr, m), d.hex); if (m !== 'normal') setDiceMode('normal'); };
-    const onColor = e => setColor(e.detail);
+    const onRoll = e => { const d = e.detail; const a = d.actor || takeActor(false); const m = !d.result && isD20(d.expr) ? modeRef.current : 'normal'; const r = d.result || roll(d.expr, m); push(d.label, r, d.hex); logRoll(a, d.logLabel || d.label, r); if (m !== 'normal') setDiceMode('normal'); };
+    const onColor = e => { setColor(e.detail?.hex ? e.detail : null); setFallbackActor(e.detail?.actor || null); };
     addEventListener('dndm-roll', onRoll); addEventListener('dndm-dicecolor', onColor);
     return () => { removeEventListener('dndm-roll', onRoll); removeEventListener('dndm-dicecolor', onColor); };
   }, []);
   const last = hist[0];
-  const free = e => { e.preventDefault(); if (!expr.trim()) return; push(expr.trim(), roll(expr, mode)); if (isD20(expr) && mode !== 'normal') setDiceMode('normal'); };
+  const free = e => { e.preventDefault(); if (!expr.trim()) return; const r = roll(expr, mode); push(expr.trim(), r); logRoll(takeActor(true), `freier Wurf ${expr.trim()}`, r); if (isD20(expr) && mode !== 'normal') setDiceMode('normal'); };
   return html`<button class="dice-fab" style=${color ? `--dc:${color.hex}` : ''} onClick=${() => setOpen(!open)} aria-label="Würfel" aria-expanded=${open}><svg viewBox="0 0 24 24" dangerouslySetInnerHTML=${{ __html: D20 }}></svg>${mode !== 'normal' && html`<span class=${'fab-mode ' + mode}>${mode === 'adv' ? '⬆️' : '⬇️'}</span>`}</button>
     ${mode !== 'normal' && !open && html`<button class=${'mode-pill ' + mode} onClick=${() => setDiceMode('normal')} title="Zurück auf Normal">${mode === 'adv' ? 'Nächster d20 mit Vorteil' : 'Nächster d20 mit Nachteil'} ×</button>`}
     ${open && html`<aside class="dice-tray" role="dialog" aria-label="Würfel">
@@ -693,7 +710,7 @@ export function DiceTray() {
         <span class="label">${last.label}</span><b class="total num">${last.r.total}</b>
         <span class="breakdown">${last.r.parts.map(p => p.flat !== undefined ? (p.flat >= 0 ? ' + ' + p.flat : ' − ' + Math.abs(p.flat)) : html`${p.sign < 0 ? ' − ' : ''}<span class="die">${p.rolls.join(', ')}</span><span class="sub">d${p.sides}</span>`)}${last.r.dropped !== null ? html`<span class=${'adv-note ' + last.r.mode}>${last.r.mode === 'adv' ? '⬆️ Vorteil' : '⬇️ Nachteil'}: ${last.r.nat} und ${last.r.dropped} gewürfelt, ${last.r.nat} zählt</span>` : ''}</span>
         ${last.r.crit && html`<span class="flag-crit">Natürliche 20!</span>`}${last.r.fumble && html`<span class="flag-crit">Natürliche 1</span>`}</div>`}
-      <div class="quick">${[4, 6, 8, 10, 12, 20, 100].map(d => html`<button class="btn small" onClick=${() => { push('d' + d, roll('1d' + d, d === 20 ? mode : 'normal')); if (d === 20 && mode !== 'normal') setDiceMode('normal'); }}>d${d}</button>`)}</div>
+      <div class="quick">${[4, 6, 8, 10, 12, 20, 100].map(d => html`<button class="btn small" onClick=${() => { const r = roll('1d' + d, d === 20 ? mode : 'normal'); push('d' + d, r); logRoll(takeActor(true), `freier Wurf d${d}`, r); if (d === 20 && mode !== 'normal') setDiceMode('normal'); }}>d${d}</button>`)}</div>
       <form class="inline-add" onSubmit=${free}><input id="dice-expr" value=${expr} onInput=${e => setExpr(e.target.value)} placeholder="z. B. 2d6+3" autocomplete="off"/><button class="btn primary small">Würfeln</button></form>
       ${hist.length > 1 && html`<div class="hist">${hist.slice(1, 8).map(h => html`<div class="h"><span class="dot" style=${`--dc:${h.hex || 'var(--accent)'}`}></span><span>${h.label}</span><b class="num">${h.r.total}</b></div>`)}</div>`}
     </aside>`}`;

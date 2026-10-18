@@ -68,7 +68,7 @@ service cloud.firestore {
             // draft: everything except lock and XP
             (resource.data.locked == false && !changed().hasAny(['locked', 'xp', 'ownerUid']) && request.resource.data.get('ac', null) == null)
             // live values during play
-            || changed().hasOnly(['hp', 'tempHp', 'conditions', 'exhaustion', 'updatedAt'])
+            || changed().hasOnly(['hp', 'tempHp', 'conditions', 'exhaustion', 'conc', 'updatedAt'])
             // level up: one level, only when the XP threshold is reached
             || (changed().hasOnly(['hp', 'tempHp', 'hpMax', 'level', 'updatedAt'])
                 && request.resource.data.level == resource.data.level + 1
@@ -113,6 +113,14 @@ service cloud.firestore {
         allow write: if isDM(cid) || (isMember(cid)
           && exists(/databases/$(database)/documents/campaigns/$(cid)/characters/$(tokenId))
           && get(/databases/$(database)/documents/campaigns/$(cid)/characters/$(tokenId)).data.ownerUid == uid());
+      }
+
+      // Action log of the game night: everyone in the campaign adds their own rolls and actions;
+      // only the DM marks outcomes or deletes entries.
+      match /log/{id} {
+        allow read: if inCampaign(cid);
+        allow create: if isDM(cid) || (isMember(cid) && request.resource.data.uid == uid());
+        allow update, delete: if isDM(cid);
       }
 
       // Prepared secrets: DM only, until revealed.

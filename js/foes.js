@@ -68,10 +68,10 @@ export function FoeForm({ onAdd }) {
 }
 
 /* ---------- the temporary sheet the DM rolls from ---------- */
-export function FoeSheet({ r, now, onPatch, onClose }) {
+export function FoeSheet({ r, now, onPatch, onClose, actor }) {
   const [amt, setAmt] = useState('');
   const hp = r.hp ?? r.hpMax ?? 0, max = r.hpMax || 0;
-  const roll = (label, expr) => requestRoll({ label: `${r.name}: ${label}`, expr, hex: FOE_HEX });
+  const roll = (label, expr) => requestRoll({ label: `${r.name}: ${label}`, logLabel: label, expr, hex: FOE_HEX, actor: actor && { ...actor, who: r.name, foe: true } });
   const change = sign => { const n = int(amt, 0); if (!n) return toast('Zahl eingeben.');
     onPatch({ hp: sign < 0 ? Math.max(0, hp - n) : Math.min(max || hp + n, hp + n) }); setAmt('');
     if (sign < 0 && hp - n <= 0) toast(`${r.name} ist am Boden.`); };
