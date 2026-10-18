@@ -11,15 +11,13 @@
   --med-bg-s: 52%; --med-bg-l: 90%; --med-fg-s: 55%; --med-fg-l: 31%;
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0F1218; --surface: #171B24; --raised: #1C212B; --sunk: #0B0E13; --ink: #E6E8EE; --muted: #9BA2B1; --line: #272D39; --line-strong: #363E4D;
+:root[data-theme="dark"] {
+  --bg: #0F1218; --surface: #171B24; --raised: #1C212B; --sunk: #0B0E13; --ink: #E6E8EE; --muted: #9BA2B1; --line: #272D39; --line-strong: #363E4D;
     --accent: var(--theme-accent-dark, #8FA8EA); --accent-ink: #0E1320; --accent-soft: var(--theme-tint-dark, #1D2740);
     --gild: #D9AA47; --gild-soft: #2B2517; --blood: #E46E73; --blood-soft: #341C20; --ok: #6CC088; --ok-soft: #18291F; --warn: #D9AA47;
     --shadow: 0 1px 2px rgb(0 0 0 / .35);
     --med-bg-s: 30%; --med-bg-l: 21%; --med-fg-s: 65%; --med-fg-l: 73%;
     color-scheme: dark;
-  }
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -619,7 +617,7 @@ fieldset:disabled input, fieldset:disabled select, fieldset:disabled textarea { 
 /* ================= minimal layer =================
    Fewer lines and boxes: surfaces separate by tone, not borders. Emoji carry the icons. */
 :root { --r: 16px; --chip: #ECEDE8; --bg: #F3F3EF; --line: #E3E5DE; }
-@media (prefers-color-scheme: dark) { :root { --chip: #232833; --line: #252A35; } }
+
 .ico { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; font-style: normal; margin-right: .45em; font-size: 1.05em; line-height: 1; }
 .label .ico { margin-right: .35em; font-size: 1.1em; }
 .label, .stat .label, .roster th, .th-table thead th, .pill, .most, .cal span, .menu-note { text-transform: none; letter-spacing: 0; }
@@ -633,7 +631,7 @@ fieldset:disabled input, fieldset:disabled select, fieldset:disabled textarea { 
 .group-label::after { display: none; }
 .btn { border: 0; background: var(--chip); border-radius: 10px; padding: 8px 14px; }
 .btn:hover { border: 0; filter: brightness(.96); }
-@media (prefers-color-scheme: dark) { .btn:hover { filter: brightness(1.15); } }
+:root[data-theme="dark"] .btn:hover { filter: brightness(1.15); }
 .btn.small { border-radius: 8px; padding: 4px 10px; }
 .btn.primary { border: 0; }
 .toggle { border: 0; background: var(--chip); }
@@ -674,3 +672,12 @@ fieldset:disabled input, fieldset:disabled select, fieldset:disabled textarea { 
 .th-table th, .th-table td { border-bottom-color: var(--line); }
 input, select, textarea { border-radius: 10px; }
 .hero-meta, .sub { font-size: 14px; }
+
+/* two looks: warm off-white (paper) and deep night blue. Chosen in the account menu, "Auto" follows the device. */
+:root { --bg: #E9E5DB; --surface: #F6F3EB; --raised: #EFEBE1; --sunk: #E0DACD; --chip: #E3DED1; --line: #D9D2C2; --line-strong: #C8BFAC; --ink: #1D2029; --muted: #5F6370; }
+:root[data-theme="dark"] { --bg: #0C1322; --surface: #131D33; --raised: #18253F; --sunk: #09101C; --chip: #20304F; --line: #22304A; --line-strong: #2F4062; --ink: #E3E9F5; --muted: #93A2BE; color-scheme: dark; }
+.look { display: flex; gap: 4px; padding: 6px 10px 8px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.look button { flex: 1; padding: 6px 4px; border-radius: 8px; font-size: 13px; text-align: center; background: var(--chip); }
+.look button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.menu .look-label { padding: 2px 10px 0; }
+.look button { white-space: nowrap; font-size: 12.5px; padding: 7px 4px; }

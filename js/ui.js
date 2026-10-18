@@ -132,3 +132,12 @@ export function usePreview(cid) {
   return [on, set];
 }
 export const PreviewBar = ({ text, onExit }) => html`<div class="preview-bar" role="status"><span><b>Spieler-Vorschau.</b> ${text}</span><button class="btn small" onClick=${onExit}>Vorschau beenden</button></div>`;
+
+/* ---------- look: paper (light) / night blue (dark) / auto ---------- */
+export function getLook() { try { return localStorage.getItem('dndm-look') || 'auto'; } catch (e) { return 'auto'; } }
+export function applyLook(k = getLook()) {
+  const dark = k === 'dark' || (k === 'auto' && !!globalThis.matchMedia?.('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+}
+export function setLook(k) { try { localStorage.setItem('dndm-look', k); } catch (e) {} applyLook(k); }
+try { globalThis.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => applyLook()); } catch (e) {}

@@ -5,6 +5,7 @@ import { THEMES } from './rules5e.js';
 import { ensureUser, createCampaign, joinCampaign, createExampleCampaign } from './ops.js';
 import { CampaignPage, CampaignForm } from './campaign.js';
 import { STATUS, CharCard, clsName, AcValue } from './cards.js';
+import { getLook, setLook, applyLook } from './ui.js';
 import { importCampaign } from './backup.js';
 import { CharacterPage, NewCharacter, DiceTray } from './character.js';
 
@@ -28,6 +29,7 @@ function Login({ mode }) {
 /* ---------- top bar ---------- */
 function TopBar({ user, mode }) {
   const [open, setOpen] = useState(false);
+  const [look, setLookS] = useState(getLook());
   useEffect(() => {
     if (!open) return;
     const away = e => { if (!e.target.closest('.menu-wrap')) setOpen(false); };
@@ -41,7 +43,9 @@ function TopBar({ user, mode }) {
       <button class="user-btn" onClick=${() => setOpen(!open)} aria-expanded=${open}>${user.photo ? html`<img src=${user.photo} alt="" referrerpolicy="no-referrer"/>` : html`<span class="ava sm">${user.name[0]}</span>`}<span class="nm">${user.name}</span></button>
       ${open && html`<div class="menu" role="menu" onClick=${() => setOpen(false)}><div class="menu-who"><b>${user.name}</b><span class="sub">Angemeldet${mode === 'firebase' ? ' mit Google' : ''}</span></div>
         ${mode === 'demo' && html`<div class="menu-note">Demo-Modus</div>${store.demoUsers().filter(u => u.uid !== user.uid).map(u => html`<button onClick=${() => { store.demoSwitch(u.uid); go(); }}>Wechseln zu ${u.name}</button>`)}`}
-        <button onClick=${() => { store.signOut(); go(); }}>Abmelden</button></div>`}
+        <div class="label look-label">Darstellung</div>
+        <div class="look" onClick=${e => e.stopPropagation()}>${[['light', '☀️ Hell'], ['dark', '🌙 Dunkel'], ['auto', '🖥️ Auto']].map(([k, l]) => html`<button aria-pressed=${look === k} onClick=${() => { setLook(k); setLookS(k); }}>${l}</button>`)}</div>
+        <button onClick=${() => { store.signOut(); go(); }}>🚪 Abmelden</button></div>`}
     </div></header>`;
 }
 
