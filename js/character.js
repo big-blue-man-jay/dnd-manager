@@ -11,7 +11,7 @@ import { throwDice, loadThree, canThrow, diceSettings } from './dice3d.js';
 
 const accentHex = () => { try { return getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim() || '#2B4790'; } catch (e) { return '#2B4790'; } };
 import { clsName } from './cards.js';
-import { lookOf, kindLine, itemName, term, coinsOf, worldOf } from './world.js';
+import { lookOf, kindLine, itemName, term, coinsOf, worldOf, spellName } from './world.js';
 import { setActor, setFallbackActor, takeActor, logRoll, logAct, charActor } from './log.js';
 import { RARITY } from './loot.js';
 
@@ -510,7 +510,7 @@ function Spellcasting(ctx) {
       ${slotsMax.map((n, lv) => n ? html`<div class="slotrow"><span class="lv">${lv + 1}</span><div class="pips">${Array.from({ length: n }, (_, i) => html`<button class=${i < (used[lv] || 0) ? 'on' : ''} aria-label=${`Slot Stufe ${lv + 1}`} onClick=${() => tapSlot(lv, i)}></button>`)}</div><span class="sub">${n - Math.min(n, used[lv] || 0)} frei</span></div>` : null)}</div>`}
     ${byLevel.map(([l, list]) => html`<div class="spell-lv"><span class="label">${l === 0 ? 'Cantrips' : 'Stufe ' + l}</span>${list.map(x => html`<div class="spell">
       ${l > 0 && html`<button class=${'prep' + (x.prepared ? ' on' : '')} title="Vorbereitet" onClick=${() => patch(ctx, null, { spells: spells.map(y => y.id === x.id ? { ...y, prepared: !y.prepared } : y) })}>${x.prepared ? '●' : '○'}</button>`}
-      <span class="nm">${x.name}${x.note && html` <span class="sub">${x.note}</span>`}</span><button class="link quiet small" onClick=${() => setF(x)}>Ändern</button></div>`)}</div>`)}
+      <span class="nm">${spellName(camp, x.name) || x.name}${(spellName(camp, x.name) || x.note) && html` <span class="sub">${[spellName(camp, x.name) && x.name, x.note].filter(Boolean).join(' · ')}</span>`}</span><button class="link quiet small" onClick=${() => setF(x)}>Ändern</button></div>`)}</div>`)}
     ${f && html`<form class="form inline-form" onSubmit=${save}>
       <${Field} label="Zauber"><input id="sp-name" value=${f.name} onInput=${e => setF(f => ({ ...f, name: e.target.value }))} placeholder="Cure Wounds"/></${Field}>
       <${Field} label="Stufe"><select id="sp-lv" value=${f.level} onChange=${e => setF(f => ({ ...f, level: int(e.target.value) }))}>${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(l => html`<option value=${l}>${l === 0 ? 'Cantrip' : l}</option>`)}</select></${Field}>

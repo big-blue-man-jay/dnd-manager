@@ -2,7 +2,7 @@
 import { html, useState, useMemo, Medal, Field, toast } from './ui.js';
 import { ABILITIES, SKILLS, CLASSES, ALIGNMENTS, DICE_COLORS, SPECIES_EMOJI, CLASS_EMOJI, suggestedResources, mod, sgn } from './rules5e.js';
 import { newId } from './data.js';
-import { lookIn, itemIn } from './world.js';
+import { lookIn, itemIn, spellIn, featIn } from './world.js';
 import { CLASS_INFO, DIFF, SPECIES_INFO, FEATS, BACKGROUNDS, ABILITY_DESC, SKILL_DESC, SPELLS, SPELL_ATTACKS, STANDARD_ARRAY, TRAITS, DIE_NOTE } from './builder-data.js';
 
 const SK = Object.fromEntries(SKILLS.map(s => [s.key, s]));
@@ -36,6 +36,7 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
   const ci = st.cls && CLASS_INFO[st.cls], bgi = st.bg && BACKGROUNDS[st.bg], spi = st.species && SPECIES_INFO[st.species];
   // a campaign world renames classes, folks, backgrounds, gear and a few rules words; the rules stay the same
   const W = (map, k) => (k && world?.[map]?.[k]) || null, T = (k, fb) => world?.terms?.[k] || fb, IT = n => itemIn(world, n) || n;
+  const SP = n => spellIn(world, n) || n, FT = n => featIn(world, n) || n;
   const clsN = W('classes', st.cls)?.name || st.cls, spN = W('species', st.species)?.name || st.species, bgN = W('backgrounds', st.bg)?.name || st.bg;
   const both = (n, k) => (n && n !== k ? `${n} (${k})` : k); // "Nailsage Disciple (Fighter)" in stored texts, so the rulebook stays findable
   const place = world ? world.setting || world.name : '';
@@ -94,7 +95,7 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
     const all = spellInfo ? [...spellInfo[2], ...spellInfo[3]] : [];
     const spells = [...st.cantrips.map(n => ({ n, level: 0 })), ...st.spells.map(n => ({ n, level: 1 }))].map(({ n, level }) => ({ id: newId(), name: n, level, prepared: true, note: all.find(s => s.name === n)?.note || '' }));
     const skills = Object.fromEntries(allSkills.map(k => [k, 1]));
-    const features = [`${both(clsN, st.cls)} (Stufe 1): ${ci.feats}`, `${both(spN, st.species)}: ${spi.traits}`, `Origin Feat (${both(bgN, st.bg)}): ${bgi.feat}${bgi.featNote ? ' (' + bgi.featNote + ')' : ''} – ${FEATS[bgi.feat]}`,
+    const features = [`${both(clsN, st.cls)} (Stufe 1): ${ci.feats}`, `${both(spN, st.species)}: ${spi.traits}`, `Origin Feat (${both(bgN, st.bg)}): ${both(featIn(world, bgi.feat), bgi.feat)}${bgi.featNote ? ' (' + bgi.featNote + ')' : ''} – ${FEATS[bgi.feat]}`,
       st.species === 'Human' ? 'Human Versatile: ein weiteres Origin Feat nach Wahl (mit dem DM klären)' : ''].filter(Boolean).join('\n');
     const notes = [st.origin && `Herkunft: ${st.origin}`, st.goal && `Ziel: ${st.goal}`, st.quirk && `Macke: ${st.quirk}`].filter(Boolean).join('\n');
     const inventory = [...ci.weapons.filter(w => w.name !== 'Unarmed Strike').map(w => ({ id: newId(), name: w.name, qty: 1, note: w.note, attuned: false })),
@@ -129,7 +130,7 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
       <div class="choice-grid">${Object.entries(BACKGROUNDS).map(([k, b]) => { const fit = b.abs.includes(ci.order[0]); return html`<${Choice} on=${st.bg === k} onClick=${() => chooseBg(k)} emoji=${fit ? '★' : '·'} title=${W('backgrounds', k)?.name || k} tag=${fit ? 'passt zu ' + clsN : ''} rules=${W('backgrounds', k) ? k : ''} lore=${W('backgrounds', k)?.note}>
         <span class="ch-desc">${b.pitch}</span><span class="ch-role">${b.abs.map(abName).join(', ')}</span>
         ${st.bg === k && html`<span class="ch-more"><${Facts} rows=${[['Attribute', `${b.abs.map(abName).join(', ')}: Diese drei bekommen zusammen +3. Die Verteilung wählst du im nächsten Schritt.`],
-          [`Feat: ${b.feat}${b.featNote ? ` (${b.featNote})` : ''}`, FEATS[b.feat]], ...b.skills.map(x => [`Skill: ${SK[x].name}`, SKILL_DESC[x]]), ['Werkzeug', b.tool]]}/></span>`}</${Choice}>`; })}</div>`,
+          [`Feat: ${both(featIn(world, b.feat), b.feat)}${b.featNote ? ` (${W('classes', b.featNote)?.name || b.featNote})` : ''}`, FEATS[b.feat]], ...b.skills.map(x => [`Skill: ${SK[x].name}`, SKILL_DESC[x]]), ['Werkzeug', b.tool]]}/></span>`}</${Choice}>`; })}</div>`,
     werte: () => html`<${Intro}><b>💪 Sechs Attribute beschreiben Körper und Geist.</b> Du verteilst die Werte <b>15, 14, 13, 12, 10 und 8</b>, jeden genau einmal. Hohe Werte gehören auf das, was deine Klasse braucht.
         <ul class="wiz-tips"><li>Aus jedem Wert ergibt sich ein <b>Modifier</b>, der bei Würfen dazugerechnet wird: 8–9 = −1 · 10–11 = 0 · 12–13 = +1 · 14–15 = +2 · 16–17 = +3.</li>
         <li>Dazu kommen die <b>+3 Punkte aus deinem Background (${bgN})</b>.</li><li>Die <b>Empfehlung</b> steht bei jedem Attribut. Du kannst sie mit einem Klick übernehmen.</li></ul></${Intro}>
@@ -158,9 +159,9 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
         <li>Steht bei einem Zauber <b>Concentration</b>, musst du dich darauf konzentrieren: Du kannst nur einen solchen Zauber gleichzeitig aufrechterhalten.</li>
         <li>„Empfohlen“ markiert bewährte Startzauber für ${clsN}. Tauschen kannst du später jederzeit im Bogen.</li></ul></${Intro}>
       ${spellInfo[0] > 0 && html`<h3 class="wiz-h">Cantrips <span class="muted">${st.cantrips.length} / ${spellInfo[0]}</span></h3>
-        <div class="sk-list">${spellInfo[2].map(x => { const on = st.cantrips.includes(x.name), r = rec.cantrips.includes(x.name); return html`<div class=${'sk-row' + (on ? ' on' : r ? ' rec' : '')}><label><input type="checkbox" checked=${on} onChange=${() => toggleIn('cantrips', x.name, spellInfo[0])}/><span><b>${x.name}</b>${r && html`<${Rec}/>`}<small>${x.note}</small></span></label></div>`; })}</div>`}
+        <div class="sk-list">${spellInfo[2].map(x => { const on = st.cantrips.includes(x.name), r = rec.cantrips.includes(x.name); return html`<div class=${'sk-row' + (on ? ' on' : r ? ' rec' : '')}><label><input type="checkbox" checked=${on} onChange=${() => toggleIn('cantrips', x.name, spellInfo[0])}/><span><b>${SP(x.name)}</b>${r && html`<${Rec}/>`}${world && spellIn(world, x.name) && html` <span class="ch-tag">${x.name}</span>`}<small>${x.note}</small></span></label></div>`; })}</div>`}
       <h3 class="wiz-h">Zauber der 1. Stufe <span class="muted">${st.spells.length} / ${spellInfo[1]}</span></h3>
-      <div class="sk-list">${spellInfo[3].map(x => { const on = st.spells.includes(x.name), r = rec.spells.includes(x.name); return html`<div class=${'sk-row' + (on ? ' on' : r ? ' rec' : '')}><label><input type="checkbox" checked=${on} onChange=${() => toggleIn('spells', x.name, spellInfo[1])}/><span><b>${x.name}</b>${r && html`<${Rec}/>`}<small>${x.note}</small></span></label></div>`; })}</div>
+      <div class="sk-list">${spellInfo[3].map(x => { const on = st.spells.includes(x.name), r = rec.spells.includes(x.name); return html`<div class=${'sk-row' + (on ? ' on' : r ? ' rec' : '')}><label><input type="checkbox" checked=${on} onChange=${() => toggleIn('spells', x.name, spellInfo[1])}/><span><b>${SP(x.name)}</b>${r && html`<${Rec}/>`}${world && spellIn(world, x.name) && html` <span class="ch-tag">${x.name}</span>`}<small>${x.note}</small></span></label></div>`; })}</div>
       <p class="muted small-note">Das ist eine Auswahl für den Einstieg. Die vollständige Zauberliste steht im Player's Handbook, dein DM hilft dir.</p>`,
     person: () => html`<${Intro}><b>Jetzt wird es persönlich.</b> ${forPlayer ? `Ein Name und drei kurze Antworten reichen. Wenn du für einen Spieler baust, schreib die Backstory so, wie sie${place ? ` in ${place}` : ''} klingt.` : 'Ein Name und drei kurze Antworten reichen. Daraus kann dein DM Geschichten für dich bauen.'}</${Intro}>
       <div class="form"><${Field} label="Name"><input id="wb-name" value=${st.name} onInput=${e => up({ name: e.target.value })} placeholder="z. B. Mira Sternfeuer" autocomplete="off"/></${Field}>
@@ -177,7 +178,7 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
       <div class="sum-abs">${ABILITIES.map(a => html`<div><span class="label">${a.short}</span><b class="num">${scores[a.key]}</b><small class="num">${sgn(mods[a.key])}</small></div>`)}</div>
       <dl class="sum-dl"><div><dt>Rüstung</dt><dd>${IT(ci.armor.name)}</dd></div><div><dt>Waffen</dt><dd>${ci.weapons.map(w => IT(w.name)).join(', ')}</dd></div>
         <div><dt>Saving Throws</dt><dd>${CLASSES[st.cls].saves.map(abName).join(', ')}</dd></div><div><dt>Skills</dt><dd>${allSkills.map(k => SK[k].name).join(', ')}</dd></div>
-        <div><dt>Fähigkeiten</dt><dd>${ci.feats} · ${bgi.feat}</dd></div>${spellInfo && html`<div><dt>Zauber</dt><dd>${[...st.cantrips, ...st.spells].join(', ')}</dd></div>`}</dl>`,
+        <div><dt>Fähigkeiten</dt><dd>${ci.feats} · ${FT(bgi.feat)}</dd></div>${spellInfo && html`<div><dt>Zauber</dt><dd>${[...st.cantrips, ...st.spells].map(SP).join(', ')}</dd></div>`}</dl>`,
   };
 
   return html`<div class="wiz">

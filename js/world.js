@@ -35,7 +35,7 @@ export function withLook(c, camp) {
 }
 // A weapon, armour or item in the world's words ("Chain Mail + Shield" is translated part by part); '' when unknown
 export function itemIn(w, name) {
-  const map = w?.weapons; if (!map || !name) return '';
+  const map = { ...(w?.spells || {}), ...(w?.weapons || {}) }; if (!w || !name) return '';
   const one = n => { const k = Object.keys(map).find(x => x.toLowerCase() === n.trim().toLowerCase()); return k ? map[k].name : ''; };
   const direct = one(name); if (direct) return direct;
   if (!name.includes(' + ')) return '';
@@ -43,6 +43,10 @@ export function itemIn(w, name) {
   return out.some((p, i) => p !== parts[i].trim()) ? out.join(' + ') : '';
 }
 export const itemName = (camp, name) => itemIn(worldOf(camp), name);
+const named = (map, n) => { if (!map || !n) return ''; const k = Object.keys(map).find(x => x.toLowerCase() === String(n).trim().toLowerCase()); return k ? map[k].name : ''; };
+export const spellIn = (w, n) => named(w?.spells, n);
+export const featIn = (w, n) => named(w?.feats, n);
+export const spellName = (camp, n) => spellIn(worldOf(camp), n);
 // rules words the world renames, e.g. spellSlots, hitDice, shortRest, gp
 export const term = (camp, key, fallback) => worldOf(camp)?.terms?.[key] || fallback;
 const COINS = ['pp', 'gp', 'ep', 'sp', 'cp'];
@@ -69,7 +73,8 @@ export function cleanWorld(w) {
   const terms = Object.fromEntries(TERMS.filter(k => str(w.terms?.[k])).map(k => [k, str(w.terms[k])]));
   const coins = Array.isArray(w.coins) ? w.coins.filter(c => COINS.includes(c)) : [];
   return { id: str(w.id) || name.toLowerCase(), name, setting: str(w.setting), revealTitle: str(w.revealTitle), intro: str(w.intro),
-    species: entries(w.species), classes: entries(w.classes), backgrounds: entries(w.backgrounds), weapons: entries(w.weapons), terms,
+    species: entries(w.species), classes: entries(w.classes), backgrounds: entries(w.backgrounds), weapons: entries(w.weapons),
+    spells: entries(w.spells), feats: entries(w.feats), terms,
     ...(coins.length ? { coins } : {}) };
 }
 // a world file ({ type: 'dndm-world', … }) or a prep pack with a "world" inside
