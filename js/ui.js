@@ -103,7 +103,9 @@ export function toast(msg) {
 export function failed(e) {
   console.error(e);
   const code = e?.code || '';
-  toast(code.includes('permission') ? 'Dafür hast du keine Berechtigung.' : code.includes('unavailable') ? 'Keine Verbindung. Versuch es gleich nochmal.' : 'Speichern hat nicht geklappt. Versuch es nochmal.');
+  // the code in brackets helps to find out what went wrong (e.g. send a screenshot to the DM)
+  const why = code ? ` (${code.replace(/^firestore\//, '')})` : e?.message ? ` (${String(e.message).slice(0, 60)})` : '';
+  toast(code.includes('permission') ? `Dafür hast du keine Berechtigung${why}.` : code.includes('unavailable') ? 'Keine Verbindung. Versuch es gleich nochmal.' : `Speichern hat nicht geklappt${why}. Versuch es nochmal.`);
 }
 
 /* ---------- campaign theme ---------- */
