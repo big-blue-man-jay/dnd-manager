@@ -3,6 +3,7 @@ import { html, useState, useMemo, Medal, Field, toast } from './ui.js';
 import { ABILITIES, SKILLS, CLASSES, ALIGNMENTS, DICE_COLORS, SPECIES_EMOJI, CLASS_EMOJI, suggestedResources, mod, sgn } from './rules5e.js';
 import { newId } from './data.js';
 import { lookIn, itemIn, spellIn, featIn } from './world.js';
+import { extrasFor, emptyExtras, extrasOk, extrasHint, applyExtras, ExtrasPicker, KITS, kitInventory } from './startkit.js';
 import { CLASS_INFO, DIFF, SPECIES_INFO, FEATS, BACKGROUNDS, ABILITY_DESC, SKILL_DESC, SPELLS, SPELL_ATTACKS, STANDARD_ARRAY, TRAITS, DIE_NOTE } from './builder-data.js';
 
 const SK = Object.fromEntries(SKILLS.map(s => [s.key, s]));
@@ -28,7 +29,7 @@ const Intro = ({ children }) => html`<div class="wiz-intro">${children}</div>`;
 
 export function Builder({ user, others, onCreate, onExpert, world = null, forPlayer = false }) {
   const used = others.map(o => o.diceColor).filter(Boolean);
-  const [st, setSt] = useState({ step: 0, cls: null, species: null, bg: null, assign: {}, bonus: null, skills: [], extra: [], cantrips: [], spells: [],
+  const [st, setSt] = useState({ step: 0, cls: null, species: null, bg: null, assign: {}, bonus: null, skills: [], extra: [], cantrips: [], spells: [], x: emptyExtras(),
     name: '', alignment: '', dice: DICE_COLORS.find(d => !used.includes(d.key))?.key || '', origin: '', goal: '', quirk: '', forName: '' });
   const [busy, setBusy] = useState(false);
   const up = patch => setSt(s => ({ ...s, ...(typeof patch === 'function' ? patch(s) : patch) }));
@@ -41,8 +42,10 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
   const both = (n, k) => (n && n !== k ? `${n} (${k})` : k); // "Nailsage Disciple (Fighter)" in stored texts, so the rulebook stays findable
   const place = world ? world.setting || world.name : '';
   const spellInfo = st.cls && SPELLS[st.cls];
+  // Rogue Expertise, Magic Initiate spells, Skilled skills: picked in their own step
+  const need = st.cls && st.bg ? extrasFor(st.cls, st.bg) : {}, hasExtras = !!(need.expertise || need.mi || need.skilled);
   const steps = [['klasse', 'Klasse'], ['species', world ? 'Volk' : 'Species'], ['background', world ? 'Herkunft' : 'Background'], ['werte', 'Attribute'], ['skills', 'Skills'],
-    ...(spellInfo ? [['zauber', 'Zauber']] : []), ['person', 'Persönlichkeit'], ['fertig', 'Übersicht']];
+    ...(spellInfo ? [['zauber', 'Zauber']] : []), ...(hasExtras ? [['extras', 'Talente']] : []), ['person', 'Persönlichkeit'], ['fertig', 'Übersicht']];
   const cur = steps[Math.min(st.step, steps.length - 1)][0];
 
   // derived character
@@ -64,8 +67,8 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
   const skillN = ci ? ci.skills[0] : 0;
 
   const blankBonus = { mode: 'split', plus2: '', plus1: '' };
-  const chooseClass = cls => up(s => s.cls === cls ? {} : ({ cls, assign: {}, bonus: blankBonus, skills: [], extra: [], cantrips: [], spells: [] }));
-  const chooseBg = bg => up(s => s.bg === bg ? {} : ({ bg, bonus: blankBonus, skills: s.skills.filter(k => !BACKGROUNDS[bg].skills.includes(k)), extra: s.extra.filter(k => !BACKGROUNDS[bg].skills.includes(k)) }));
+  const chooseClass = cls => up(s => s.cls === cls ? {} : ({ cls, assign: {}, bonus: blankBonus, skills: [], extra: [], cantrips: [], spells: [], x: emptyExtras() }));
+  const chooseBg = bg => up(s => s.bg === bg ? {} : ({ bg, bonus: blankBonus, x: emptyExtras(), skills: s.skills.filter(k => !BACKGROUNDS[bg].skills.includes(k)), extra: s.extra.filter(k => !BACKGROUNDS[bg].skills.includes(k)) }));
   const setScore = (key, val) => up(s => { const a = { ...s.assign }; if (!val) { delete a[key]; return { assign: a }; }
     const other = Object.keys(a).find(k => a[k] === val && k !== key); if (other) { if (a[key]) a[other] = a[key]; else delete a[other]; } a[key] = val; return { assign: a }; });
   const takeRec = () => up(s => ({ assign: recAssign(s.cls), bonus: bonusFor(s.cls, s.bg) }));
@@ -79,10 +82,11 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
     klasse: !!st.cls, species: !!st.species, background: !!st.bg, werte: assigned && bonusOk,
     skills: st.skills.length === skillN && (!spi?.extraSkill || st.extra.length === spi.extraSkill),
     zauber: !spellInfo || (st.cantrips.length === spellInfo[0] && st.spells.length === spellInfo[1]),
+    extras: !hasExtras || extrasOk(need, st.x),
     person: !!st.name.trim() && !!st.dice && !used.includes(st.dice), fertig: true,
   };
   const hint = { werte: !assigned ? 'Verteile alle sechs Werte (oder nimm die Empfehlung).' : 'Wähle, wohin die Background-Punkte gehen.', klasse: 'Wähle eine Klasse.', species: 'Wähle eine Species.', background: 'Wähle einen Background.', skills: `Wähle genau ${skillN} Skills${spi?.extraSkill ? ' und 1 Bonus-Skill (Human)' : ''}.`,
-    zauber: spellInfo && `Wähle ${spellInfo[0] ? spellInfo[0] + ' Cantrips und ' : ''}${spellInfo[1]} Zauber.`, person: 'Gib deinem Charakter einen Namen und eine freie Würfelfarbe.' };
+    zauber: spellInfo && `Wähle ${spellInfo[0] ? spellInfo[0] + ' Cantrips und ' : ''}${spellInfo[1]} Zauber.`, person: 'Gib deinem Charakter einen Namen und eine freie Würfelfarbe.', extras: hasExtras ? 'Wähle noch: ' + extrasHint(need) + '.' : '' };
   const go = d => { up(s => ({ step: Math.max(0, Math.min(steps.length - 1, s.step + d)) })); scrollTo(0, 0); };
   const next = () => { if (!ok[cur]) return toast(hint[cur]); go(1); };
 
@@ -94,17 +98,21 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
     for (const c of st.cantrips) if (SPELL_ATTACKS[c]) atk.push({ id: newId(), name: c, bonus: pb + mods[spAb], damage: SPELL_ATTACKS[c][0], note: SPELL_ATTACKS[c][1] + ' · Cantrip' });
     const all = spellInfo ? [...spellInfo[2], ...spellInfo[3]] : [];
     const spells = [...st.cantrips.map(n => ({ n, level: 0 })), ...st.spells.map(n => ({ n, level: 1 }))].map(({ n, level }) => ({ id: newId(), name: n, level, prepared: true, note: all.find(s => s.name === n)?.note || '' }));
-    const skills = Object.fromEntries(allSkills.map(k => [k, 1]));
+    const skills0 = Object.fromEntries(allSkills.map(k => [k, 1]));
     const features = [`${both(clsN, st.cls)} (Stufe 1): ${ci.feats}`, `${both(spN, st.species)}: ${spi.traits}`, `Origin Feat (${both(bgN, st.bg)}): ${both(featIn(world, bgi.feat), bgi.feat)}${bgi.featNote ? ' (' + bgi.featNote + ')' : ''} – ${FEATS[bgi.feat]}`,
       st.species === 'Human' ? 'Human Versatile: ein weiteres Origin Feat nach Wahl (mit dem DM klären)' : ''].filter(Boolean).join('\n');
     const notes = [st.origin && `Herkunft: ${st.origin}`, st.goal && `Ziel: ${st.goal}`, st.quirk && `Macke: ${st.quirk}`].filter(Boolean).join('\n');
-    const inventory = [...ci.weapons.filter(w => w.name !== 'Unarmed Strike').map(w => ({ id: newId(), name: w.name, qty: 1, note: w.note, attuned: false })),
+    // starting equipment, option A of the Player's Handbook, plus the class gold
+    const kit = KITS[st.cls], inventory = kit ? kitInventory(st.cls) : [...ci.weapons.filter(w => w.name !== 'Unarmed Strike').map(w => ({ id: newId(), name: w.name, qty: 1, note: w.note, attuned: false })),
       ...(ci.armor.name.startsWith('ohne') ? [] : [{ id: newId(), name: ci.armor.name, qty: 1, note: `AC ${ac}`, attuned: false }])];
+    if (kit?.items.some(([n]) => n === 'Dagger') && !atk.some(a => a.name === 'Dagger')) { const m = Math.max(mods.str, mods.dex); atk.push({ id: newId(), name: 'Dagger', bonus: pb + m, damage: `1d4${m ? sgn(m).replace('−', '-') : ''}`, note: 'piercing, finesse, light, thrown 20/60 ft' }); }
     const card = { name: st.name.trim(), species: st.species, cls: st.cls, clsCustom: '', hitDie: die, subclass: '', level: 1, ac: null, speed: spi.speed, hpMax: hp, diceColor: st.dice,
       ...(forPlayer && st.forName.trim() ? { ownerName: st.forName.trim() } : {}) };
-    const sheet = { ac, abilities: scores, saveProf: [...CLASSES[st.cls].saves], skills, background: st.bg, alignment: st.alignment,
-      languages: `Common + 2 Sprachen nach Wahl · Tool: ${bgi.tool}`, features, notes, attacks: atk, spells, inventory,
-      resources: suggestedResources(st.cls, 1, scores).map(r => ({ ...r, id: newId(), used: 0 })) };
+    const base = { skills: skills0, spells, attacks: atk, resources: suggestedResources(st.cls, 1, scores).map(r => ({ ...r, id: newId(), used: 0 })) };
+    const extra = hasExtras ? applyExtras(base, { cls: st.cls, bg: st.bg, scores, x: st.x }) : {};
+    const sheet = { ac, abilities: scores, saveProf: [...CLASSES[st.cls].saves], background: st.bg, alignment: st.alignment,
+      languages: `Common + 2 Sprachen nach Wahl · Tool: ${bgi.tool}${kit?.tools ? ` · Klasse: ${kit.tools}` : ''}`, features, notes, inventory,
+      coins: { pp: 0, gp: kit?.gp || 0, ep: 0, sp: 0, cp: 0 }, ...base, ...extra, startDone: { extras: true, kit: true } };
     try { await onCreate(card, sheet); } finally { setBusy(false); }
   };
 
@@ -163,6 +171,9 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
       <h3 class="wiz-h">Zauber der 1. Stufe <span class="muted">${st.spells.length} / ${spellInfo[1]}</span></h3>
       <div class="sk-list">${spellInfo[3].map(x => { const on = st.spells.includes(x.name), r = rec.spells.includes(x.name); return html`<div class=${'sk-row' + (on ? ' on' : r ? ' rec' : '')}><label><input type="checkbox" checked=${on} onChange=${() => toggleIn('spells', x.name, spellInfo[1])}/><span><b>${SP(x.name)}</b>${r && html`<${Rec}/>`}${world && spellIn(world, x.name) && html` <span class="ch-tag">${x.name}</span>`}<small>${x.note}</small></span></label></div>`; })}</div>
       <p class="muted small-note">Das ist eine Auswahl für den Einstieg. Die vollständige Zauberliste steht im Player's Handbook, dein DM hilft dir.</p>`,
+    extras: () => html`<${Intro}><b>🧩 Noch ein paar Entscheidungen.</b> Manche Klassen und Backgrounds bringen Extras mit, die du selbst wählst:
+        <ul class="wiz-tips">${need.skilled && html`<li><b>Skilled</b> (Feat aus ${bgN}): drei weitere Skills.</li>`}${need.expertise && html`<li><b>Expertise</b> (Rogue): doppelter Proficiency Bonus in zwei Skills.</li>`}${need.mi && html`<li><b>Magic Initiate</b> (Feat aus ${bgN}): ein bisschen ${need.mi}-Magie, egal welche Klasse du spielst.</li>`}</ul></${Intro}>
+      <${ExtrasPicker} cls=${st.cls} bg=${st.bg} scores=${scores} profSkills=${allSkills} classSpells=${[...st.cantrips, ...st.spells]} x=${st.x} set=${x => up({ x })} SP=${SP}/>`,
     person: () => html`<${Intro}><b>Jetzt wird es persönlich.</b> ${forPlayer ? `Ein Name und drei kurze Antworten reichen. Wenn du für einen Spieler baust, schreib die Backstory so, wie sie${place ? ` in ${place}` : ''} klingt.` : 'Ein Name und drei kurze Antworten reichen. Daraus kann dein DM Geschichten für dich bauen.'}</${Intro}>
       <div class="form"><${Field} label="Name"><input id="wb-name" value=${st.name} onInput=${e => up({ name: e.target.value })} placeholder="z. B. Mira Sternfeuer" autocomplete="off"/></${Field}>
         ${forPlayer && html`<${Field} label="Für welchen Spieler? (optional)" hint="Sobald er der Kampagne beitritt, gibst du ihm den Charakter im Bogen unter „Gehört“."><input id="wb-for" value=${st.forName} onInput=${e => up({ forName: e.target.value })} placeholder="z. B. Marlon" autocomplete="off"/></${Field}>`}
@@ -171,14 +182,18 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
         <${Field} label="Eine Macke oder Angewohnheit"><input id="wb-quirk" value=${st.quirk} onInput=${e => up({ quirk: e.target.value })} placeholder="Sammelt Knöpfe. Hat Angst vor Hühnern."/></${Field}>
         <${Field} label="Alignment (optional)" hint="Wie dein Charakter grob tickt: gut oder böse, ordentlich oder chaotisch"><select id="wb-al" value=${st.alignment} onChange=${e => up({ alignment: e.target.value })}><option value="">Egal</option>${ALIGNMENTS.map(a => html`<option>${a}</option>`)}</select></${Field}>
         <div class="f wide"><span>Deine Würfelfarbe</span><div class="swatches dice">${DICE_COLORS.map(d => { const taken = used.includes(d.key); return html`<label class=${'swatch' + (st.dice === d.key ? ' on' : '') + (taken ? ' taken' : '')} style=${`--sw:${d.hex}`} title=${taken ? 'Schon vergeben' : d.name}><input type="radio" name="wbdice" value=${d.key} disabled=${taken} checked=${st.dice === d.key} onChange=${() => up({ dice: d.key })}/><i></i>${d.name}</label>`; })}</div></div></div>`,
-    fertig: () => html`<${Intro}><b>Fertig!</b> So sieht dein Charakter aus. Nach dem Erstellen kannst du alles im Bogen noch ändern, bis dein DM ihn freigibt. Startausrüstung und Gold klärst du mit deinem DM.</${Intro}>
+    fertig: () => html`<${Intro}><b>Fertig!</b> So sieht dein Charakter aus. Nach dem Erstellen kannst du alles im Bogen noch ändern, bis dein DM ihn freigibt. Die Startausrüstung deiner Klasse liegt schon im Rucksack. Das Ausrüstungspaket deines Backgrounds (oder 50 gp stattdessen) klärst du mit deinem DM.</${Intro}>
       <div class="sum-head"><${Medal} cls=${st.cls} species=${st.species} look=${lookIn(world, { species: st.species, cls: st.cls }, st.bg)} size="lg"/><div><h2>${st.name || 'Unbenannt'}</h2><div class="sub">Stufe 1 · ${spN} · ${clsN} · ${bgN}${st.alignment ? ' · ' + st.alignment : ''}</div>${world && html`<div class="sub world-was">Regeln: ${st.species} ${st.cls} · ${st.bg}</div>`}${forPlayer && st.forName.trim() && html`<div class="sub">Für ${st.forName.trim()}</div>`}</div></div>
       <div class="statline five sum-stats"><div class="stat"><span class="label"><span class="ico" aria-hidden="true">❤️</span>Hit Points</span><b class="num">${hp}</b></div><div class="stat"><span class="label"><span class="ico" aria-hidden="true">🛡️</span>AC</span><b class="num">${ac}</b></div>
         <div class="stat"><span class="label"><span class="ico" aria-hidden="true">👟</span>Speed</span><b class="num">${spi.speed}</b></div><div class="stat"><span class="label"><span class="ico" aria-hidden="true">⚡</span>Initiative</span><b class="num">${sgn(mods.dex)}</b></div><div class="stat"><span class="label"><span class="ico" aria-hidden="true">🎓</span>Proficiency</span><b class="num">+2</b></div></div>
       <div class="sum-abs">${ABILITIES.map(a => html`<div><span class="label">${a.short}</span><b class="num">${scores[a.key]}</b><small class="num">${sgn(mods[a.key])}</small></div>`)}</div>
       <dl class="sum-dl"><div><dt>Rüstung</dt><dd>${IT(ci.armor.name)}</dd></div><div><dt>Waffen</dt><dd>${ci.weapons.map(w => IT(w.name)).join(', ')}</dd></div>
         <div><dt>Saving Throws</dt><dd>${CLASSES[st.cls].saves.map(abName).join(', ')}</dd></div><div><dt>Skills</dt><dd>${allSkills.map(k => SK[k].name).join(', ')}</dd></div>
-        <div><dt>Fähigkeiten</dt><dd>${ci.feats} · ${FT(bgi.feat)}</dd></div>${spellInfo && html`<div><dt>Zauber</dt><dd>${[...st.cantrips, ...st.spells].map(SP).join(', ')}</dd></div>`}</dl>`,
+        <div><dt>Fähigkeiten</dt><dd>${ci.feats} · ${FT(bgi.feat)}</dd></div>${spellInfo && html`<div><dt>Zauber</dt><dd>${[...st.cantrips, ...st.spells].map(SP).join(', ')}</dd></div>`}
+        ${st.x.exp.length > 0 && html`<div><dt>Expertise</dt><dd>${st.x.exp.map(k => SK[k].name).join(', ')}</dd></div>`}
+        ${st.x.skilled.length > 0 && html`<div><dt>Skilled</dt><dd>${st.x.skilled.map(k => SK[k].name).join(', ')}</dd></div>`}
+        ${need.mi && st.x.mi.s && html`<div><dt>Magic Initiate (${need.mi})</dt><dd>${[...st.x.mi.c, st.x.mi.s].map(SP).join(', ')}</dd></div>`}
+        ${KITS[st.cls] && html`<div><dt>Ausrüstung</dt><dd>${KITS[st.cls].items.map(([n, q]) => (q > 1 ? `${q}× ${IT(n)}` : IT(n))).join(', ')} · ${KITS[st.cls].gp} gp</dd></div>`}</dl>`,
   };
 
   return html`<div class="wiz">

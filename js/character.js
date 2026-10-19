@@ -14,6 +14,7 @@ import { clsName } from './cards.js';
 import { lookOf, kindLine, itemName, term, coinsOf, worldOf, spellName } from './world.js';
 import { setActor, setFallbackActor, takeActor, logRoll, logAct, charActor } from './log.js';
 import { RARITY } from './loot.js';
+import { CatchUp } from './startkit.js';
 
 /* shared advantage/disadvantage state: set in the tray or the turn panel, used by the next d20 roll, then back to normal */
 let diceMode = 'normal'; const modeSubs = new Set();
@@ -56,6 +57,7 @@ export function CharacterPage({ user, cid, chId }) {
   return html`<main class="page charpage" onClickCapture=${() => setActor(actor)}>${back}
     <${CharHeader} ...${ctx} onEdit=${() => setEdit(true)} onAsOther=${() => { setAsOther(true); window.scrollTo(0, 0); }}/>
     <${LevelUpBanner} ...${ctx}/>
+    <${CatchUp} c=${card} s=${s} cid=${cid} chId=${chId} canEdit=${coreOk}/>
     <div class="sheet-grid">
       <div class="col">
         <${Vitals} ...${ctx}/>
