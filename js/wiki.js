@@ -2,11 +2,21 @@
 // Game terms stay English like in the rest of the app; each entry can carry a German translation and an example.
 import { html, useState, useEffect, useMemo } from './ui.js';
 import { ABILITIES, SKILLS, CONDITIONS, EXHAUSTION_DESC } from './rules5e.js';
-import { ABILITY_DESC, SKILL_DESC } from './builder-data.js';
+import { ABILITY_DESC, SKILL_DESC, CLASS_INFO, SPECIES_INFO, BACKGROUNDS, LORE } from './builder-data.js';
 import { TurnSheet } from './help.js';
 
 // e: entry. t: term, a: abbreviation, de: German, d: explanation, x: example
 const e = (t, d, o = {}) => ({ t, d, ...o });
+const abName = k => ABILITIES.find(a => a.key === k)?.name || k;
+const skName = k => SKILLS.find(s => s.key === k)?.name || k;
+const sorted = o => Object.keys(o).sort((m, n) => m.localeCompare(n));
+// classes, species and backgrounds: the story from LORE, the game facts from the builder data (xl: label of the example line)
+const classEntries = () => sorted(LORE.classes).map(k => { const c = CLASS_INFO[k];
+  return e(k, LORE.classes[k].d, { de: LORE.classes[k].de, x: c ? `${c.role}. ${c.play}` : '', xl: 'Am Tisch' }); });
+const speciesEntries = () => sorted(LORE.species).map(k => e(k, LORE.species[k].d, { de: LORE.species[k].de, x: SPECIES_INFO[k]?.traits || '', xl: 'Fähigkeiten' }));
+const backgroundEntries = () => sorted(LORE.backgrounds).map(k => { const b = BACKGROUNDS[k];
+  return e(k, LORE.backgrounds[k].d, { de: LORE.backgrounds[k].de, xl: 'Gibt dir',
+    x: b ? `Attribute ${b.abs.map(abName).join(', ')} · Skills ${b.skills.map(skName).join(', ')} · ${b.tool} · Feat ${b.feat}${b.featNote ? ` (${b.featNote})` : ''}` : '' }); });
 
 const SECTIONS = [
   { id: 'wuerfel', icon: '🎲', title: 'Würfel & Würfe', intro: 'Fast alles in D&D läuft auf einen Wurf mit dem d20 hinaus: würfeln, Bonus dazu, mit einer Zielzahl vergleichen.', entries: [
@@ -52,6 +62,9 @@ const SECTIONS = [
   ] },
   { id: 'skills', icon: '🎯', title: 'Skills', intro: 'Wofür man welchen Skill würfelt. In Klammern das Attribut, aus dem der Bonus kommt.',
     entries: SKILLS.map(k => e(k.name, SKILL_DESC[k.key] || '', { a: k.ab.toUpperCase() })) },
+  { id: 'klassen', icon: '🛡️', title: 'Klassen', intro: 'Woher die zwölf Klassen kommen und wie sie sich am Tisch spielen. Die Geschichten beschreiben die übliche D&D-Welt, euer DM kann sie für seine Kampagne anpassen.', entries: classEntries() },
+  { id: 'voelker', icon: '🧝', title: 'Völker', intro: 'Die zehn Species aus den Regeln von 2024: wer sie sind und was sie mitbringen.', entries: speciesEntries() },
+  { id: 'hintergruende', icon: '📜', title: 'Hintergründe', intro: 'Was dein Charakter vor dem Abenteuer gemacht hat und was ihm das am Tisch gibt.', entries: backgroundEntries() },
   { id: 'kampf', icon: '⚔️', title: 'Kampf', intro: 'Wie ein Kampf abläuft und was die Begriffe dabei heißen. Den Ablauf eines Zuges findest du unter „Dein Zug“.', entries: [
     e('Round', 'Jeder kommt einmal dran, dann beginnt die nächste Runde. Etwa 6 Sekunden in der Spielwelt.', { de: 'Runde' }),
     e('Turn', 'Dein Zug in der Runde: Bewegung, eine Action und eventuell eine Bonus Action.', { de: 'Zug' }),
@@ -117,8 +130,17 @@ const SECTIONS = [
     e('Jumping', 'Weitsprung mit Anlauf: so viele Fuß wie dein Strength-Wert. Hochsprung: 3 + Strength Modifier Fuß.', { de: 'Springen' }),
     e('Carrying', 'Du kannst etwa Strength × 15 Pfund tragen.', { de: 'Tragen' }),
     e('Tools', 'Werkzeuge wie Thieves’ Tools oder Herbalism Kit. Bist du geübt, kommt dein Proficiency Bonus auf den Check.', { de: 'Werkzeuge' }),
-    e('Gold Pieces', 'Währung: 1 gp = 10 sp = 100 cp. Platin (pp) ist 10 gp wert, Elektrum (ep) 5 sp.', { de: 'Goldmünzen', a: 'gp, sp, cp, ep, pp' }),
     e('Feet', 'Entfernungen stehen in Fuß. 5 ft sind ungefähr 1,5 m und ein Feld auf der Karte.', { de: 'Fuß', a: 'ft' }),
+  ] },
+  { id: 'geld', icon: '💰', title: 'Geld & Ausrüstung', intro: 'Was die fünf Münzen bedeuten und womit ein Charakter startet.', entries: [
+    e('Coins', 'Es gibt fünf Münzsorten aus verschiedenen Metallen. Gerechnet wird fast alles in Gold, Silber kommt ab und zu vor, die anderen drei selten. 50 Münzen wiegen ein Pfund, egal welche Sorte.', { de: 'Münzen', x: '1 PP = 10 GP = 20 EP = 100 SP = 1.000 CP' }),
+    e('Copper Piece', 'Das kleinste Geld, für Kleinkram.', { de: 'Kupfermünze', a: 'CP', x: 'Eine Fackel oder eine Kerze kostet 1 CP.' }),
+    e('Silver Piece', '10 CP. Für Essen, Proviant und alltägliche Dinge.', { de: 'Silbermünze', a: 'SP', x: 'Proviant für einen Tag kostet 5 SP.' }),
+    e('Electrum Piece', 'Eine Münze aus einer Mischung von Gold und Silber, ½ GP oder 5 SP wert. Kommt kaum noch vor, am ehesten in alten Schätzen.', { de: 'Elektrummünze', a: 'EP' }),
+    e('Gold Piece', 'Die Hauptwährung: Waffen, Rüstungen, Tränke und Belohnungen werden in Gold angegeben. 1 GP = 10 SP = 100 CP.', { de: 'Goldmünze', a: 'GP', x: 'Dagger 2 GP · Longsword 15 GP · Chain Mail 75 GP · Potion of Healing 50 GP' }),
+    e('Platinum Piece', '10 GP. Nur für große Summen, zum Beispiel einen Schatz oder eine fürstliche Belohnung.', { de: 'Platinmünze', a: 'PP' }),
+    e('Starting Equipment', 'Jede Klasse lässt dir die Wahl: ein fertiges Ausrüstungspaket (A) oder stattdessen Gold (B), mit dem du selbst einkaufst. Auch der Background bringt eigene Ausrüstung oder Gold mit.', { de: 'Startausrüstung', x: 'Wizard: 2 Daggers, Arcane Focus, Robe, Spellbook, Scholar’s Pack und 5 GP, oder stattdessen 55 GP.' }),
+    e('Equipment Pack', 'Ein Rucksack mit dem Nötigsten für eine bestimmte Art Abenteuer, als Paket günstiger als alles einzeln.', { de: 'Ausrüstungspaket', x: 'Explorer’s Pack: Backpack, Bedroll, 2 Flasks of Oil, Rations für 10 Tage, Rope, Tinderbox, 10 Torches, Waterskin.' }),
   ] },
   { id: 'tisch', icon: '🗣️', title: 'Am Tisch & Abkürzungen', intro: 'Wörter, die man in Runden, Videos und Foren ständig hört.', entries: [
     e('Dungeon Master', 'Leitet das Spiel: beschreibt die Welt, spielt alle NPCs und Monster, entscheidet Regelfragen.', { de: 'Spielleiter', a: 'DM, GM, SL' }),
@@ -189,7 +211,7 @@ export function WikiPage({ section }) {
     ${shown.map(s => html`<section class="panel box wiki-sec" id=${'w-' + s.id}><div class="box-head"><h2>${s.icon} ${s.title}</h2></div>
       ${!ql && s.intro && html`<p class="muted">${s.intro}</p>`}
       <dl class="wiki-list">${s.entries.map(x => html`<div class="w-entry"><dt><b>${x.t}</b>${x.a && html`<span class="w-abbr">${x.a}</span>`}${x.de && html`<span class="w-de">${x.de}</span>`}</dt>
-        <dd>${x.d}${x.x && html`<span class="w-ex">${x.x}</span>`}</dd></div>`)}</dl></section>`)}
+        <dd>${x.d}${x.x && html`<span class="w-ex" data-l=${x.xl || 'Beispiel'}>${x.x}</span>`}</dd></div>`)}</dl></section>`)}
     ${ql && !shown.length && !turnHit && html`<p class="muted">Nichts gefunden zu „${q}“. Frag im Zweifel einfach deinen DM.</p>`}
   </main>`;
 }

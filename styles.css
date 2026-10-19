@@ -1086,7 +1086,7 @@ body { padding-bottom: calc(var(--nav-h) + 110px + env(safe-area-inset-bottom, 0
 .w-de { font-size: 13px; color: var(--muted); font-style: italic; }
 .w-entry dd { margin: 4px 0 0; font-size: 14.5px; line-height: 1.45; }
 .w-ex { display: block; margin-top: 4px; font-size: 13.5px; color: var(--muted); }
-.w-ex::before { content: 'Beispiel: '; font-weight: 600; }
+.w-ex::before { content: attr(data-l) ': '; font-weight: 600; }
 @media (max-width: 520px) { .wiki-list { grid-template-columns: 1fr; } }
 .wiki-abbr > summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; } .wiki-abbr > summary::-webkit-details-marker { display: none; }
 .wiki-abbr > summary h2 { font-size: 17px; } .wiki-abbr > summary::after { content: '▸'; color: var(--muted); margin-left: 8px; } .wiki-abbr[open] > summary::after { content: '▾'; }
