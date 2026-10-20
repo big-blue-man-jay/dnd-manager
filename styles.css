@@ -1177,3 +1177,21 @@ body { padding-bottom: calc(var(--nav-h) + 110px + env(safe-area-inset-bottom, 0
 .perk-head { display: block; margin: 8px 0 4px; }
 .choice-grid.one { grid-template-columns: 1fr; }
 .bonus-pick .decide { margin-bottom: 6px; }
+
+/* result of a roll while the dice tray is closed */
+.roll-pill { position: fixed; right: 18px; bottom: calc(var(--nav-h) + 92px + env(safe-area-inset-bottom, 0px)); z-index: 40; display: flex; align-items: center; gap: 10px; max-width: min(320px, calc(100% - 36px));
+  border: 0; border-left: 4px solid var(--dc); border-radius: 14px; padding: 8px 14px; background: var(--surface); color: var(--ink); cursor: pointer; box-shadow: 0 6px 20px rgb(0 0 0 / .25); font: inherit; }
+.roll-pill.up { bottom: calc(var(--nav-h) + 136px + env(safe-area-inset-bottom, 0px)); }
+.roll-pill .rp-l { font-size: 13.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.roll-pill b { font-size: 22px; }
+.roll-pill.crit b { color: var(--ok); } .roll-pill.fumble b { color: var(--blood); }
+@media (min-width: 900px) { .roll-pill { right: max(24px, calc(50% - 560px)); } }
+@media (prefers-reduced-motion: no-preference) { .roll-pill { animation: rp-in .18s ease-out; } @keyframes rp-in { from { transform: translateY(8px); opacity: 0; } } }
+
+/* sticky action bars: solid, above the content, nothing shows through */
+.wiz-foot { z-index: 12; margin: 0 -22px -20px; padding: 12px 22px 14px; border-radius: 0 0 var(--r) var(--r); background: var(--surface); box-shadow: 0 -10px 18px -12px rgb(0 0 0 / .35); }
+.wiz-foot::after { content: ''; position: absolute; left: -2px; right: -2px; top: 100%; height: calc(var(--nav-h) + 30px); background: var(--bg); pointer-events: none; }
+.wiz-steps { position: sticky; top: 0; z-index: 12; background: var(--surface); margin: -20px -22px 0; padding: 14px 22px 10px; border-radius: var(--r) var(--r) 0 0; }
+.sheet > .form > .foot, .sheet .foot:last-child { position: sticky; bottom: calc(-28px - env(safe-area-inset-bottom, 0px)); z-index: 5; background: var(--bg); margin: 0 -20px; padding: 12px 20px calc(16px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -10px 18px -12px rgb(0 0 0 / .3); }
+@media (max-width: 760px) { .wiz-foot { padding-right: 84px; } }
+.page .panel.box > form.form > .foot:last-child { position: sticky; bottom: calc(var(--nav-h) + 14px); z-index: 12; background: var(--surface); margin: 0 -22px -20px; padding: 12px 22px 14px; border-top: 0; border-radius: 0 0 var(--r) var(--r); box-shadow: 0 -10px 18px -12px rgb(0 0 0 / .35); }

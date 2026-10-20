@@ -700,6 +700,7 @@ export function DiceTray() {
   const [expr, setExpr] = useState('');
   const [hist, setHist] = useState([]);
   const [color, setColor] = useState(null);
+  const [flash, setFlash] = useState(null); const flashT = useRef();
   const modeRef = useRef(mode); modeRef.current = mode;
   const colorRef = useRef(color); colorRef.current = color;
   const [opts, setOpts] = useState({ anim: diceSettings.anim, sound: diceSettings.sound });
@@ -708,7 +709,8 @@ export function DiceTray() {
   const push = (label, r, own) => {
     if (!r) { toast('Das verstehe ich nicht. Beispiel: 2d6+3'); return; }
     const hex = own || colorRef.current?.hex, entry = { label, r, hex };
-    const show = () => { setHist(h => [entry, ...h].slice(0, 25)); setOpen(true); };
+    // the tray only opens on a tap of the dice button; a roll shows a small result pill instead
+    const show = () => { setHist(h => [entry, ...h].slice(0, 25)); setFlash(entry); clearTimeout(flashT.current); flashT.current = setTimeout(() => setFlash(null), 6000); };
     throwDice(r, hex || accentHex(), label).then(show, show);
   };
   useEffect(() => { // fetch the 3D engine in the background so the first throw is instant
@@ -725,6 +727,7 @@ export function DiceTray() {
   const last = hist[0];
   const free = e => { e.preventDefault(); if (!expr.trim()) return; const r = roll(expr, mode); push(expr.trim(), r); logRoll(takeActor(true), `freier Wurf ${expr.trim()}`, r); if (isD20(expr) && mode !== 'normal') setDiceMode('normal'); };
   return html`<button class="dice-fab" style=${color ? `--dc:${color.hex}` : ''} onClick=${() => setOpen(!open)} aria-label="Würfel" aria-expanded=${open}><svg viewBox="0 0 24 24" dangerouslySetInnerHTML=${{ __html: D20 }}></svg>${mode !== 'normal' && html`<span class=${'fab-mode ' + mode}>${mode === 'adv' ? '⬆️' : '⬇️'}</span>`}</button>
+    ${flash && !open && html`<button class=${'roll-pill' + (flash.r.crit ? ' crit' : flash.r.fumble ? ' fumble' : '') + (mode !== 'normal' ? ' up' : '')} style=${`--dc:${flash.hex || 'var(--accent)'}`} onClick=${() => { setFlash(null); setOpen(true); }} title="Würfel öffnen"><span class="rp-l">${flash.label}</span><b class="num">${flash.r.total}</b></button>`}
     ${mode !== 'normal' && !open && html`<button class=${'mode-pill ' + mode} onClick=${() => setDiceMode('normal')} title="Zurück auf Normal">${mode === 'adv' ? 'Nächster d20 mit Vorteil' : 'Nächster d20 mit Nachteil'} ×</button>`}
     ${open && html`<aside class="dice-tray" role="dialog" aria-label="Würfel">
       <div class="tray-head"><b>Würfel</b>${color && html`<span class="sub"><span class="dice-dot inline" style=${`--dc:${color.hex}`}></span> ${color.name}</span>`}

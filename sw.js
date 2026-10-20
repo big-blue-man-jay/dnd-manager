@@ -1,5 +1,5 @@
 // Offline shell: the app files load from cache; campaign data always comes from Firebase.
-const CACHE = 'dndm-v36';
+const CACHE = 'dndm-v37';
 const SHELL = ['./', 'index.html', 'styles.css', 'manifest.webmanifest', 'js/app.js', 'js/ui.js', 'js/data.js', 'js/config.js', 'js/ops.js', 'js/cards.js',
   'js/campaign.js', 'js/character.js', 'js/rules5e.js', 'js/dice.js', 'js/dice3d.js', 'js/backup.js', 'js/help.js', 'js/builder.js', 'js/builder-data.js', 'js/session.js', 'js/foes.js', 'js/map.js', 'js/log.js', 'js/table.js', 'js/wiki.js', 'js/loot.js', 'js/prep.js', 'js/world.js', 'js/startkit.js', 'js/classperks.js', 'vendor/preact-htm.js', 'icons/icon.svg', 'icons/icon-192.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
