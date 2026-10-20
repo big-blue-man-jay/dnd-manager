@@ -1158,3 +1158,22 @@ body { padding-bottom: calc(var(--nav-h) + 110px + env(safe-area-inset-bottom, 0
 .catchup { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; padding: 12px 16px; border-left: 4px solid var(--gild); }
 .extras { display: flex; flex-direction: column; gap: 18px; } .extras section { display: flex; flex-direction: column; gap: 8px; }
 .wiz-h.small { font-size: 15px; margin-top: 6px; }
+
+/* builder: one decision box above every choice, gameplay first */
+.decide { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--line); }
+.decide-h { display: flex; align-items: center; gap: 8px; font-size: 16px; }
+.decide-h .emo { font-size: 18px; }
+.decide-n { margin-left: auto; font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--surface); }
+.decide p { margin: 0; font-size: 14.5px; line-height: 1.45; }
+.decide-tip { color: var(--muted); font-size: 13.5px !important; }
+.wiz-body > .decide, .extras .decide { margin-bottom: 4px; }
+.perk-box { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.perk-list { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.perk-list > div { padding: 8px 10px; border-radius: 10px; background: var(--raised); }
+.perk-list dt { font-weight: 700; font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.perk-when { font-weight: 500; font-size: 12px; color: var(--muted); opacity: .8; }
+.perk-list dd { margin: 2px 0 0; font-size: 13.5px; line-height: 1.4; }
+.choice .perk-list > div { background: var(--surface); }
+.perk-head { display: block; margin: 8px 0 4px; }
+.choice-grid.one { grid-template-columns: 1fr; }
+.bonus-pick .decide { margin-bottom: 6px; }
