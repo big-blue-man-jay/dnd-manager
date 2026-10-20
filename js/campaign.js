@@ -8,6 +8,7 @@ import { importPrep } from './prep.js';
 import { TurnHelpButton } from './help.js';
 import { leaveCampaign, newJoinCode, createDummyCharacter, setActiveCampaign } from './ops.js';
 import { withLook, WorldBox, worldPath } from './world.js';
+import { ZeroCard } from './zero.js';
 
 const TABS = [['uebersicht', 'Übersicht', '🏠'], ['gruppe', 'Gruppe', '👥'], ['sitzungen', 'Sitzungen', '📖'], ['quests', 'Quests', '🗺️'], ['npcs', 'NPCs', '🎭'], ['enthuellungen', 'Enthüllungen', '🤯'], ['notizen', 'Notizen', '📝'], ['einstellungen', 'Einstellungen', '⚙️']];
 const QSTATUS = { active: 'Läuft', done: 'Erledigt', failed: 'Gescheitert' };
@@ -124,6 +125,7 @@ function Overview(p) {
   const { sessions, chars, quests, npcs, revelations, isDM, myChar, cid, camp } = p;
   const last = sessions[0];
   return html`<div class="ov"><div class="ov-col">
+    ${!p.preview && html`<${ZeroCard} cid=${cid} user=${p.user} isDM=${isDM} members=${p.members} chars=${chars}/>`}
     <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">📍</span>Wo wir aufgehört haben</h2>${last && html`<span class="sub">Sitzung ${last.num}${last.date ? ' · ' + fmtDate(last.date) : ''}</span>`}</div>
       ${last ? html`<p class="stopbig">${last.stop || 'Kein Haltepunkt notiert.'}</p>${last.recap && html`<div><span class="label"><span class="ico" aria-hidden="true">⏪</span>Letztes Mal</span><p class="muted">${last.recap}</p></div>`}
         <div class="actions"><a class="btn small" href=${href('c', cid, 'sitzungen')}>Alle Sitzungen</a></div>`
@@ -445,7 +447,7 @@ function Settings(p) {
   const kick = async m => { try { await store.remove(`campaigns/${cid}/members/${m.uid}`); toast(`${m.name} entfernt.`); } catch (x) { failed(x); } };
   const deleteAll = async () => {
     const base = `campaigns/${cid}`; const ops = [];
-    for (const k of ['map', 'log', 'loot']) for (const m of await store.getCol(`${base}/${k}`).catch(() => [])) ops.push({ type: 'delete', path: `${base}/${k}/${m.id}` });
+    for (const k of ['map', 'log', 'loot', 'zero']) for (const m of await store.getCol(`${base}/${k}`).catch(() => [])) ops.push({ type: 'delete', path: `${base}/${k}/${m.id}` });
     for (const c of chars) { ops.push({ type: 'delete', path: `${base}/characters/${c.id}/sheet/main` }, { type: 'delete', path: `${base}/characters/${c.id}` }); }
     for (const [k, list] of [['sessions', p.sessions], ['quests', p.quests], ['npcs', p.npcs], ['journal', p.journal], ['secrets', p.secrets], ['revelations', p.revelations], ['members', members.map(m => ({ id: m.uid }))]]) for (const x of list) ops.push({ type: 'delete', path: `${base}/${k}/${x.id}` });
     try { for (let i = 0; i < ops.length; i += 400) await store.batch(ops.slice(i, i + 400));

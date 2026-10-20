@@ -5,6 +5,7 @@
 import { html, useState, useEffect, useRef, HpBar, toast, failed, int, initials, go } from './ui.js';
 import { store, newId } from './data.js';
 import { SPECIES_EMOJI, diceHex } from './rules5e.js';
+import { difficulty } from './foes.js';
 
 const SIZES = { s: [16, 10, 'Klein'], m: [20, 14, 'Mittel'], l: [28, 18, 'Groß'] };
 const TERRAIN = { rock: ['🪨', 'Felsen'], tree: ['🌳', 'Baum'], water: ['💧', 'Wasser'], wall: ['⬛', 'Wand'], bush: ['🌿', 'Gebüsch'], fire: ['🔥', 'Feuer'] };
@@ -214,7 +215,7 @@ function Scenes({ cid, camp, chars, user, docs, tokens, pos, onDone }) {
   return html`<div class="scenes panel">
     <div class="box-head"><h3>🎬 Szenen</h3><span class="sub">Nur du siehst sie</span></div>
     ${list.length ? html`<div class="scene-list">${list.map(sc => html`<div class="scene">
-      <div class="sc-info"><b>${sc.name}</b><small>${[{ s: 'Klein', m: 'Mittel', l: 'Groß' }[sc.size] || 'Mittel', `${Object.keys(sc.cells || {}).length} Geländefelder`, sc.foes?.length ? `${sc.foes.length} Gegner` : 'keine Gegner', sc.figs?.length ? `${sc.figs.length} NPCs` : '', Object.keys(sc.party || {}).length ? 'mit Startpositionen' : ''].filter(Boolean).join(' · ')}</small></div>
+      <div class="sc-info"><b>${sc.name}</b><small>${[{ s: 'Klein', m: 'Mittel', l: 'Groß' }[sc.size] || 'Mittel', `${Object.keys(sc.cells || {}).length} Geländefelder`, sc.foes?.length ? `${sc.foes.length} Gegner` : 'keine Gegner', sc.foes?.length && chars.length ? `⚖️ ${difficulty(sc.foes.reduce((t, f) => t + (f.xp || 0), 0), chars.map(ch => ch.level || 1))?.label || ''}` : '', sc.figs?.length ? `${sc.figs.length} NPCs` : '', Object.keys(sc.party || {}).length ? 'mit Startpositionen' : ''].filter(Boolean).join(' · ')}</small></div>
       ${ask?.id === sc.id ? (ask.what === 'load' && sc.foes?.length ? html`<span class="confirm">Karte ersetzen und laden?
           <button class="btn primary small" disabled=${busy} onClick=${() => load(sc, true)}>⚔️ Mit Kampf</button><button class="btn small" disabled=${busy} onClick=${() => load(sc, false)}>Nur Karte, Kampf später</button><button class="link quiet small" onClick=${() => setAsk(null)}>Abbrechen</button></span>`
         : html`<span class="confirm">${ask.what === 'load' ? 'Karte ersetzen und laden?' : ask.what === 'over' ? 'Mit der aktuellen Karte überschreiben?' : 'Löschen?'}

@@ -6,14 +6,15 @@
 import { html, useState, useEffect, Medal, Empty, Spinner, HpBar, toast, failed, applyTheme, href, go, int, useDoc } from './ui.js';
 import { store, newId } from './data.js';
 import { clsName } from './cards.js';
-import { CharQuick } from './character.js';
+import { CharQuick, restPatch } from './character.js';
 import { useCampaign, RevealPopup, RevealModal, KINDS } from './campaign.js';
 import { TurnHelpButton } from './help.js';
 import { searchWiki } from './wiki.js';
 import { useLoot, LootButton, LootStage, LootPopup } from './loot.js';
-import { FoeForm, FoeSheet } from './foes.js';
+import { FoeForm, FoeSheet, difficulty, DiffBadge } from './foes.js';
 import { BattleMap, scenesPath } from './map.js';
 import { ActionLog, logEntry } from './log.js';
+import { LinesVeils, ZeroNudge } from './zero.js';
 import { ABILITIES, SKILLS, CLASSES, profBonus, mod, sgn, autoSlots, isPact, diceHex } from './rules5e.js';
 
 const rnd = n => 1 + Math.floor(Math.random() * n);
@@ -72,7 +73,7 @@ function CombatPanel({ camp, cid, chars, user, c }) {
   const actor = { cid, uid: user.uid, session: camp.table?.session || 0 };
   return html`<section class="panel box combat">
     <div class="box-head"><h2><span class="ico" aria-hidden="true">⚔️</span>Kampf</h2>
-      <span class="sub">${foes.filter(r => (r.hp ?? 1) > 0).length} Feinde stehen${xp ? ` · ${xp} XP` : ''}</span>
+      <span class="sub">${foes.filter(r => (r.hp ?? 1) > 0).length} Feinde stehen${xp ? ` · ${xp} XP` : ''}</span><${DiffBadge} d=${difficulty(xp, chars.map(ch => ch.level || 1))}/>
       <span class="help-dot" tabindex="0" title="Tippe einen Gegner an, um seinen Bogen zu öffnen. Ist ein Gegner am Zug, öffnet sich sein Bogen von selbst. Spieler sagen dir ihre Initiative, du trägst sie links ein.">?</span></div>
     <ol class="init-list">${cb.list.map((r, i) => { const ch = r.charId && chars.find(x => x.id === r.charId); const now = i === cb.turn; const foe = r.kind === 'npc'; const down = foe && (r.hp ?? 1) <= 0;
       return html`<li class=${(now ? 'now ' : '') + (foe ? 'npc' : 'pc') + (down ? ' down' : '') + (foe ? ' tap' : '') + (sheet && sheet.id === r.id ? ' open' : '')} onClick=${foe ? () => setSel(sel === r.id ? null : r.id) : null}>
@@ -92,11 +93,12 @@ function CombatPanel({ camp, cid, chars, user, c }) {
 function PartyBoard({ cid, chars, camp }) {
   const cur = camp.combat?.list?.[camp.combat.turn];
   return html`<section class="panel box party-board">
-    <div class="box-head"><h2><span class="ico" aria-hidden="true">👥</span>Gruppe</h2><span class="sub">Alle Werte live</span></div>
-    ${chars.length ? html`<div class="pb-list">${chars.map(c => html`<${PartyCard} key=${c.id} c=${c} cid=${cid} now=${cur?.charId === c.id}/>`)}</div>`
+    <div class="box-head"><h2><span class="ico" aria-hidden="true">👥</span>Gruppe</h2><span class="sub">Alle Werte live · 🌟 = Inspiration geben</span></div>
+    ${!camp.combat && html`<${GroupRest} cid=${cid} chars=${chars} camp=${camp}/>`}
+    ${chars.length ? html`<div class="pb-list">${chars.map(c => html`<${PartyCard} key=${c.id} c=${c} cid=${cid} camp=${camp} now=${cur?.charId === c.id}/>`)}</div>`
       : html`<p class="muted">Noch keine Charaktere. Deine Spieler treten mit dem Einladungscode bei und legen ihren Charakter an.</p>`}</section>`;
 }
-function PartyCard({ c, cid, now }) {
+function PartyCard({ c, cid, now, camp }) {
   const sheet = useDoc(`campaigns/${cid}/characters/${c.id}/sheet/main`);
   const [amt, setAmt] = useState(''); const [more, setMore] = useState(false);
   const s = { abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, skills: {}, saveProf: [], resources: [], ...(sheet || {}) };
@@ -110,13 +112,17 @@ function PartyCard({ c, cid, now }) {
     if (sign < 0) { const fromTemp = Math.min(temp, n); temp -= fromTemp; h = Math.max(0, h - (n - fromTemp)); } else h = Math.min(max || h + n, h + n);
     try { await store.update(`campaigns/${cid}/characters/${c.id}`, { hp: h, tempHp: temp, updatedAt: Date.now() }); setAmt('');
       if (sign < 0 && c.conc && h > 0) toast(`${c.name} konzentriert sich auf ${c.conc}: CON Save, DC ${Math.max(10, Math.floor(n / 2))}.`); } catch (x) { failed(x); } };
+  const inspire = async () => { const on = !s.inspiration;
+    try { await store.merge(`campaigns/${cid}/characters/${c.id}/sheet/main`, { inspiration: on, ...(on ? { inspAt: Date.now() } : {}), updatedAt: Date.now() });
+      if (on) { logEntry(cid, { kind: 'act', who: c.name, charId: c.id, label: 'bekommt Heroic Inspiration 🌟', session: camp?.table?.session || 0 }); toast(`${c.name} hat jetzt Heroic Inspiration.`); } } catch (x) { failed(x); } };
   const K = (label, val, title) => html`<span class="kv" title=${title || ''}><small>${label}</small><b class="num">${val}</b></span>`;
   return html`<article class=${'pcard' + (now ? ' now' : '') + (hp <= 0 ? ' down' : '')} style=${c.diceColor ? `--lc:${diceHex(c.diceColor)}` : ''}>
     <div class="pc-top">
       <a class="pc-who" href=${href('c', cid, 'char', c.id)}><${Medal} cls=${c.cls} species=${c.species} look=${c.look} size="md"/><span><b>${c.name}</b><small>${c.look ? c.look.cls : clsName(c)} ${lvl} · ${c.ownerName || ''}</small></span></a>
       <div class="pc-hp"><span class="num"><b>${hp}</b> / ${max}${c.tempHp ? html` <span class="xp">+${c.tempHp}</span>` : ''}</span><${HpBar} hp=${hp} max=${max}/></div>
       <div class="pc-dm"><input type="number" min="0" aria-label=${'Wert für ' + c.name} placeholder="±" value=${amt} onInput=${e => setAmt(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter') hit(-1); }}/>
-        <button class="btn small danger-soft" onClick=${() => hit(-1)} title="Schaden">💥</button><button class="btn small ok-soft" onClick=${() => hit(1)} title="Heilen">💚</button></div>
+        <button class="btn small danger-soft" onClick=${() => hit(-1)} title="Schaden">💥</button><button class="btn small ok-soft" onClick=${() => hit(1)} title="Heilen">💚</button>
+        <button class=${'btn small insp-btn' + (s.inspiration ? ' on' : '')} onClick=${inspire} title=${s.inspiration ? 'Hat Heroic Inspiration (antippen zum Wegnehmen)' : 'Heroic Inspiration geben: für gutes Rollenspiel oder eine coole Idee'}>🌟</button></div>
     </div>
     ${sheet === undefined ? html`<p class="muted small-note">Lädt…</p>` : html`
     <div class="pc-nums">
@@ -137,6 +143,48 @@ function PartyCard({ c, cid, now }) {
     ${more && html`<div class="pc-skills">${SKILLS.map(k => html`<span class=${'sk' + (s.skills[k.key] ? ' prof' : '')}>${k.name} <b class="num">${sgn(skill(k.key))}</b></span>`)}</div>
       <div class="pc-abil">${ABILITIES.map(a => html`<span>${a.short} <b class="num">${s.abilities[a.key]}</b> <small>${sgn(ab(a.key))}</small></span>`)}</div>`}`}
   </article>`;
+}
+
+/* ---------- DM: the whole group rests at once ---------- */
+function GroupRest({ cid, chars, camp }) {
+  const [ask, setAsk] = useState(null); const [busy, setBusy] = useState(false);
+  const run = async kind => {
+    setBusy(true);
+    try {
+      const sheets = await Promise.all(chars.map(c => store.get(`campaigns/${cid}/characters/${c.id}/sheet/main`)));
+      const now = Date.now(), ops = [];
+      chars.forEach((c, i) => { const p = restPatch(kind, c, sheets[i] || {});
+        if (p.card) ops.push({ type: 'update', path: `campaigns/${cid}/characters/${c.id}`, data: { ...p.card, updatedAt: now } });
+        ops.push({ type: 'merge', path: `campaigns/${cid}/characters/${c.id}/sheet/main`, data: { ...p.sheet, updatedAt: now } }); });
+      ops.push({ type: 'update', path: `campaigns/${cid}`, data: { table: { ...(camp.table || {}), rest: { kind, at: now } } } });
+      await store.batch(ops);
+      logEntry(cid, { kind: 'scene', label: kind === 'long' ? '🌙 Long Rest für alle' : '☕ Short Rest für alle', session: camp.table?.session || 0 });
+      toast(kind === 'long' ? 'Long Rest: alle sind wieder voll.' : 'Short Rest: Ressourcen aufgefüllt. Hit Dice geben die Spieler selbst aus.'); setAsk(null);
+    } catch (x) { failed(x); } finally { setBusy(false); } };
+  if (!chars.length) return null;
+  return html`<div class="group-rest">${ask ? html`<span class="confirm">${ask === 'long' ? 'Long Rest für alle? HP, Slots, Ressourcen und Hit Dice voll, Exhaustion −1.' : 'Short Rest für alle? Short-Rest-Ressourcen und Warlock-Slots kommen zurück.'}
+      <button class="btn primary small" disabled=${busy} onClick=${() => run(ask)}>Ja</button><button class="btn small" onClick=${() => setAsk(null)}>Abbrechen</button></span>`
+    : html`<span class="label">Rast für alle</span><button class="btn small" onClick=${() => setAsk('short')} title="1 Stunde Pause">☕ Short Rest</button><button class="btn small" onClick=${() => setAsk('long')} title="8 Stunden, z. B. über Nacht">🌙 Long Rest</button>`}</div>`;
+}
+
+/* ---------- players: big notice when it is your turn (and a heads-up one turn before), a rest, inspiration ---------- */
+function TurnAlert({ camp, chars, user }) {
+  const cb = camp.combat; const mineIds = chars.filter(c => c.ownerUid === user.uid).map(c => c.id);
+  const cur = cb?.list?.[cb.turn], nxt = cb?.list?.length ? cb.list[(cb.turn + 1) % cb.list.length] : null;
+  const myTurn = !!cur && mineIds.includes(cur.charId), upNext = !myTurn && !!nxt && mineIds.includes(nxt.charId);
+  const key = cb ? `${cb.round}-${cb.turn}` : '';
+  const [gone, setGone] = useState('');
+  useEffect(() => { if (myTurn) { try { navigator.vibrate?.([220, 120, 220]); } catch (e) { /* not supported */ } } }, [myTurn && key]);
+  if (!cb || gone === key) return null;
+  if (myTurn) return html`<div class="turn-alert" role="alert" onClick=${() => setGone(key)}><div class="ta-card"><span class="ta-emo" aria-hidden="true">🎯</span><b>Du bist dran, ${cur.name}!</b>
+    <span>Bewegung, eine Action, vielleicht eine Bonus Action. Unten stehen deine Möglichkeiten.</span><button class="btn primary">Los geht's</button></div></div>`;
+  if (upNext) return html`<div class="up-next" onClick=${() => setGone(key)}>⏭️ Du bist als Nächstes dran. Überleg dir schon mal deinen Zug.</div>`;
+  return null;
+}
+function RestNotice({ camp }) {
+  const r = camp.table?.rest; const [seen, setSeen] = useState(0);
+  if (!r || r.at < Date.now() - 120000 || r.at === seen) return null;
+  return html`<div class="rest-notice" onClick=${() => setSeen(r.at)}>${r.kind === 'long' ? '🌙 Long Rest: HP, Zauber und Fähigkeiten sind wieder voll.' : '☕ Short Rest: Fähigkeiten aufgefrischt. Du kannst jetzt Hit Dice ausgeben, um zu heilen.'} <span class="muted">×</span></div>`;
 }
 
 /* ---------- DM: what is happening now (place + mood, shown on the table screen) ---------- */
@@ -174,6 +222,7 @@ function Tonight({ cid, last, notes, secrets, members }) {
   const sealed = secrets.filter(s => !s.revealedAt);
   return html`<section class="panel box tonight">
     <div class="box-head"><h2><span class="ico" aria-hidden="true">🌙</span>Heute</h2><a class="link small" href=${href('c', cid, 'notizen')}>Notizen bearbeiten</a></div>
+    <${LinesVeils} cid=${cid}/>
     ${last?.stop && html`<div><span class="label">Wo wir aufgehört haben</span><p class="pre">${last.stop}</p></div>`}
     ${notes?.prep ? html`<details class="fold" open><summary>📝 Vorbereitung</summary><p class="pre">${notes.prep}</p></details>` : html`<p class="muted small-note">Unter DM-Notizen → Vorbereitung kannst du dir den Abend aufschreiben. Er steht dann hier.</p>`}
     ${notes?.secrets && html`<details class="fold"><summary>🤫 Das große Ganze</summary><p class="pre">${notes.secrets}</p></details>`}
@@ -232,13 +281,17 @@ function DMView({ camp, chars, sessions, quests, npcs, secrets, notes, members, 
   const loot = useLoot(cid, true);
   const fight = !!c.cb, showMap = fight || camp.table?.show === 'map';
   const last = sessions[0];
+  const toggleShop = async () => { const on = !camp.table?.shop;
+    try { await store.update(`campaigns/${cid}`, { table: { ...(camp.table || {}), shop: on } }); toast(on ? 'Laden offen: Deine Spieler sehen jetzt „🛒 Laden“ bei ihrem Charakter.' : 'Laden geschlossen.');
+      logEntry(cid, { kind: 'scene', label: on ? '🛒 Laden geöffnet' : '🛒 Laden geschlossen', session: camp.table?.session || 0 }); } catch (x) { failed(x); } };
   return html`<main class="page spieltisch dm">
     <header class="st-head">
       <div class="st-id"><span class="label">🎲 Spieltisch · Sitzung ${num}${camp.table?.place ? ` · 📍 ${camp.table.place}` : ''}</span><h1>${camp.name}</h1></div>
       <div class="st-act">
         <button class="btn" onClick=${() => go('tisch')} title="Auf dem Tablet öffnen: zeigt Szene oder Karte für alle">📺 Tischbildschirm</button>
         <${LootButton} cid=${cid} loot=${loot}/>
-        ${fight ? html`<button class="btn danger-soft" onClick=${c.end}>Kampf beenden</button>` : html`<button class="btn primary" onClick=${c.start}>⚔️ Kampf starten${camp.prepFoes?.length ? ` · ${camp.prepFoes.length} Gegner` : ''}</button>`}
+        <button class=${'btn' + (camp.table?.shop ? ' on-soft' : '')} onClick=${toggleShop} title="Spieler können auf ihrem Handy einkaufen und verkaufen">🛒 ${camp.table?.shop ? 'Laden schließen' : 'Laden öffnen'}</button>
+        ${fight ? html`<button class="btn danger-soft" onClick=${c.end}>Kampf beenden</button>` : html`<button class="btn primary" onClick=${c.start} title=${camp.prepFoes?.length ? difficulty(camp.prepFoes.reduce((t, r) => t + (r.xp || 0), 0), chars.map(ch => ch.level || 1))?.label || '' : ''}>⚔️ Kampf starten${camp.prepFoes?.length ? ` · ${camp.prepFoes.length} Gegner · ${difficulty(camp.prepFoes.reduce((t, r) => t + (r.xp || 0), 0), chars.map(ch => ch.level || 1))?.label || ''}` : ''}</button>`}
         <details class="st-menu"><summary class="btn" aria-label="Mehr">⋯</summary><div class="st-menu-pop">
           <a href=${href('c', cid)}>🏰 Kampagne</a><a href=${href('c', cid, 'enthuellungen')}>🤯 Enthüllungen</a><a href=${href('c', cid, 'notizen')}>📝 DM-Notizen</a>
           <a href=${href('c', cid, 'npcs')}>🎭 NPCs</a><a href=${href('c', cid, 'sitzungen')}>📖 Sitzung eintragen</a><a href="#/wiki">📚 Wiki: Begriffe & Regeln</a></div></details>
@@ -268,6 +321,9 @@ function PlayerView({ camp, chars, sessions, quests, npcs, revelations, cid, use
     <header class="st-head small">
       <div class="st-id"><span class="label">🎲 Spieltisch · Sitzung ${num}</span><h1>${camp.name}</h1>${camp.table?.place && html`<span class="st-place">📍 ${camp.table.place}</span>`}</div>
       <${TurnHelpButton} cls="btn small"/></header>
+    <${TurnAlert} camp=${camp} chars=${chars} user=${user}/><${RestNotice} camp=${camp}/>
+    ${!fight && html`<${ZeroNudge} cid=${cid} user=${user}/>`}
+    ${camp.table?.shop && !fight && html`<div class="shop-open">🛒 <b>Der Laden ist offen.</b> Tippe bei deinem Charakter auf „Laden“, um einzukaufen oder zu verkaufen.</div>`}
     ${fight ? html`<${TurnStrip} cb=${camp.combat} chars=${chars} user=${user}/>` : last?.stop && html`<details class="fold st-stop"><summary>📍 Wo wir aufgehört haben</summary><p class="pre">${last.stop}</p></details>`}
     ${mine.map(c => html`<${CharQuick} key=${c.id} user=${user} cid=${cid} chId=${c.id} camp=${camp}/>`)}
     ${!mine.length && html`<${Empty} title="Noch kein Charakter in dieser Kampagne" action=${html`<a class="btn primary" href=${href('c', cid, 'neu')}>Charakter erstellen</a>`}>Ohne Charakter kannst du zuschauen, aber nicht würfeln.</${Empty}>`}

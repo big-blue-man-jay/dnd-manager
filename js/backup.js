@@ -5,7 +5,7 @@ import { store } from './data.js';
 import { createCampaign } from './ops.js';
 import { worldPath } from './world.js';
 
-const COLS = ['characters', 'sessions', 'quests', 'npcs', 'journal', 'secrets', 'revelations', 'members', 'map', 'log', 'loot'];
+const COLS = ['characters', 'sessions', 'quests', 'npcs', 'journal', 'secrets', 'revelations', 'members', 'map', 'log', 'loot', 'zero'];
 const strip = d => { if (!d) return d; const { id, ...rest } = d; return rest; };
 
 export async function exportCampaign(cid, user) {

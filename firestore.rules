@@ -129,6 +129,13 @@ service cloud.firestore {
         allow write: if isDM(cid);
       }
 
+      // Session Zero answers: each player writes their own, only they and the DM read them.
+      match /zero/{zid} {
+        allow read: if isDM(cid) || (signedIn() && zid == uid());
+        allow create, update: if isDM(cid) || (isMember(cid) && zid == uid() && request.resource.data.uid == uid()); // DM: restoring a backup
+        allow delete: if isDM(cid) || (signedIn() && zid == uid());
+      }
+
       // Prepared secrets: DM only, until revealed.
       match /secrets/{id} { allow read, write: if isDM(cid); }
 

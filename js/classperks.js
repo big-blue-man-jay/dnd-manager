@@ -2,7 +2,7 @@
 // (Fighting Style, Weapon Mastery, Divine Order, Primal Order, Eldritch Invocation), and the weapon table
 // used to build attack lines from whatever gear the character starts with.
 import { html, toast } from './ui.js';
-import { mod, sgn } from './rules5e.js';
+import { mod, sgn, profBonus } from './rules5e.js';
 import { newId } from './data.js';
 
 // [name, when / how often, what it does]
@@ -94,7 +94,33 @@ export const WEAPONS = {
   Shortbow: { die: '1d6', ab: 'dex', note: 'piercing, 80/320 ft, two-handed', m: 'Vex', r: 1, two: 1 },
   Longbow: { die: '1d8', ab: 'dex', note: 'piercing, 150/600 ft, heavy, two-handed', m: 'Slow', r: 1, two: 1 },
   'Light Crossbow': { die: '1d8', ab: 'dex', note: 'piercing, 80/320 ft, loading, two-handed', m: 'Slow', r: 1, two: 1 },
+  Club: { die: '1d4', ab: 'str', note: 'bludgeoning, light', m: 'Slow' },
+  Greatclub: { die: '1d8', ab: 'str', note: 'bludgeoning, two-handed', m: 'Push', two: 1 },
+  'Light Hammer': { die: '1d4', ab: 'str', note: 'bludgeoning, light, thrown 20/60 ft', m: 'Nick' },
+  Dart: { die: '1d4', ab: 'fin', note: 'piercing, finesse, thrown 20/60 ft', m: 'Vex', r: 1 },
+  Sling: { die: '1d4', ab: 'dex', note: 'bludgeoning, 30/120 ft', m: 'Slow', r: 1 },
+  Battleaxe: { die: '1d8', ab: 'str', note: 'slashing, versatile (1d10)', m: 'Topple' },
+  Warhammer: { die: '1d8', ab: 'str', note: 'bludgeoning, versatile (1d10)', m: 'Push' },
+  Morningstar: { die: '1d8', ab: 'str', note: 'piercing', m: 'Sap' },
+  'War Pick': { die: '1d8', ab: 'str', note: 'piercing, versatile (1d10)', m: 'Sap' },
+  Trident: { die: '1d8', ab: 'str', note: 'piercing, thrown 20/60 ft, versatile (1d10)', m: 'Topple' },
+  Maul: { die: '2d6', ab: 'str', note: 'bludgeoning, heavy, two-handed', m: 'Topple', two: 1 },
+  Glaive: { die: '1d10', ab: 'str', note: 'slashing, heavy, reach, two-handed', m: 'Graze', two: 1 },
+  Halberd: { die: '1d10', ab: 'str', note: 'slashing, heavy, reach, two-handed', m: 'Cleave', two: 1 },
+  Whip: { die: '1d4', ab: 'fin', note: 'slashing, finesse, reach', m: 'Slow' },
+  'Hand Crossbow': { die: '1d6', ab: 'dex', note: 'piercing, 30/120 ft, light, loading', m: 'Vex', r: 1 },
+  'Heavy Crossbow': { die: '1d10', ab: 'dex', note: 'piercing, 100/400 ft, heavy, loading, two-handed', m: 'Push', r: 1, two: 1 },
 };
+// simple weapons every class can use; martial ones need training
+export const SIMPLE = ['Club', 'Dagger', 'Greatclub', 'Handaxe', 'Javelin', 'Light Hammer', 'Mace', 'Quarterstaff', 'Sickle', 'Spear', 'Dart', 'Light Crossbow', 'Shortbow', 'Sling'];
+const LIGHT_OR_FINESSE = n => /light|finesse/.test(WEAPONS[n]?.note || '');
+export function canUseWeapon(cls, n, perks = {}) {
+  if (SIMPLE.includes(n)) return true;
+  if (['Barbarian', 'Fighter', 'Paladin', 'Ranger'].includes(cls) || perks.order === 'Protector' || perks.order === 'Warden') return true;
+  if (cls === 'Rogue') return LIGHT_OR_FINESSE(n);
+  if (cls === 'Monk') return /light/.test(WEAPONS[n]?.note || '');
+  return false;
+}
 export const emptyPerks = () => ({ style: '', order: '', inv: '', mastery: [] });
 export const extraCantrips = (cls, p) => ((cls === 'Cleric' && p.order === 'Thaumaturge') || (cls === 'Druid' && p.order === 'Magician') ? 1 : 0);
 
@@ -116,13 +142,13 @@ export function perksHint(cls, p, opts) {
 }
 
 // attack lines for the given weapons. Fighting style and mastery go into bonus, damage and note.
-export function attacksFor(cls, names, scores, p = emptyPerks()) {
-  const m = k => mod(scores[k] || 10), pb = 2, out = [];
+export function attacksFor(cls, names, scores, p = emptyPerks(), lvl = 1) {
+  const m = k => mod(scores[k] || 10), pb = profBonus(lvl), out = [];
   for (const n of [...new Set(names)]) {
     const w = WEAPONS[n]; if (!w) continue;
     const ab = w.ab === 'fin' || (cls === 'Monk' && !w.r && !w.two) ? (m('dex') > m('str') ? 'dex' : 'str') : w.ab;
     const dmgBonus = m(ab) + (p.style === 'Dueling' && !w.r && !w.two ? 2 : 0);
-    const mastered = p.mastery.includes(n);
+    const mastered = (p.mastery || []).includes(n);
     out.push({ id: newId(), name: n, bonus: pb + m(ab) + (p.style === 'Archery' && w.r ? 2 : 0), damage: `${w.die}${dmgBonus ? sgn(dmgBonus).replace('−', '-') : ''}`,
       note: w.note + (mastered ? ` · Mastery ${w.m}: ${MASTERY[w.m]}` : '') });
   }

@@ -15,6 +15,8 @@ import { lookOf, kindLine, itemName, term, coinsOf, worldOf, spellName } from '.
 import { setActor, setFallbackActor, takeActor, logRoll, logAct, charActor } from './log.js';
 import { RARITY } from './loot.js';
 import { CatchUp } from './startkit.js';
+import { ShopButton, shopAllowed } from './shop.js';
+import { InfoModal, hasInfo } from './spellinfo.js';
 
 /* shared advantage/disadvantage state: set in the tray or the turn panel, used by the next d20 roll, then back to normal */
 let diceMode = 'normal'; const modeSubs = new Set();
@@ -94,8 +96,8 @@ export function CharQuick({ user, cid, chId, camp }) {
   // in a fight the actions come first; otherwise HP, skills and saves (for "make a Perception check")
   return html`<div class=${'quick-char' + (fight ? ' fight' : ' calm')} onClickCapture=${() => setActor(actor)}>
     <div class="qc-head"><${Medal} cls=${card.cls} species=${card.species} look=${lookOf(card, camp)}/><div class="nc-id"><h3>${card.name}</h3><div class="sub">Stufe ${card.level || 1} · ${kindLine(card, lookOf(card, camp), false)}</div></div>
-      <a class="btn small" href=${href('c', cid, 'char', chId)}>📜 Ganzer Bogen</a></div>
-    <${LevelUpBanner} ...${ctx}/>
+      ${camp.table?.shop && html`<${ShopButton} ctx=${ctx} cls="btn small primary"/>`}<a class="btn small" href=${href('c', cid, 'char', chId)}>📜 Ganzer Bogen</a></div>
+    <${LevelUpBanner} ...${ctx}/><${InspPopup} ...${ctx}/>
     ${fight ? html`<div class="qc-grid">
       <div class="qc-main"><${ActionsPanel} ...${ctx}/></div>
       <div class="qc-side"><${Vitals} ...${ctx}/>${conds ? html`<${Conditions} ...${ctx}/>` : html`<details class="fold"><summary>🩹 Zustände</summary><${Conditions} ...${ctx}/></details>`}
@@ -110,6 +112,16 @@ export function CharQuick({ user, cid, chId, camp }) {
         <details class="fold"><summary>🔋 Ressourcen</summary><${Resources} ...${ctx}/></details>
         <details class="fold"><summary>🎒 Inventar</summary><${Inventory} ...${ctx}/></details></div></div>`}
     </div>`;
+}
+
+// the DM gave Heroic Inspiration: show it once, big, with what it does
+function InspPopup(ctx) {
+  const { s, c, chId } = ctx; const k = 'dndm-insp-' + chId;
+  const [seen, setSeen] = useState(() => { try { return +localStorage.getItem(k) || 0; } catch (e) { return 0; } });
+  if (!s.inspiration || !s.inspAt || s.inspAt <= seen || s.inspAt < Date.now() - 6 * 3600e3) return null;
+  const ok = () => { try { localStorage.setItem(k, String(s.inspAt)); } catch (e) { /* private mode */ } setSeen(s.inspAt); };
+  return html`<div class="turn-alert insp" role="alert" onClick=${ok}><div class="ta-card"><span class="ta-emo" aria-hidden="true">🌟</span><b>Heroic Inspiration für ${c.name}!</b>
+    <span>Dein DM belohnt dich. Einmal darfst du einen Wurf wiederholen, egal welchen: Angriff, Save oder Skill. Danach ist sie weg. Du siehst sie oben bei deinen Werten.</span><button class="btn primary">Super!</button></div></div>`;
 }
 
 function PublicCard({ c, camp }) {
@@ -320,7 +332,7 @@ function ActionsPanel(ctx) {
   const cur = cb?.list?.[cb.turn], myTurn = !!cb && cur?.charId === chId;
   const [st, save] = useEconomy(cid, chId, cb?.round, myTurn);
   const [flow, setFlow] = useState({}); // per action: what has been rolled so far
-  const [tip, setTip] = useState(null);
+  const [tip, setTip] = useState(null); const [info, setInfo] = useState(null);
   const used = st.used || {};
   const { list, dc, atk, ab } = buildActions(c, s);
   const slotsMax = s.slotsOverride || autoSlots(c.cls, c.level), slotsUsed = s.slotsUsed || Array(9).fill(0);
@@ -362,7 +374,8 @@ function ActionsPanel(ctx) {
         ${x.kind === 'save' && x.dice && html`<span class="fnote">${x.half ? 'Geschafft: halber Schaden.' : 'Geschafft: kein Schaden.'}</span>`}</div>`; }
     else body = html`<div class="flow"><button class="btn small" onClick=${() => { if (start(x, time)) toast(`${x.name} gewirkt.${x.temp ? ` ${x.temp} Temp HP.` : ''}${x.conc ? ' Concentration läuft.' : ''}`); }}>✨ Wirken</button>
         ${x.rider && html`<span class="fnote">Danach: jeder Treffer +${x.rider.dice} ${x.rider.type}.</span>`}${x.temp && html`<span class="fnote">Gibt ${x.temp} Temp HP.</span>`}</div>`;
-    return html`<div class="act-row"><div class="act-name"><b>${x.name}</b>${tags && html`<small class="act-tags">${tags}</small>`}${x.note && html`<small>${x.note}</small>`}</div>${body}</div>`; };
+    const nm = hasInfo(x.name) ? html`<button class="info-link" onClick=${() => setInfo(x)} title="Was macht das?">${x.name} <span aria-hidden="true">ⓘ</span></button>` : html`<b>${x.name}</b>`;
+    return html`<div class="act-row"><div class="act-name">${nm}${tags && html`<small class="act-tags">${tags}</small>`}${x.note && html`<small>${x.note}</small>`}</div>${body}</div>`; };
 
   const grp = k => list.filter(x => x.time === k);
   const caster = ab || slotsMax.some(Boolean);
@@ -370,7 +383,7 @@ function ActionsPanel(ctx) {
   const Group = ({ k, icon, title, hint, children }) => html`<div class=${'tp-group g-' + k + (cb && used[k] ? ' spent' : '')}><div class="tp-head"><span>${icon} ${title}</span><small>${hint}</small></div>${children}</div>`;
   const weapons = list.filter(x => x.weapon);
 
-  return html`<section class=${'panel box actions-panel' + (myTurn ? ' mine' : '')}>
+  return html`${info && html`<${InfoModal} name=${info.name} level=${info.level} nums=${{ dc, atk, mod: ab ? mod(s.abilities[ab]) : null }} onClose=${() => setInfo(null)}/>`}<section class=${'panel box actions-panel' + (myTurn ? ' mine' : '')}>
     <div class="box-head"><h2><span class="ico" aria-hidden="true">${myTurn ? '🎯' : '⚔️'}</span>${myTurn ? 'Du bist dran!' : 'Aktionen'}</h2>
       ${cb && html`<button class="link quiet small" onClick=${() => { save({ ...st, used: {} }); setFlow({}); }}>Zug zurücksetzen</button>`}</div>
     ${cb && html`<p class="muted small-note">${myTurn ? 'Pro Zug: Bewegung, eine Action, eventuell eine Bonus Action. Ist alles weg, sag „Ich bin fertig“.' : `Gerade dran: ${cur?.name || '–'}. Deine Reaction kannst du auch jetzt nutzen.`}</p>
@@ -437,20 +450,25 @@ function Vitals(ctx) {
       <button class="btn small" onClick=${deathRoll}>Death Save würfeln</button></div>`}
     <div class="row-split">
       <div><span class="label"><span class="ico" aria-hidden="true">🎲</span>${HD}</span><div class="num">${lvl - (s.hitDiceUsed || 0)} / ${lvl} × d${die}</div><button class="btn small" disabled=${(s.hitDiceUsed || 0) >= lvl || hp >= max} onClick=${spendHD}>${hd1} ausgeben</button></div>
-      <div><span class="label"><span class="ico" aria-hidden="true">🌟</span>Heroic Inspiration</span><div><button class=${'toggle' + (s.inspiration ? ' on' : '')} onClick=${() => patch(ctx, null, { inspiration: !s.inspiration })}>${s.inspiration ? 'Vorhanden' : 'Keine'}</button></div></div>
+      <div><span class="label"><span class="ico" aria-hidden="true">🌟</span>Heroic Inspiration</span><div><button class=${'toggle' + (s.inspiration ? ' on' : '')} onClick=${() => { patch(ctx, null, { inspiration: !s.inspiration }); if (s.inspiration) logAct(charActor(ctx.camp, c, ctx.cid, ctx.user), 'setzt Heroic Inspiration ein und würfelt neu'); }} title=${s.inspiration ? 'Antippen, wenn du sie einsetzt: einen Wurf wiederholen' : ''}>${s.inspiration ? 'Vorhanden · einsetzen' : 'Keine'}</button></div></div>
     </div>
     <${Rests} ...${ctx}/>
   </section>`;
+}
+// what a rest restores (2024): Short Rest: short-rest resources, one use of "1 per Short Rest" ones, Warlock slots.
+// Long Rest: HP, all Hit Dice, slots, resources, death saves, Exhaustion −1, Temp HP gone.
+export function restPatch(kind, c, s) {
+  if (kind === 'short') { const sheet = { resources: (s.resources || []).map(r => r.reset === 'short' ? { ...r, used: 0 } : r.reset === 'shortOne' ? { ...r, used: Math.max(0, (r.used || 0) - 1) } : r) };
+    if (isPact(c.cls)) sheet.slotsUsed = Array(9).fill(0); return { card: null, sheet }; }
+  return { card: { hp: c.hpMax || 0, tempHp: 0, exhaustion: Math.max(0, (c.exhaustion || 0) - 1) },
+    sheet: { resources: (s.resources || []).map(r => ({ ...r, used: 0 })), slotsUsed: Array(9).fill(0), hitDiceUsed: 0, deathSaves: { ok: 0, fail: 0 } } };
 }
 function Rests(ctx) {
   const { c, s, camp } = ctx; const [ask, setAsk] = useState(null);
   const SR = term(camp, 'shortRest', 'Short Rest'), LR = term(camp, 'longRest', 'Long Rest');
   const slotsMax = s.slotsOverride || autoSlots(c.cls, c.level);
-  const shortRest = () => { const res = (s.resources || []).map(r => r.reset === 'short' ? { ...r, used: 0 } : r.reset === 'shortOne' ? { ...r, used: Math.max(0, (r.used || 0) - 1) } : r);
-    const sheet = { resources: res }; if (isPact(c.cls)) sheet.slotsUsed = Array(9).fill(0);
-    patch(ctx, null, sheet); setAsk(null); toast('Short Rest: Ressourcen aufgefüllt. Hit Dice kannst du oben ausgeben.'); };
-  const longRest = () => { patch(ctx, { hp: c.hpMax || 0, tempHp: 0, exhaustion: Math.max(0, (c.exhaustion || 0) - 1) },
-    { resources: (s.resources || []).map(r => ({ ...r, used: 0 })), slotsUsed: Array(9).fill(0), hitDiceUsed: 0, deathSaves: { ok: 0, fail: 0 } }); setAsk(null); toast('Long Rest: alles aufgefüllt.'); };
+  const shortRest = () => { const p = restPatch('short', c, s); patch(ctx, p.card, p.sheet); setAsk(null); toast('Short Rest: Ressourcen aufgefüllt. Hit Dice kannst du oben ausgeben.'); };
+  const longRest = () => { const p = restPatch('long', c, s); patch(ctx, p.card, p.sheet); setAsk(null); toast('Long Rest: alles aufgefüllt.'); };
   return html`<div class="rests">${ask ? html`<span class="confirm">${ask === 'short' ? 'Short Rest machen? Füllt Short-Rest-Ressourcen auf.' : 'Long Rest machen? HP, Slots, Ressourcen und Hit Dice voll, Exhaustion −1.'}
       <button class="btn primary small" onClick=${ask === 'short' ? shortRest : longRest}>Ja</button><button class="btn small" onClick=${() => setAsk(null)}>Abbrechen</button></span>`
     : html`<button class="btn" title="Short Rest" onClick=${() => setAsk('short')}>☕ ${SR}</button><button class="btn" title="Long Rest" onClick=${() => setAsk('long')}>🌙 ${LR}</button>`}</div>`;
@@ -496,7 +514,7 @@ function Attacks(ctx) {
 /* ---------- spellcasting ---------- */
 function Spellcasting(ctx) {
   const { c, s, camp } = ctx; const ab = spellAb(c, s);
-  const [f, setF] = useState(null);
+  const [f, setF] = useState(null); const [info, setInfo] = useState(null);
   const slotsMax = s.slotsOverride || autoSlots(c.cls, c.level);
   const spells = s.spells || [];
   if (!ab && !spells.length && !slotsMax.some(Boolean)) return null;
@@ -512,7 +530,8 @@ function Spellcasting(ctx) {
       ${slotsMax.map((n, lv) => n ? html`<div class="slotrow"><span class="lv">${lv + 1}</span><div class="pips">${Array.from({ length: n }, (_, i) => html`<button class=${i < (used[lv] || 0) ? 'on' : ''} aria-label=${`Slot Stufe ${lv + 1}`} onClick=${() => tapSlot(lv, i)}></button>`)}</div><span class="sub">${n - Math.min(n, used[lv] || 0)} frei</span></div>` : null)}</div>`}
     ${byLevel.map(([l, list]) => html`<div class="spell-lv"><span class="label">${l === 0 ? 'Cantrips' : 'Stufe ' + l}</span>${list.map(x => html`<div class="spell">
       ${l > 0 && html`<button class=${'prep' + (x.prepared ? ' on' : '')} title="Vorbereitet" onClick=${() => patch(ctx, null, { spells: spells.map(y => y.id === x.id ? { ...y, prepared: !y.prepared } : y) })}>${x.prepared ? '●' : '○'}</button>`}
-      <span class="nm">${spellName(camp, x.name) || x.name}${(spellName(camp, x.name) || x.note) && html` <span class="sub">${[spellName(camp, x.name) && x.name, x.note].filter(Boolean).join(' · ')}</span>`}</span><button class="link quiet small" onClick=${() => setF(x)}>Ändern</button></div>`)}</div>`)}
+      <span class="nm">${hasInfo(x.name) ? html`<button class="info-link" onClick=${() => setInfo(x)} title="Was macht das?">${spellName(camp, x.name) || x.name} <span aria-hidden="true">ⓘ</span></button>` : spellName(camp, x.name) || x.name}${(spellName(camp, x.name) || x.note) && html` <span class="sub">${[spellName(camp, x.name) && x.name, x.note].filter(Boolean).join(' · ')}</span>`}</span><button class="link quiet small" onClick=${() => setF(x)}>Ändern</button></div>`)}</div>`)}
+    ${info && html`<${InfoModal} name=${info.name} level=${int(info.level)} nums=${{ dc: 8 + pb + m, atk: pb + m, mod: m }} onClose=${() => setInfo(null)}/>`}
     ${f && html`<form class="form inline-form" onSubmit=${save}>
       <${Field} label="Zauber"><input id="sp-name" value=${f.name} onInput=${e => setF(f => ({ ...f, name: e.target.value }))} placeholder="Cure Wounds"/></${Field}>
       <${Field} label="Stufe"><select id="sp-lv" value=${f.level} onChange=${e => setF(f => ({ ...f, level: int(e.target.value) }))}>${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(l => html`<option value=${l}>${l === 0 ? 'Cantrip' : l}</option>`)}</select></${Field}>
@@ -526,14 +545,15 @@ function Spellcasting(ctx) {
 function Resources(ctx) {
   const { c, s, camp } = ctx; const list = s.resources || [];
   const resetLabel = k => (RESET_LABEL[k] || '').replace('Short Rest', term(camp, 'shortRest', 'Short Rest')).replace('Long Rest', term(camp, 'longRest', 'Long Rest'));
-  const [f, setF] = useState(null);
+  const [f, setF] = useState(null); const [info, setInfo] = useState(null);
   const sugg = suggestedResources(c.cls, c.level, s.abilities);
   const tap = (r, i) => patch(ctx, null, { resources: list.map(x => x.id === r.id ? { ...x, used: i < (x.used || 0) ? i : i + 1 } : x) });
   const save = e => { e.preventDefault(); if (!f.name.trim()) return; const r = { ...f, max: Math.max(1, int(f.max, 1)) }; patch(ctx, null, { resources: f.id ? list.map(x => x.id === f.id ? r : x) : [...list, { ...r, id: newId(), used: 0 }] }); setF(null); };
   const takeSugg = () => { const byName = Object.fromEntries(list.map(r => [r.name, r])); const merged = [...list.map(r => { const g = sugg.find(x => x.name === r.name); return g ? { ...r, max: g.max, reset: g.reset } : r; }), ...sugg.filter(g => !byName[g.name]).map(g => ({ ...g, id: newId(), used: 0 }))]; patch(ctx, null, { resources: merged }); toast('Ressourcen übernommen.'); };
   const differs = sugg.some(g => { const r = list.find(x => x.name === g.name); return !r || r.max !== g.max; });
   return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🔋</span>Ressourcen</h2><button class="btn small" onClick=${() => setF({ name: '', max: 1, reset: 'long' })}>Hinzufügen</button></div>
-    ${list.map(r => html`<div class="res"><div class="res-name"><b>${r.name}</b><span class="sub">${resetLabel(r.reset)}</span></div>
+    ${info && html`<${InfoModal} name=${info} onClose=${() => setInfo(null)}/>`}
+    ${list.map(r => html`<div class="res"><div class="res-name">${hasInfo(r.name) ? html`<button class="info-link" onClick=${() => setInfo(r.name)}>${r.name} <span aria-hidden="true">ⓘ</span></button>` : html`<b>${r.name}</b>`}<span class="sub">${resetLabel(r.reset)}</span></div>
       ${r.max <= 12 ? html`<div class="pips">${Array.from({ length: r.max }, (_, i) => html`<button class=${i < (r.used || 0) ? 'on' : ''} aria-label=${r.name} onClick=${() => tap(r, i)}></button>`)}</div>`
         : html`<div class="counter"><button class="btn small" onClick=${() => patch(ctx, null, { resources: list.map(x => x.id === r.id ? { ...x, used: Math.min(x.max, (x.used || 0) + 1) } : x) })}>−</button><span class="num">${r.max - (r.used || 0)} / ${r.max}</span><button class="btn small" onClick=${() => patch(ctx, null, { resources: list.map(x => x.id === r.id ? { ...x, used: Math.max(0, (x.used || 0) - 1) } : x) })}>+</button></div>`}
       <button class="link quiet small" onClick=${() => setF(r)}>Ändern</button></div>`)}
@@ -571,7 +591,7 @@ function Inventory(ctx) {
   const upd = (id, d) => patch(ctx, null, { inventory: inv.map(x => x.id === id ? { ...x, ...d } : x) });
   const attunedN = inv.filter(x => x.attuned).length;
   const cur = cn || coins;
-  return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🎒</span>Inventar</h2><span class="sub">Attunement ${attunedN} / 3</span></div>
+  return html`<section class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">🎒</span>Inventar</h2><span class="sub">Attunement ${attunedN} / 3</span>${shopAllowed(ctx) && html`<${ShopButton} ctx=${ctx}/>`}</div>
     ${inv.length ? html`<div class="inv">${inv.map(x => html`<div class="inv-row">
       <div class="counter"><button class="btn small" onClick=${() => upd(x.id, { qty: Math.max(0, (x.qty || 0) - 1) })}>−</button><b class="num">${x.qty ?? 1}</b><button class="btn small" onClick=${() => upd(x.id, { qty: (x.qty || 0) + 1 })}>+</button></div>
       <div class="inv-name"><b class=${x.rarity && x.rarity !== 'common' ? 'rar' : ''} style=${x.rarity ? `--rc:${RARITY[x.rarity]?.hex}` : ''}>${itemName(camp, x.name) || x.name}${itemName(camp, x.name) && html` <small class="rar-tag">${x.name}</small>`}${x.rarity && html` <small class="rar-tag">${RARITY[x.rarity]?.en}${x.attune ? ' · Attunement' : ''}</small>`}</b><input class="note-in" value=${x.note || ''} placeholder="Notiz" onChange=${e => upd(x.id, { note: e.target.value })} aria-label="Notiz"/></div>
