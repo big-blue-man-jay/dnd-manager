@@ -153,7 +153,10 @@ function ShopModal({ ctx, onClose }) {
     const inventory = ex ? inv.map(i => (i === ex ? { ...i, qty: (i.qty ?? 1) + x.qty } : i)) : [...inv, { id: newId(), name: x.n, qty: x.qty, note: x.cat === 'waffen' ? WEAPONS[x.n].note : x.note, attuned: false }];
     const data = { coins: next, inventory, updatedAt: Date.now() }; let msg = `${x.n} gekauft.`;
     if (x.cat === 'waffen' && !(s.attacks || []).some(a => a.name === x.n)) {
-      const [a] = attacksFor(c.cls, [x.n], s.abilities || {}, { mastery: [] }, c.level || 1);
+      // masteries chosen in the builder stand in the features text: "Weapon Mastery: Dagger (Nick), Rapier (Vex) – …"
+      const mastery = ((/Weapon Mastery: ([^–\n]*)/.exec(s.features || '') || [])[1] || '').split(',').map(t => t.replace(/\(.*\)/, '').trim()).filter(Boolean);
+      const style = (/Fighting Style: (Archery|Dueling)/.exec(s.features || '') || [])[1] || '';
+      const [a] = attacksFor(c.cls, [x.n], s.abilities || {}, { mastery, style }, c.level || 1);
       if (!canUseWeapon(c.cls, x.n, perks)) a.bonus -= profBonus(c.level || 1);
       data.attacks = [...(s.attacks || []), a]; msg += ' Steht jetzt bei deinen Angriffen.';
     }
