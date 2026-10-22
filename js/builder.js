@@ -3,7 +3,7 @@ import { html, useState, useMemo, Medal, Field, toast } from './ui.js';
 import { ABILITIES, SKILLS, CLASSES, ALIGNMENTS, DICE_COLORS, SPECIES_EMOJI, CLASS_EMOJI, suggestedResources, mod, sgn } from './rules5e.js';
 import { newId } from './data.js';
 import { lookIn, itemIn, spellIn, featIn } from './world.js';
-import { MI_LISTS, extrasFor, emptyExtras, extrasOk, extrasHint, applyExtras, ExtrasPicker, KITS, BG_KITS, LoadoutPicker, gearResult, toInventory } from './startkit.js';
+import { MI_LISTS, VersatilePicker, versatilePatch, extrasFor, emptyExtras, extrasOk, extrasHint, applyExtras, ExtrasPicker, KITS, BG_KITS, LoadoutPicker, gearResult, toInventory } from './startkit.js';
 import { WEAPONS } from './classperks.js';
 import { Decide, PerkList, PerksPicker, emptyPerks, perksOk, perksHint, masteryOptions, extraCantrips, attacksFor, unarmed, perkLines, PERKS } from './classperks.js';
 import { CLASS_INFO, DIFF, SPECIES_INFO, FEATS, BACKGROUNDS, ABILITY_DESC, SKILL_DESC, SPELLS, SPELL_ATTACKS, STANDARD_ARRAY, TRAITS, DIE_NOTE } from './builder-data.js';
@@ -31,7 +31,7 @@ const Intro = ({ children }) => html`<div class="wiz-intro">${children}</div>`;
 
 export function Builder({ user, others, onCreate, onExpert, world = null, forPlayer = false }) {
   const used = others.map(o => o.diceColor).filter(Boolean);
-  const [st, setSt] = useState({ step: 0, cls: null, species: null, bg: null, assign: {}, bonus: null, skills: [], extra: [], cantrips: [], spells: [], x: emptyExtras(), perks: emptyPerks(), gear: { cls: '', bg: '' },
+  const [st, setSt] = useState({ step: 0, cls: null, species: null, bg: null, assign: {}, bonus: null, skills: [], extra: [], cantrips: [], spells: [], x: emptyExtras(), perks: emptyPerks(), gear: { cls: '', bg: '' }, vers: '',
     name: '', alignment: '', dice: DICE_COLORS.find(d => !used.includes(d.key))?.key || '', origin: '', goal: '', quirk: '', forName: '' });
   const [busy, setBusy] = useState(false);
   const up = patch => setSt(s => ({ ...s, ...(typeof patch === 'function' ? patch(s) : patch) }));
@@ -66,7 +66,7 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
   const shown = k => (st.assign[k] ? scores[k] : null);
   const mods = Object.fromEntries(ABILITIES.map(a => [a.key, mod(scores[a.key])]));
   const die = st.cls ? CLASSES[st.cls].die : 8;
-  const hp = Math.max(1, die + mods.con + (spi?.hpPerLevel || 0) + (bgi?.feat === 'Tough' ? 2 : 0));
+  const hp = Math.max(1, die + mods.con + (spi?.hpPerLevel || 0) + (bgi?.feat === 'Tough' ? 2 : 0) + (st.species === 'Human' && st.vers === 'Tough' ? 2 : 0));
   const gr = st.cls && st.bg ? gearResult(st.cls, st.bg, st.gear) : null;
   const mOpts = st.cls ? masteryOptions(st.cls, gr ? gr.weapons : []) : [];
   const armorName = gr?.armorName || ci?.armor.name || '';
@@ -91,12 +91,12 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
     skills: st.skills.length === skillN && (!spi?.extraSkill || st.extra.length === spi.extraSkill),
     zauber: !spellInfo || (st.cantrips.length === spellInfo[0] && st.spells.length === spellInfo[1]),
     ausruestung: !!st.gear.cls && (!BG_KITS[st.bg] || !!st.gear.bg),
-    faehig: perksOk(st.cls, st.perks, mOpts) && (!hasExtras || extrasOk(need, st.x)),
+    faehig: perksOk(st.cls, st.perks, mOpts) && (!hasExtras || extrasOk(need, st.x)) && (st.species !== 'Human' || !!st.vers),
     person: !!st.name.trim() && !!st.dice && !used.includes(st.dice), fertig: true,
   };
   const hint = { werte: !assigned ? 'Verteile alle sechs Werte (oder nimm die Empfehlung).' : 'Wähle, wohin die Background-Punkte gehen.', klasse: 'Wähle eine Klasse.', species: 'Wähle eine Species.', background: 'Wähle einen Background.', skills: `Wähle genau ${skillN} Skills${spi?.extraSkill ? ' und 1 Bonus-Skill (Human)' : ''}.`,
     zauber: spellInfo && `Wähle ${spellInfo[0] ? spellInfo[0] + ' Cantrips und ' : ''}${spellInfo[1]} Zauber.`, person: 'Gib deinem Charakter einen Namen und eine freie Würfelfarbe.', ausruestung: 'Wähle ein Ausrüstungspaket für Klasse und Background.',
-    faehig: 'Wähle noch: ' + [perksHint(st.cls, st.perks, mOpts), hasExtras && !extrasOk(need, st.x) ? extrasHint(need) : ''].filter(Boolean).join(', ') + '.' };
+    faehig: 'Wähle noch: ' + [perksHint(st.cls, st.perks, mOpts), hasExtras && !extrasOk(need, st.x) ? extrasHint(need) : '', st.species === 'Human' && !st.vers ? 'das zweite Origin Feat (Human)' : ''].filter(Boolean).join(', ') + '.' };
   const go = d => { up(s => ({ step: Math.max(0, Math.min(steps.length - 1, s.step + d)) })); scrollTo(0, 0); };
   const next = () => { if (!ok[cur]) return toast(hint[cur]); go(1); };
 
@@ -110,13 +110,15 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
     const spells = [...st.cantrips.map(n => ({ n, level: 0 })), ...st.spells.map(n => ({ n, level: 1 }))].map(({ n, level }) => ({ id: newId(), name: n, level, prepared: true, note: all.find(s => s.name === n)?.note || '' }));
     const skills0 = Object.fromEntries(allSkills.map(k => [k, 1]));
     const features = [`${both(clsN, st.cls)} (Stufe 1): ${ci.feats}`, ...(PERKS[st.cls] || []).map(([n, w, d]) => `• ${n} (${w}): ${d}`), ...perkLines(st.cls, st.perks), `${both(spN, st.species)}: ${spi.traits}`, `Origin Feat (${both(bgN, st.bg)}): ${both(featIn(world, bgi.feat), bgi.feat)}${bgi.featNote ? ' (' + bgi.featNote + ')' : ''} – ${FEATS[bgi.feat]}`,
-      st.species === 'Human' ? 'Human Versatile: ein weiteres Origin Feat nach Wahl (mit dem DM klären)' : ''].filter(Boolean).join('\n');
+      st.species === 'Human' && st.vers ? `Human Versatile: ${st.vers} – ${FEATS[st.vers] || ''}` : ''].filter(Boolean).join('\n');
     const notes = [st.origin && `Herkunft: ${st.origin}`, st.goal && `Ziel: ${st.goal}`, st.quirk && `Macke: ${st.quirk}`].filter(Boolean).join('\n');
     // starting equipment, option A of the Player's Handbook, plus the class gold
     const kit = KITS[st.cls], inventory = toInventory(gr.items);
     const card = { name: st.name.trim(), species: st.species, cls: st.cls, clsCustom: '', hitDie: die, subclass: '', level: 1, ac: null, speed: spi.speed, hpMax: hp, diceColor: st.dice,
       ...(forPlayer && st.forName.trim() ? { ownerName: st.forName.trim() } : {}) };
-    const base = { skills: skills0, spells, attacks: atk, resources: suggestedResources(st.cls, 1, scores).map(r => ({ ...r, id: newId(), used: 0 })) };
+    const lucky = bgi.feat === 'Lucky' || st.vers === 'Lucky';
+    const base = { skills: skills0, spells, attacks: atk, resources: [...suggestedResources(st.cls, 1, scores), ...(lucky ? [{ name: 'Luck Points', max: 2, reset: 'long' }] : [])].map(r => ({ ...r, id: newId(), used: 0 })),
+      ...((bgi.feat === 'Alert' || st.vers === 'Alert') ? { initBonus: 2 } : {}), ...(st.species === 'Human' ? { inspiration: true } : {}) };
     const extra = hasExtras ? applyExtras(base, { cls: st.cls, bg: st.bg, scores, x: st.x }) : {};
     const sheet = { ac, abilities: scores, saveProf: [...CLASSES[st.cls].saves], background: st.bg, alignment: st.alignment,
       languages: `Common + 2 Sprachen nach Wahl · Tool: ${bgi.tool}${kit?.tools ? ` · Klasse: ${kit.tools}` : ''}`, features, notes, inventory,
@@ -175,6 +177,7 @@ export function Builder({ user, others, onCreate, onExpert, world = null, forPla
     ausruestung: () => html`<${LoadoutPicker} cls=${st.cls} bg=${st.bg} gear=${st.gear} set=${gear => up(s => ({ gear, perks: { ...s.perks, mastery: [] } }))} IT=${IT}/>`,
     faehig: () => html`<div class="perk-box"><${Decide} icon="⚔️" title=${`Das kann dein ${clsN} ab Stufe 1`} does="Diese Fähigkeiten hast du automatisch. Sie stehen später auf deinem Bogen, die mit Zahl auch als Zähler."/><${PerkList} cls=${st.cls}/></div>
       <${PerksPicker} cls=${st.cls} p=${st.perks} set=${perks => up({ perks })} weaponNames=${gr.weapons}/>
+      ${st.species === 'Human' && html`<div class="extras"><${VersatilePicker} v=${st.vers} set=${vers => up({ vers })} bgFeat=${bgi.feat}/></div>`}
       ${hasExtras && html`<${ExtrasPicker} cls=${st.cls} bg=${st.bg} scores=${scores} profSkills=${allSkills} classSpells=${[]} x=${st.x} set=${x => up({ x })} SP=${SP}/>`}`,
     person: () => html`<${Decide} icon="🪪" title="Name und ein bisschen Persönlichkeit" does="Pflicht sind nur Name und Würfelfarbe. Die drei kurzen Fragen sind freiwillig, daraus baut dein DM Momente für deinen Charakter."
         tip=${forPlayer ? `Ein Satz pro Frage reicht${place ? `, gern so, wie es in ${place} klingt` : ''}.` : 'Ein Satz pro Frage reicht völlig.'}/>

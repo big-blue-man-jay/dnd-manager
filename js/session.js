@@ -126,7 +126,7 @@ function PartyCard({ c, cid, now, camp }) {
     </div>
     ${sheet === undefined ? html`<p class="muted small-note">Lädt…</p>` : html`
     <div class="pc-nums">
-      ${K('AC', (s.ac ?? c.ac) || '–')}${K('Init', sgn(ab('dex')))}${K('Speed', c.speed || 30)}${K('PB', sgn(pb))}
+      ${K('AC', (s.ac ?? c.ac) || '–')}${K('Init', sgn(ab('dex') + (s.initBonus || 0)))}${K('Speed', c.speed || 30)}${K('PB', sgn(pb))}
       ${K('👁 Wahrn.', 10 + skill('perception'), 'Passive Perception')}${K('Einsicht', 10 + skill('insight'), 'Passive Insight')}${K('Unters.', 10 + skill('investigation'), 'Passive Investigation')}
       ${spAb && html`${K('Zauber-DC', 8 + pb + ab(spAb), 'Spell Save DC')}${K('Zauber-Atk', sgn(pb + ab(spAb)), 'Spell Attack')}`}
     </div>

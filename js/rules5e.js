@@ -88,7 +88,7 @@ export function suggestedResources(cls, level, abilities = {}) {
   if (cls === 'Paladin') { add('Lay on Hands (HP)', 5 * l, 'long'); if (l >= 3) add('Channel Divinity', l >= 11 ? 3 : 2, 'shortOne'); }
   if (cls === 'Druid' && l >= 2) add('Wild Shape', l >= 17 ? 4 : l >= 6 ? 3 : 2, 'shortOne');
   if (cls === 'Monk' && l >= 2) add('Focus Points', l, 'short');
-  if (cls === 'Sorcerer' && l >= 2) add('Sorcery Points', l, 'long');
+  if (cls === 'Sorcerer') { add('Innate Sorcery', 2, 'long'); if (l >= 2) add('Sorcery Points', l, 'long'); }
   return out;
 }
 export const RESET_LABEL = { short: 'Short Rest', shortOne: '1 pro Short Rest, alle bei Long Rest', long: 'Long Rest' };

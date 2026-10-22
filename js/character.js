@@ -200,7 +200,7 @@ export function sheetText(c, s, look = null) {
   if (look) L.push(`In der Welt der Kampagne: ${[look.species, look.cls, look.bg].filter(Boolean).join(' · ')}`);
   if (c.ownerName) L.push(`Gespielt von ${c.ownerName}`);
   L.push(`XP: ${c.xp || 0}${lvl < 20 ? ` (Stufe ${lvl + 1} bei ${XP_FOR[lvl + 1]})` : ''}`, '');
-  L.push(`HP: ${c.hp ?? c.hpMax ?? 0} / ${c.hpMax ?? 0}${c.tempHp ? ` (+${c.tempHp} temporär)` : ''} · AC: ${(s.ac ?? c.ac) ?? '–'} · Speed: ${c.speed || 30} ft · Initiative: ${sgn(m('dex'))} · Proficiency Bonus: ${sgn(pb)}`);
+  L.push(`HP: ${c.hp ?? c.hpMax ?? 0} / ${c.hpMax ?? 0}${c.tempHp ? ` (+${c.tempHp} temporär)` : ''} · AC: ${(s.ac ?? c.ac) ?? '–'} · Speed: ${c.speed || 30} ft · Initiative: ${sgn(m('dex') + (s.initBonus || 0))} · Proficiency Bonus: ${sgn(pb)}`);
   L.push(`Hit Dice: ${lvl - (s.hitDiceUsed || 0)} / ${lvl} × d${hitDie(c)} · Passive Perception: ${10 + m('wis') + (s.skills.perception || 0) * pb}`);
   if ((c.conditions || []).length || c.exhaustion) L.push(`Zustände: ${[...(c.conditions || []), c.exhaustion ? `Exhaustion ${c.exhaustion}` : ''].filter(Boolean).join(', ')}`);
   L.push('', 'ABILITIES');
@@ -434,7 +434,7 @@ function Vitals(ctx) {
   return html`<section class="panel box vitals">
     <div class="statline five">
       <div class="stat ac"><span class="label"><span class="ico" aria-hidden="true">🛡️</span>AC</span><b class="num">${(s.ac ?? c.ac) || '–'}</b></div>
-      <button class="stat roll" onClick=${() => requestRoll({ label: 'Initiative', expr: withBonus('1d20', dex) })}><span class="label"><span class="ico" aria-hidden="true">⚡</span>Initiative</span><b class="num">${sgn(dex)}</b></button>
+      <button class="stat roll" onClick=${() => requestRoll({ label: 'Initiative', expr: withBonus('1d20', dex + (s.initBonus || 0)) })}><span class="label"><span class="ico" aria-hidden="true">⚡</span>Initiative</span><b class="num">${sgn(dex + (s.initBonus || 0))}</b></button>
       <div class="stat"><span class="label"><span class="ico" aria-hidden="true">👟</span>Speed</span><b class="num">${c.speed || 30}</b></div>
       <div class="stat"><span class="label"><span class="ico" aria-hidden="true">🎓</span>Proficiency</span><b class="num">${sgn(pb)}</b></div>
       <div class="stat"><span class="label"><span class="ico" aria-hidden="true">👁️</span>Passive Perc.</span><b class="num">${10 + mod(s.abilities.wis) + (s.skills.perception ? pb * s.skills.perception : 0)}</b></div>
@@ -461,7 +461,7 @@ export function restPatch(kind, c, s) {
   if (kind === 'short') { const sheet = { resources: (s.resources || []).map(r => r.reset === 'short' ? { ...r, used: 0 } : r.reset === 'shortOne' ? { ...r, used: Math.max(0, (r.used || 0) - 1) } : r) };
     if (isPact(c.cls)) sheet.slotsUsed = Array(9).fill(0); return { card: null, sheet }; }
   return { card: { hp: c.hpMax || 0, tempHp: 0, exhaustion: Math.max(0, (c.exhaustion || 0) - 1) },
-    sheet: { resources: (s.resources || []).map(r => ({ ...r, used: 0 })), slotsUsed: Array(9).fill(0), hitDiceUsed: 0, deathSaves: { ok: 0, fail: 0 } } };
+    sheet: { resources: (s.resources || []).map(r => ({ ...r, used: 0 })), slotsUsed: Array(9).fill(0), hitDiceUsed: 0, deathSaves: { ok: 0, fail: 0 }, ...(c.species === 'Human' ? { inspiration: true } : {}) } }; // Human Resourceful
 }
 function Rests(ctx) {
   const { c, s, camp } = ctx; const [ask, setAsk] = useState(null);

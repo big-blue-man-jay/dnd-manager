@@ -3,10 +3,10 @@
 // plus the class starting equipment (option A of the Player's Handbook) and class tool proficiencies.
 // Used by the guided builder and by the "Nachholen" box on characters made before this existed.
 import { html, useState, Modal, toast, failed } from './ui.js';
-import { SKILLS, ABILITIES, CLASSES, mod, sgn } from './rules5e.js';
+import { SKILLS, ABILITIES, CLASSES, mod, sgn, profBonus } from './rules5e.js';
 import { newId, store } from './data.js';
-import { SPELL_ATTACKS, BACKGROUNDS, SKILL_DESC } from './builder-data.js';
-import { Decide, PerksPicker, CHOICES, MASTERY_N, emptyPerks, perksOk, perksHint, masteryOptions, perkLines, WEAPONS, MASTERY } from './classperks.js';
+import { SPELL_ATTACKS, BACKGROUNDS, SKILL_DESC, FEATS } from './builder-data.js';
+import { Decide, PerksPicker, CHOICES, MASTERY_N, emptyPerks, perksOk, perksHint, masteryOptions, perkLines, WEAPONS, MASTERY, attacksFor } from './classperks.js';
 
 // starting equipment, option A (2024 Player's Handbook): [name, qty, note]
 export const KITS = {
@@ -181,42 +181,56 @@ export function missingStart(c, s) {
     skilled: need.skilled && !done.extras && vals.filter(Boolean).length < CLASSES_SKILLS(c.cls) + 2 + need.skilled ? need.skilled : 0,
     kit: !done.kit && KITS[c.cls] && !(s.inventory || []).some(i => /Pack$/.test(i.name)),
     perks: !done.perks && !!(CHOICES[c.cls] || MASTERY_N[c.cls]) && !/Weapon Mastery:|Fighting Style:|Divine Order:|Primal Order:|Eldritch Invocation:/.test(s.features || ''),
+    versatile: c.species === 'Human' && /Human Versatile: ein weiteres Origin Feat nach Wahl/.test(s.features || ''),
+    bgKit: !done.kit && !done.bgKit && !!BG_KITS[s.background],
   };
 }
 const CLASSES_SKILLS = cls => ({ Bard: 3, Ranger: 3, Rogue: 4 })[cls] || 2;
 
 export function CatchUp({ c, s, cid, chId, canEdit }) {
   const miss = missingStart(c, s); const [open, setOpen] = useState(false);
-  const any = miss.expertise || miss.mi || miss.skilled || miss.kit || miss.perks;
+  const any = miss.expertise || miss.mi || miss.skilled || miss.kit || miss.perks || miss.versatile || miss.bgKit;
   if (!any || !s.background) return null;
-  const what = [miss.expertise && 'Expertise', miss.mi && `Magic Initiate (${miss.mi})`, miss.skilled && 'Skilled', miss.perks && 'Klassen-Fähigkeiten', miss.kit && 'Startausrüstung'].filter(Boolean).join(', ');
+  const what = [miss.expertise && 'Expertise', miss.mi && `Magic Initiate (${miss.mi})`, miss.skilled && 'Skilled', miss.perks && 'Klassen-Fähigkeiten', miss.versatile && 'Human-Feat', (miss.kit || miss.bgKit) && 'Startausrüstung'].filter(Boolean).join(', ');
   return html`<div class="catchup panel"><div><b>🧩 Beim Erstellen fehlte noch:</b> ${what}</div>
     ${canEdit ? html`<button class="btn small primary" onClick=${() => setOpen(true)}>Jetzt nachholen</button>` : html`<span class="muted small-note">Dein DM kann das für dich nachtragen.</span>`}
     ${open && html`<${CatchUpModal} c=${c} s=${s} cid=${cid} chId=${chId} miss=${miss} onClose=${() => setOpen(false)}/>`}</div>`;
 }
 
 function CatchUpModal({ c, s, cid, chId, miss, onClose }) {
-  const [x, setX] = useState(emptyExtras()); const [kit, setKit] = useState(!!miss.kit); const [busy, setBusy] = useState(false); const [pk, setPk] = useState(emptyPerks());
+  const [x, setX] = useState(emptyExtras()); const [kit, setKit] = useState(!!miss.kit); const [busy, setBusy] = useState(false); const [pk, setPk] = useState(emptyPerks()); const [vers, setVers] = useState(''); const [bgk, setBgk] = useState(miss.bgKit ? 'A' : '');
   const wNames = [...(s.inventory || []).map(i => i.name), ...(kit && miss.kit ? KITS[c.cls].items.map(i => i[0]) : [])], mOpts = masteryOptions(c.cls, wNames);
   const need = { expertise: miss.expertise, mi: miss.mi, skilled: miss.skilled };
   const prof = Object.entries(s.skills || {}).filter(([, v]) => v).map(([k]) => k);
   const save = async () => {
     if ((need.expertise || need.mi || need.skilled) && !extrasOk(need, x)) return toast('Bitte wähle noch: ' + extrasHint(need));
     if (miss.perks && !perksOk(c.cls, pk, mOpts)) return toast('Bitte wähle noch: ' + perksHint(c.cls, pk, mOpts));
+    if (miss.versatile && !vers) return toast('Bitte wähle noch das zweite Origin Feat (Human Versatile).');
     setBusy(true);
     try {
       const patch = need.expertise || need.mi || need.skilled ? applyExtras(s, { cls: c.cls, bg: s.background, scores: s.abilities || {}, x }) : {};
       if (kit && miss.kit) { const k = KITS[c.cls]; const have = new Set((s.inventory || []).map(i => i.name));
         patch.inventory = [...(s.inventory || []), ...kitInventory(c.cls).filter(i => !have.has(i.name))];
+        const newW = k.items.map(i => i[0]).filter(n => WEAPONS[n] && !(patch.attacks || s.attacks || []).some(x => x.name === n));
+        if (newW.length) patch.attacks = [...(patch.attacks || s.attacks || []), ...attacksFor(c.cls, newW, s.abilities || {}, { mastery: pk.mastery || [] }, c.level || 1)];
         patch.coins = { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0, ...(s.coins || {}), gp: ((s.coins || {}).gp || 0) + k.gp };
         if (k.tools && !(s.languages || '').includes(k.tools)) patch.languages = `${s.languages || ''}${s.languages ? ' · ' : ''}Klasse: ${k.tools}`; }
       if (miss.perks) Object.assign(patch, applyPerksToSheet({ ...s, ...patch }, c.cls, pk));
-      patch.startDone = { ...(s.startDone || {}), extras: true, kit: true, perks: true };
+      if (miss.bgKit && bgk) { const bk = BG_KITS[s.background], cur = patch.inventory || s.inventory || [], coins = patch.coins || { pp: 0, gp: 0, ep: 0, sp: 0, cp: 0, ...(s.coins || {}) };
+        if (bgk === 'A') { const have = new Set(cur.map(i => i.name)); patch.inventory = [...cur.map(i => { const m = bk.items.find(([n]) => n === i.name); return m && m[1] > 1 ? { ...i, qty: (i.qty ?? 1) + m[1] } : i; }), ...toInventory(bk.items.filter(([n]) => !have.has(n)))]; }
+        if (bgk !== 'skip') patch.coins = { ...coins, gp: (coins.gp || 0) + (bgk === 'A' ? bk.gp : 50) }; }
+      let cardPatch = null;
+      if (miss.versatile && vers) { const vp = versatilePatch(vers, c, { ...s, ...patch }); Object.assign(patch, vp.sheet); if (Object.keys(vp.card).length) cardPatch = vp.card; }
+      patch.startDone = { ...(s.startDone || {}), extras: true, kit: true, perks: true, bgKit: true };
+      if (cardPatch) await store.update(`campaigns/${cid}/characters/${chId}`, { ...cardPatch, updatedAt: Date.now() });
       await store.merge(`campaigns/${cid}/characters/${chId}/sheet/main`, { ...patch, updatedAt: Date.now() });
       toast('Nachgetragen.'); onClose(); } catch (e) { failed(e); } finally { setBusy(false); } };
   return html`<${Modal} title=${'Nachholen: ' + c.name} eyebrow="Fehlende Auswahl" wide onClose=${onClose}>
     <div class="form">${(need.expertise || need.mi || need.skilled) ? html`<${ExtrasPicker} cls=${c.cls} bg=${s.background} scores=${s.abilities || {}} profSkills=${prof} classSpells=${(s.spells || []).map(x => x.name)} x=${x} set=${setX}/>` : ''}
       ${miss.perks && html`<${PerksPicker} cls=${c.cls} p=${pk} set=${setPk} weaponNames=${wNames}/>`}
+      ${miss.versatile && html`<div class="extras"><${VersatilePicker} v=${vers} set=${setVers} bgFeat=${BACKGROUNDS[s.background]?.feat}/></div>`}
+      ${miss.bgKit && html`<div class="extras"><section><${Decide} icon="📦" title=${`Ausrüstung aus dem Background (${s.background})`} does="Das Paket deines Backgrounds oder stattdessen 50 gp."/>
+        <div class="sk-list">${[['A', `Paket: ${BG_KITS[s.background].items.map(([n, q]) => (q > 1 ? `${q}× ${n}` : n)).join(', ')} · ${BG_KITS[s.background].gp} gp`], ['G', 'Stattdessen 50 gp'], ['skip', 'Schon erledigt, nichts dazulegen']].map(([k, l]) => html`<div class=${'sk-row' + (bgk === k ? ' on' : '')}><label><input type="radio" name="bgk" checked=${bgk === k} onChange=${() => setBgk(k)}/><span><b>${l}</b></span></label></div>`)}</div></section></div>`}
       ${miss.kit && html`<label class="checkline"><input type="checkbox" checked=${kit} onChange=${e => setKit(e.target.checked)}/><span><b>Startausrüstung ${c.cls} dazulegen:</b> ${KITS[c.cls].items.map(([n, q]) => (q > 1 ? `${q}× ${n}` : n)).join(', ')} und ${KITS[c.cls].gp} gp</span></label>`}
       <div class="foot"><button class="btn primary" disabled=${busy} onClick=${save}>Speichern</button><button class="btn" onClick=${onClose}>Abbrechen</button></div></div></${Modal}>`;
 }
@@ -235,4 +249,23 @@ export function applyPerksToSheet(s, cls, p) {
   if (p.inv === 'Armor of Shadows') ac = Math.max(ac, 13 + dex);
   const lines = perkLines(cls, p); if ((cls === 'Cleric' && p.order === 'Thaumaturge') || (cls === 'Druid' && p.order === 'Magician')) lines.push('Zusätzlicher Cantrip aus Divine/Primal Order: im Bogen unter Zauber eintragen');
   return { attacks, ac, features: [s.features || '', ...lines].filter(Boolean).join('\n') };
+}
+
+/* ---------- Human Versatile: one more Origin Feat (the simple ones; Magic Initiate and Skilled come from backgrounds) ---------- */
+const VERS = [['Tough', '❤️', 'Mehr Hit Points. Sehr gut für alle, die wenig aushalten (Sorcerer, Wizard).'], ['Alert', '⚡', 'Du handelst im Kampf früher: Proficiency Bonus auf Initiative.'],
+  ['Lucky', '🍀', 'Glückspunkte (so viele wie dein Proficiency Bonus) für Advantage oder gegen Treffer.'], ['Healer', '🩹', 'Mit einem Healer\'s Kit heilst du Verbündete. Gut, wenn die Gruppe keinen Heiler hat.'],
+  ['Savage Attacker', '🪓', 'Einmal pro Zug Waffenschaden zweimal würfeln, das Bessere zählt.'], ['Tavern Brawler', '👊', 'Fäuste machen 1d4, Gegner wegschubsen.'], ['Musician', '🎵', 'Nach einer Rast Heroic Inspiration für Verbündete.'], ['Crafter', '🔨', 'Billiger einkaufen, Dinge selbst herstellen.']];
+export function VersatilePicker({ v, set, bgFeat }) {
+  return html`<section><${Decide} icon="🧑" title="Human Versatile: ein zweites Origin Feat" count=${v ? '1 / 1' : '0 / 1'} does="Als Human bekommst du noch ein Origin Feat dazu. Es gilt sofort." tip="Für Zauberer mit wenig HP ist Tough am sichersten, Alert lässt dich im Kampf früher dran sein."/>
+    <div class="sk-list">${VERS.filter(([k]) => k !== bgFeat).map(([k, e, t]) => html`<div class=${'sk-row' + (v === k ? ' on' : '')}><label><input type="radio" name="versatile" checked=${v === k} onChange=${() => set(k)}/><span><b>${e} ${k}</b><small>${t} ${FEATS[k] || ''}</small></span></label></div>`)}</div></section>`;
+}
+// what the feat changes: card (HP) and sheet (initiative bonus, luck points, features line)
+export function versatilePatch(v, c, s) {
+  const lvl = c.level || 1, pb = profBonus(lvl), card = {}, sheet = {};
+  if (v === 'Tough') { card.hpMax = (c.hpMax || 0) + 2 * lvl; card.hp = (c.hp ?? c.hpMax ?? 0) + 2 * lvl; }
+  if (v === 'Alert') sheet.initBonus = (s.initBonus || 0) + pb;
+  if (v === 'Lucky' && !(s.resources || []).some(r => r.name === 'Luck Points')) sheet.resources = [...(s.resources || []), { id: newId(), name: 'Luck Points', max: pb, used: 0, reset: 'long' }];
+  const line = `Human Versatile: ${v} – ${FEATS[v] || ''}`;
+  sheet.features = /Human Versatile: ein weiteres Origin Feat nach Wahl[^\n]*/.test(s.features || '') ? s.features.replace(/Human Versatile: ein weiteres Origin Feat nach Wahl[^\n]*/, line) : [s.features || '', line].filter(Boolean).join('\n');
+  return { card, sheet };
 }
