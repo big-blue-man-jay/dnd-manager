@@ -181,7 +181,8 @@ export function missingStart(c, s) {
     skilled: need.skilled && !done.extras && vals.filter(Boolean).length < CLASSES_SKILLS(c.cls) + 2 + need.skilled ? need.skilled : 0,
     kit: !done.kit && KITS[c.cls] && !(s.inventory || []).some(i => /Pack$/.test(i.name)),
     perks: !done.perks && !!(CHOICES[c.cls] || MASTERY_N[c.cls]) && !/Weapon Mastery:|Fighting Style:|Divine Order:|Primal Order:|Eldritch Invocation:/.test(s.features || ''),
-    versatile: c.species === 'Human' && /Human Versatile: ein weiteres Origin Feat nach Wahl/.test(s.features || ''),
+    // a Human whose second Origin Feat was never picked (no "Human Versatile: <Feat>" line yet)
+    versatile: /^human$/i.test((c.species || '').trim()) && !done.versatile && !/Human Versatile: (Tough|Alert|Lucky|Healer|Savage Attacker|Tavern Brawler|Musician|Crafter|Skilled|Magic Initiate)/.test(s.features || ''),
     bgKit: !done.kit && !done.bgKit && !!BG_KITS[s.background],
   };
 }
@@ -221,7 +222,7 @@ function CatchUpModal({ c, s, cid, chId, miss, onClose }) {
         if (bgk !== 'skip') patch.coins = { ...coins, gp: (coins.gp || 0) + (bgk === 'A' ? bk.gp : 50) }; }
       let cardPatch = null;
       if (miss.versatile && vers) { const vp = versatilePatch(vers, c, { ...s, ...patch }); Object.assign(patch, vp.sheet); if (Object.keys(vp.card).length) cardPatch = vp.card; }
-      patch.startDone = { ...(s.startDone || {}), extras: true, kit: true, perks: true, bgKit: true };
+      patch.startDone = { ...(s.startDone || {}), extras: true, kit: true, perks: true, bgKit: true, versatile: true };
       if (cardPatch) await store.update(`campaigns/${cid}/characters/${chId}`, { ...cardPatch, updatedAt: Date.now() });
       await store.merge(`campaigns/${cid}/characters/${chId}/sheet/main`, { ...patch, updatedAt: Date.now() });
       toast('Nachgetragen.'); onClose(); } catch (e) { failed(e); } finally { setBusy(false); } };
