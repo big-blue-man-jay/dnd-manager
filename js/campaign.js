@@ -471,7 +471,7 @@ function Settings(p) {
     <div class="panel box"><div class="box-head"><h2><span class="ico" aria-hidden="true">📦</span>Vorbereitung importieren</h2></div>
       <p class="ro-note">Lädt vorbereitetes Material aus einer Datei in diese Kampagne: Karten-Szenen, Orte fürs Tablet, Beute, Enthüllungen, versteckte Quests und NPCs, DM-Notizen. Alles bleibt versteckt, bis du es am Spieltisch zeigst. Doppelt importieren schadet nicht.</p>
       <div><label class="btn">📦 Datei auswählen<input type="file" accept=".json,application/json" hidden onChange=${async e => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return;
-        try { const n = await importPrep(user, cid, f); toast(`Importiert: ${n.scenes} Szenen, ${n.places} Orte, ${n.loot} Beute, ${n.secrets} Geheimnisse, Quests und NPCs${n.world ? `, Welt „${n.world}“` : ''}.`); } catch (x) { x.friendly ? toast(x.message) : failed(x); } }}/></label></div></div>
+        try { const n = await importPrep(user, cid, f); toast(`Importiert: ${n.scenes} Szenen, ${n.places} Orte, ${n.loot} Beute, ${n.secrets} Geheimnisse, Quests und NPCs${n.world ? `, Welt „${n.world}“` : ''}${n.updated ? '. Ablaufplan auf die neue Version aktualisiert' : ''}.`); } catch (x) { x.friendly ? toast(x.message) : failed(x); } }}/></label></div></div>
     <div class="panel box danger-zone"><div class="box-head"><h2><span class="ico" aria-hidden="true">🗑️</span>Kampagne löschen</h2></div><p class="muted">Löscht die Kampagne mit allen Charakteren, Sitzungen, Quests, NPCs und Enthüllungen. Das lässt sich nicht rückgängig machen.</p>
       <div><${DeleteButton} label="Kampagne löschen" question=${`${camp.name} endgültig löschen?`} onConfirm=${deleteAll}/></div></div>
   </section>`;

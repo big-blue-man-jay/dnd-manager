@@ -43,7 +43,12 @@ export async function importPrep(user, cid, file) {
 
   // DM notes: add the pack's text below what is already there
   if (pack.notes) { const cur = notes || {}, add = {};
-    for (const k of ['prep', 'secrets', 'ideas']) if (pack.notes[k] && !(cur[k] || '').includes(pack.notes[k].slice(0, 40))) add[k] = cur[k] ? `${cur[k]}\n\n${pack.notes[k]}` : pack.notes[k];
+    for (const k of ['prep', 'secrets', 'ideas']) {
+      const old = pack.notesReplace?.[k];
+      // a newer version of the pack: swap the old text for the new one, keep everything the DM wrote around it
+      if (old && pack.notes[k] && (cur[k] || '').includes(old)) { add[k] = cur[k].replace(old, pack.notes[k]); n.updated = true; continue; }
+      if (pack.notes[k] && !(cur[k] || '').includes(pack.notes[k].slice(0, 40))) add[k] = cur[k] ? `${cur[k]}\n\n${pack.notes[k]}` : pack.notes[k];
+    }
     if (Object.keys(add).length) ops.push({ type: 'merge', path: `users/${user.uid}/notes/${cid}`, data: { ...add, updatedAt: now } }); }
 
   // map scenes and places live in the DM's private scenes doc
